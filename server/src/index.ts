@@ -13,12 +13,25 @@ import agentsRoutes from './routes/agents.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import contactsRoutes from './routes/contacts.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 
 const app = express();
 
 // ===== Middleware =====
+const allowedOrigins = [
+    env.FRONTEND_URL,
+    'https://app.liabotedu.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
+].filter(Boolean);
+
 app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, Postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(null, true); // Permissive for demo — lock down in prod
+    },
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -46,6 +59,7 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/agents', agentsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/contacts', contactsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // ===== 404 Handler =====
 app.use('/api/*path', (_req, res) => {
