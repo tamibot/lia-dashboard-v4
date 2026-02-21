@@ -704,49 +704,107 @@ export async function chatWithAgent(
     history: { role: string, content: string }[],
     userMsg: string,
     courseContext?: any,
-    orgProfile?: OrgProfile
+    orgProfile?: OrgProfile,
+    fullCatalog?: { courses?: any[], programs?: any[], webinars?: any[] } | null,
 ): Promise<string> {
+
+    // === Build the verified catalog block ===
+    const catalogBlock = (() => {
+        if (!fullCatalog) return 'No hay catálogo disponible.';
+
+        const sections: string[] = [];
+
+        if (fullCatalog.courses?.length) {
+            sections.push('=== CURSOS DISPONIBLES ===');
+            fullCatalog.courses.forEach((c: any) => {
+                sections.push(
+                    `• [${c.code || ''}] ${c.title} | ${c.modality || 'online'} | ${c.duration || ''} | ${c.currency || 'USD'} ${c.price || 0} | Instructor: ${c.instructor || 'N/A'}` +
+                    (c.description ? `\n  Descripción: ${c.description.slice(0, 120)}...` : '')
+                );
+            });
+        }
+
+        if (fullCatalog.programs?.length) {
+            sections.push('\n=== PROGRAMAS / DIPLOMADOS ===');
+            fullCatalog.programs.forEach((p: any) => {
+                sections.push(
+                    `• [${p.code || ''}] ${p.title} | ${p.totalDuration || ''} | ${p.currency || 'USD'} ${p.price || 0}`
+                );
+            });
+        }
+
+        if (fullCatalog.webinars?.length) {
+            sections.push('\n=== WEBINARS / MASTERCLASSES ===');
+            fullCatalog.webinars.forEach((w: any) => {
+                sections.push(
+                    `• ${w.title} | ${w.speaker || ''} | ${w.date || 'Próximamente'} | ${w.price === 0 ? 'GRATIS' : `${w.currency} ${w.price}`}`
+                );
+            });
+        }
+
+        return sections.join('\n') || 'Catálogo vacío.';
+    })();
+
+    // === Focused course being sold (if any) ===
     const courseInfo = courseContext ? `
-    INFORMACIÓN DEL CURSO QUE VENDES:
-    ${JSON.stringify(courseContext, null, 2)}
-    
-    TUS HERRAMIENTAS DE VENTA (Archivos):
-    ${courseContext.attachments ? JSON.stringify(courseContext.attachments) : 'No tienes archivos adjuntos por ahora.'}
+CURSO PRINCIPAL QUE ESTÁS VENDIENDO HOY:
+Nombre: ${courseContext.title}
+Código: ${courseContext.code || 'N/A'}
+Precio: ${courseContext.currency || 'USD'} ${courseContext.price || 0}
+Modalidad: ${courseContext.modality || 'online'}
+Duración: ${courseContext.duration || 'N/A'}
+Instructor: ${courseContext.instructor || 'N/A'}
+Descripción: ${courseContext.description || ''}
+Objetivos: ${(courseContext.objectives || []).join(', ')}
+Beneficios: ${(courseContext.benefits || []).join(', ')}
+Bonos: ${(courseContext.bonuses || []).join(', ')}
+Garantía: ${courseContext.guarantee || 'N/A'}
     ` : '';
 
+    // === Org info ===
     const orgInfo = orgProfile ? `
-    INFORMACIÓN DE LA INSTITUCIÓN:
-    Nombre: ${orgProfile.name}
-    Ubicación Central: ${orgProfile.location || 'No especificado'}
-    Correo de contacto: ${orgProfile.contactEmail || 'No especificado'}
-    Múltiples Sedes: ${orgProfile.locations ? orgProfile.locations.map(l => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes múltiples registradas'}
-    Horario de Atención: ${orgProfile.operatingHours ? orgProfile.operatingHours.map(h => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
+INFORMACIÓN DE LA INSTITUCIÓN:
+Nombre: ${orgProfile.name}
+Ubicación: ${orgProfile.location || 'No especificado'}
+Correo de contacto: ${orgProfile.contactEmail || 'No especificado'}
+Sedes: ${orgProfile.locations ? orgProfile.locations.map(l => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes registradas'}
+Horarios: ${orgProfile.operatingHours ? orgProfile.operatingHours.map(h => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
     ` : '';
 
-    const systemPrompt = `ACTÚA COMO ESTE AGENTE DE IA ESPECIALIZADO EN VENTAS:
-    NOMBRE: ${agent.name}
-    ROL: ${agent.role}
-    PERSONALIDAD: ${agent.personality}
-    TONO: ${agent.tone}
-    OBJETIVO: Vender el curso asignado de forma persuasiva.
+    const systemPrompt = `Eres un agente de ventas educativas de élite. Tu identidad:
+NOMBRE: ${agent.name}
+ROL: ${agent.role}
+PERSONALIDAD: ${agent.personality || 'profesional'}
+TONO: ${agent.tone || 'Cálido y persuasivo'}
 
-    REGLAS DE ORO PARA EL CIERRE:
-    1. Si el usuario muestra intención clara de compra (ej: "lo quiero", "cómo pago"), DEBES usar la frase exacta: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
-    2. Si el usuario pide hablar con un humano, tiene dudas complejas o pide agendar una llamada, DEBES usar la frase exacta: "Te paso con el equipo de ventas para coordinar los detalles finales."
-    3. Usa los beneficios del curso para rebatir objeciones: ${courseContext?.benefits?.join(', ') || 'Calidad garantizada'}.
-    4. Si hay bonos, úsalos como incentivo: ${courseContext?.bonuses?.join(', ') || 'Material exclusivo'}.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴 REGLAS ABSOLUTAS — NUNCA ROMPER ESTAS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. JAMÁS inventes ni menciones un curso, programa o webinar que NO aparezca en el catálogo real proporcionado abajo.
+2. Si alguien pregunta por un tema que no está en el catálogo, dile cuál es el curso MÁS CERCANO que sí tienes.
+3. Todos los precios, fechas, instructores y detalles que menciones DEBEN venir exactamente del catálogo.
+4. Nunca menciones modelos de IA ni digas que eres una IA a menos que el usuario lo pregunte directamente.
+5. Mantén respuestas concisas: máximo 4 párrafos.
 
-    CONTEXTO DEL CURSO:
-    ${courseInfo}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 REGLAS DE CIERRE (usa estas frases exactas):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Si el usuario quiere comprar/inscribirse → di exactamente: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
+• Si pide hablar con un humano o agendar llamada → di exactamente: "Te paso con el equipo de ventas para coordinar los detalles finales."
 
-    ${orgInfo}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 CATÁLOGO REAL DE LA INSTITUCIÓN (FUENTE ÚNICA DE VERDAD):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${catalogBlock}
 
-    INSTRUCCIONES ADICIONALES:
-    - ${agent.systemPrompt || 'Sé amable pero firme en la venta.'}
-    - Nunca digas que eres una IA a menos que te pregunten directamente.
-    - Mantén las respuestas concisas y directas al grano.
-    `;
+${courseInfo}
+${orgInfo}
+
+INSTRUCCIONES ADICIONALES DEL AGENTE:
+${agent.systemPrompt || 'Sé empático, resuelve objeciones con datos reales del catálogo, y guía hacia el cierre.'}
+`;
 
     const context = history.map(m => `${m.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${m.content}`).join('\n');
-    return ask(`HISTORIAL:\n${context}\n\nUSUARIO: ${userMsg}`, systemPrompt);
+    return ask(`HISTORIAL DE CONVERSACIÓN:\n${context}\n\nUSUARIO: ${userMsg}`, systemPrompt);
 }
+

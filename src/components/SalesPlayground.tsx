@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Send, X, Phone, CheckCircle } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
+import { API_CONFIG } from '../config/api.config';
 
 interface SalesPlaygroundProps {
     agent: AiAgent;
@@ -15,8 +16,22 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'chatting' | 'closed' | 'transferred'>('chatting');
+    const [fullCatalog, setFullCatalog] = useState<any>(null);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
+
+    // Fetch the REAL catalog from the backend so the agent doesn't invent courses
+    useEffect(() => {
+        // Try to get org slug from profile; fall back to localStorage or default
+        const orgSlug = (orgProfile as any)?.slug
+            || localStorage.getItem('orgSlug')
+            || 'innovation-institute';
+        const url = `${API_CONFIG.BASE_URL}/public/${orgSlug}/catalog`;
+        fetch(url)
+            .then(r => r.json())
+            .then(data => setFullCatalog(data))
+            .catch(err => console.warn('Could not load catalog for agent context:', err));
+    }, [orgProfile]);
 
     useEffect(() => {
         setMessages([{
@@ -38,7 +53,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         setLoading(true);
 
         try {
-            const response = await chatWithAgent(agent, messages, msg, courseContext, orgProfile);
+            const response = await chatWithAgent(agent, messages, msg, courseContext, orgProfile, fullCatalog);
             setMessages(prev => [...prev, { role: 'assistant', content: response }]);
 
             // Logic to detect closure or transfer (Simulated by simple keyword detection or AI response flags)
