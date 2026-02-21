@@ -46,7 +46,7 @@ app.use('/api/agents', agentsRoutes);
 app.use('/api/ai', aiRoutes);
 
 // ===== 404 Handler =====
-app.use('/api/*', (_req, res) => {
+app.use('/api/*path', (_req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
