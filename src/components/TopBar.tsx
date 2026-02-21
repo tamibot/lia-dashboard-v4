@@ -1,8 +1,7 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, Menu, User, Loader } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Search, Bell, Menu, User } from 'lucide-react';
 
 export default function TopBar() {
-    const navigate = useNavigate();
     const location = useLocation();
 
     const getPageTitle = () => {

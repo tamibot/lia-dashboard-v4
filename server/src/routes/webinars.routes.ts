@@ -17,19 +17,12 @@ router.get('/', async (req: Request, res: Response) => {
         const where: any = { orgId };
         if (status) where.status = status;
 
-        const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-
-        const [webinars, total] = await Promise.all([
-            prisma.webinar.findMany({
-                where,
-                include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
-                orderBy: { updatedAt: 'desc' },
-                skip,
-                take: parseInt(limit as string),
-            }),
-            prisma.webinar.count({ where }),
-        ]);
-        res.json({ data: webinars, total, page: parseInt(page as string) });
+        const webinars = await prisma.webinar.findMany({
+            where,
+            include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
+            orderBy: { updatedAt: 'desc' },
+        });
+        res.json(webinars);
     } catch (err) {
         console.error('List webinars error:', err);
         res.status(500).json({ error: 'Internal server error' });

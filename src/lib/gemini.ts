@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
-import { getGeminiKey, getOpenAIKey } from './storage';
+import { settingsService } from './services/settings.service';
 
 // === Gemini Client ===
 let genAI: GoogleGenAI | null = null;
@@ -25,7 +25,7 @@ const GEMINI_MODELS = [
 ];
 
 function getClient(): GoogleGenAI {
-    const key = getGeminiKey() || DEFAULT_GEMINI_KEY;
+    const key = settingsService.getGeminiKeySync() || DEFAULT_GEMINI_KEY;
     if (!genAI) genAI = new GoogleGenAI({ apiKey: key });
     return genAI;
 }
@@ -133,7 +133,7 @@ export async function validateOpenAIKey(apiKey: string): Promise<ValidationResul
 
 // Legacy exports for backward compatibility
 export async function validateConnection(): Promise<boolean> {
-    const key = getGeminiKey() || DEFAULT_GEMINI_KEY;
+    const key = settingsService.getGeminiKeySync() || DEFAULT_GEMINI_KEY;
     const result = await validateGeminiKey(key);
     return result.valid;
 }
@@ -181,7 +181,7 @@ async function ask(prompt: string, system: string, retries = 2): Promise<string>
     }
 
     // Fallback to OpenAI if all Gemini models fail
-    const openAIKey = getOpenAIKey();
+    const openAIKey = settingsService.getOpenAIKeySync();
     if (openAIKey) {
         try {
             console.warn('All Gemini models failed. Falling back to OpenAI...');
@@ -228,45 +228,101 @@ const PROMPTS = {
     }
     Responde SOLO con el JSON.`,
 
-    RAW_EXTRACT: `Eres un especialista en análisis de contenido académico y educativo.
-    TU TAREA: Leer y analizar a fondo el documento proporcionado y extraer TODA la información posible.
+    RAW_EXTRACT_CURSO: `Eres un experto en Copywriting Educativo y Estrategia de Ventas.
+    TU TAREA: Transformar contenido crudo de un CURSO en una propuesta de venta IRRESISTIBLE.
     
-    DEBES RESPONDER ÚNICAMENTE con un JSON válido (sin marcadores de código como \`\`\`) con esta estructura exacta:
+    FORMATO DE RESPUESTA (JSON PURO):
     {
-      "type": "curso" | "programa" | "webinar",
-      "title": "Título oficial o sugerido",
-      "description": "Descripción completa de 3-5 líneas",
-      "objectives": ["Objetivo 1", "Objetivo 2", ...],
-      "targetAudience": "A quién va dirigido",
+      "type": "curso",
+      "title": "TÍTULO GANCHO (Ej: 'Excel para Negocios')",
+      "description": "Copy persuasivo de 3-4 líneas. Dolor -> Agitación -> Solución.",
+      "objectives": ["Resultado tangible 1", "Habilidad práctica 2"],
+      "targetAudience": "Perfil específico",
       "modality": "online" | "presencial" | "hibrido",
-      "duration": "Duración total (ej: 8 semanas, 3 meses)",
-      "hours": número total de horas o null,
-      "startDate": "YYYY-MM-DD" o null,
-      "schedule": "Horarios si están disponibles" o null,
-      "syllabus": [
-        { "module": "Nombre del Módulo 1", "topics": ["Tema 1.1", "Tema 1.2", ...] },
-        { "module": "Nombre del Módulo 2", "topics": ["Tema 2.1", "Tema 2.2", ...] }
-      ],
-      "instructor": "Nombre del instructor" o null,
-      "instructorBio": "Bio breve del instructor" o null,
-      "price": número o null,
-      "currency": "USD" | "PEN" | "EUR" | etc.,
-      "maxStudents": número o null,
-      "category": "Categoría principal",
-      "prerequisites": "Requisitos previos" o null,
-      "certification": "Certificación otorgada" o null,
-      "missing": ["campo1", "campo2", ...]
+      "duration": "Tiempo total",
+      "hours": número,
+      "syllabus": [ { "id": "uuid", "title": "Módulo X", "description": "Breve", "topics": ["Lección 1"] } ],
+      "instructor": "Nombre",
+      "instructorBio": "Bio de autoridad",
+      "price": número,
+      "currency": "USD" | "PEN",
+      "certification": "Certificado a nombre de...",
+      "benefits": ["Soporte 24/7", "Acceso de por vida"],
+      "painPoints": ["Dolor 1"],
+      "guarantee": "Texto de garantía",
+      "socialProof": ["Testimonio breve 1"],
+      "faqs": [{ "question": "Pregunta", "answer": "Respuesta" }],
+      "bonuses": ["Bonus 1"],
+      "missing": ["Campos faltantes"]
     }
+    REGLA: EL SYLLABUS DEBE SER MUY DETALLADO INDICANDO QUÉ SE VA A APRENDER. SIEMPRE INCLUYE EL TEMA DEL CERTIFICADO.`,
+
+    RAW_EXTRACT_PROGRAMA: `Eres un experto en Formación Ejecutiva.
+    TU TAREA: Transformar contenido crudo de un PROGRAMA (diplomado, especialización) en una propuesta premium.
     
-    REGLAS:
-    - Extrae ABSOLUTAMENTE TODO lo que encuentres en el documento.
-    - Si un campo no aparece en el documento, pon null.
-    - El array "missing" debe listar los campos con valor null que son importantes.
-    - Para "syllabus", AGRUPA los temas en módulos jerárquicos. Cada módulo tiene un nombre y sus temas/subtemas dentro.
-      NO pongas todo como una lista plana. Identifica la estructura jerárquica del contenido.
-    - Para "objectives", infiere objetivos si no están explícitos.
-    - Responde SOLO con el JSON, sin texto adicional ni marcadores de código.
-    - Responde siempre con valores en español.`,
+    FORMATO DE RESPUESTA (JSON PURO):
+    {
+      "type": "programa",
+      "title": "TÍTULO GANCHO (Ej: 'Diplomado en IA')",
+      "description": "Copy persuasivo orientado a líderes o profesionales senior.",
+      "objectives": ["Visión estratégica", "Implementación práctica"],
+      "targetAudience": "Perfil específico y requisitos (ej: 'Gerentes con 5 años de exp')",
+      "modality": "online" | "presencial" | "hibrido",
+      "totalDuration": "Tiempo total",
+      "totalHours": número,
+      "courses": [ { "id": "uuid", "order": 1, "title": "Curso/Módulo Fuerte 1", "hours": 20 } ],
+      "certification": "Detalle del diploma/certificación de alto valor",
+      "price": número,
+      "currency": "USD" | "PEN",
+      "benefits": ["Networking", "Bolsa de trabajo"],
+      "painPoints": ["Estancamiento laboral"],
+      "guarantee": "Garantía",
+      "faqs": [{ "question": "Pregunta", "answer": "Respuesta" }],
+      "bonuses": ["Bonus 1"],
+      "missing": ["Campos faltantes"]
+    }
+    REGLA: ENFATIZA LOS REQUISITOS (EXPERIENCIA PREVIA) Y DETALLA LA PLANA DOCENTE SI APARECE EN EL TEXTO.`,
+
+    RAW_EXTRACT_WEBINAR: `Eres un experto en Lanzamientos y Generación de Leads.
+    TU TAREA: Transformar contenido crudo de un WEBINAR/MASTERCLASS en un gancho hiper-persuasivo.
+    
+    FORMATO DE RESPUESTA (JSON PURO):
+    {
+      "type": "webinar",
+      "title": "TÍTULO GANCHO DE URGENCIA",
+      "description": "Copy corto. Qué descubrirán en estos 60/90 minutos.",
+      "speaker": "Nombre del experto",
+      "date": "YYYY-MM-DD",
+      "time": "HH:MM",
+      "duration": "Tiempo corto",
+      "targetAudience": "A quién le urge ver esto",
+      "modality": "online" | "presencial",
+      "platform": "Zoom/Meet",
+      "price": 0,
+      "currency": "USD",
+      "benefits": ["Plantilla gratis en vivo", "Q&A"],
+      "painPoints": ["Problema muy urgente"],
+      "socialProof": ["Más de X registrados"],
+      "missing": ["Campos faltantes"]
+    }
+    REGLA DE ORO: NO INCLUYAS SYLLABUS. EL WEBINAR ES CORTO, ENFÓCATE EN EL ENLACE DE REGISTRO, SI ES VIRTUAL/PRESENCIAL Y QUÉ SECRETO VAN A DESCUBRIR.`,
+
+    REVIEW_CONTENT: `Eres un editor senior de contenido educativo.
+    TU TAREA: Revisar el borrador del curso generado y sugerir 3 mejoras CRÍTICAS para vender más.
+    
+    CONTEXTO DEL CURSO:
+    {{COURSE_JSON}}
+    
+    RESPONDE CON UN JSON:
+    {
+        "score": 1-10,
+        "critique": "Análisis breve de 2 líneas.",
+        "suggestions": [
+            "Mejora 1: Cambia el título 'X' por 'Y' para..."
+            "Mejora 2: En la descripción falta...",
+            "Mejora 3: Agrega un bonus de..."
+        ]
+    }`,
 
     COMPLETE_FIELD: `Eres un asistente experto en diseño instruccional y gestión académica.
     Tu tarea es ayudar a completar la información faltante de un curso/programa/webinar.
@@ -284,14 +340,14 @@ const PROMPTS = {
     
     REGLAS:
     - "updates" contiene SOLO los campos que el usuario pidió completar o mejorar.
-    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification.
+    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses.
     - Si el usuario pide objetivos, devuelve "objectives": ["Obj1", "Obj2", ...].
     - Si el usuario pide descripción, devuelve "description": "texto".
     - Si el usuario pide precio, devuelve "price": número.
     - Si el usuario pide temario/syllabus, devuelve "syllabus": [{"module": "Nombre", "topics": ["t1", "t2"]}].
     - "message" es una explicación amigable de los cambios para mostrar al usuario.
     - Genera contenido persuasivo, profesional y realista.
-    - Responde en español.
+    - Responde en español (o el idioma del usuario).
     - Responde SOLO con el JSON, sin marcadores de código.`,
 
     PROFILE_AUDIT: `Eres un consultor de marca educativa de alto nivel.
@@ -475,13 +531,28 @@ const PROMPTS = {
 };
 
 
-export async function analyzeCourseData(data: Record<string, unknown>, type: 'curso' | 'programa' | 'webinar'): Promise<string> {
-    return ask(`Analiza este ${type}:\n${JSON.stringify(data, null, 2)}`, PROMPTS.ANALYZE);
+// Helper to strip Markdown code blocks
+function cleanJson(text: string): string {
+    return text.replace(/```json\n?|\n?```/g, '').trim();
 }
+
+export async function analyzeCourseData(data: Record<string, unknown>, type: 'curso' | 'programa' | 'webinar'): Promise<string> {
+    const prompt = type === 'webinar'
+        ? `Analiza este WEBINAR para fines comerciales. Enfócate en la urgencia y el valor rápido:\n${JSON.stringify(data, null, 2)}`
+        : `Analiza este CURSO/PROGRAMA para venta académica. Enfócate en la transformación y malla curricular:\n${JSON.stringify(data, null, 2)}`;
+    const res = await ask(prompt, PROMPTS.ANALYZE);
+    return cleanJson(res);
+}
+
 export async function analyzeRawText(text: string, type?: string): Promise<string> {
     const hint = type ? `\nNota: El usuario indicó que es un "${type}".` : '';
-    return ask(`Extrae la información del siguiente texto:\n---\n${text}\n---${hint}`, PROMPTS.RAW_EXTRACT);
+    let prompt = PROMPTS.RAW_EXTRACT_CURSO;
+    if (type === 'programa') prompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
+    if (type === 'webinar') prompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+    const res = await ask(`Extrae la información del siguiente texto:\n---\n${text}\n---${hint}`, prompt);
+    return cleanJson(res);
 }
+
 export async function analyzeFileContent(content: string, fileName: string, type?: string): Promise<string> {
     const isBase64 = content.startsWith('data:');
 
@@ -490,7 +561,10 @@ export async function analyzeFileContent(content: string, fileName: string, type
         const mimeType = content.split(';')[0].split(':')[1];
         const client = getClient();
         const hint = type && type !== 'auto' ? `El usuario indica que es un "${type}".` : '';
-        const prompt = `${PROMPTS.RAW_EXTRACT}\n\nAnaliza este archivo adjunto: "${fileName}". ${hint}\nExtrae TODA la información que encuentres en el documento.`;
+        let basePrompt = PROMPTS.RAW_EXTRACT_CURSO;
+        if (type === 'programa') basePrompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
+        if (type === 'webinar') basePrompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+        const prompt = `${basePrompt}\n\nAnaliza este archivo adjunto: "${fileName}". ${hint}\nExtrae TODA la información que encuentres en el documento.`;
 
         for (const model of GEMINI_MODELS) {
             try {
@@ -505,7 +579,7 @@ export async function analyzeFileContent(content: string, fileName: string, type
                     }]
                 });
                 const text = response.text;
-                if (text) return text;
+                if (text) return cleanJson(text);
             } catch (err) {
                 console.warn(`File analysis failed with ${model}, trying next...`);
             }
@@ -514,23 +588,37 @@ export async function analyzeFileContent(content: string, fileName: string, type
     }
 
     const hint = type ? `\nNota: El usuario indicó que es un "${type}".` : '';
-    return ask(`Analiza este contenido del archivo "${fileName}":\n---\n${content}\n---${hint}`, PROMPTS.RAW_EXTRACT);
+    let prompt = PROMPTS.RAW_EXTRACT_CURSO;
+    if (type === 'programa') prompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
+    if (type === 'webinar') prompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+    const res = await ask(`Analiza este contenido del archivo "${fileName}":\n---\n${content}\n---${hint}`, prompt);
+    return cleanJson(res);
 }
 
 // AI Chat Agent
 export async function completeField(courseContext: string, userQuestion: string): Promise<string> {
-    return ask(
+    const res = await ask(
         `CONTEXTO DEL CURSO:\n${courseContext}\n\nPREGUNTA/INSTRUCCIÓN DEL USUARIO: ${userQuestion}`,
         PROMPTS.COMPLETE_FIELD
     );
+    return cleanJson(res);
 }
+
+// Review Content Helper
+export async function reviewContent(courseData: any): Promise<string> {
+    const prompt = PROMPTS.REVIEW_CONTENT.replace('{{COURSE_JSON}}', JSON.stringify(courseData, null, 2));
+    const res = await ask(prompt, 'Eres un coach de ventas agresivo pero profesional.');
+    return cleanJson(res);
+}
+
 export async function analyzeProfileData(data: Record<string, unknown>): Promise<string> {
     return ask(`Perfil:\n${JSON.stringify(data, null, 2)}`, PROMPTS.PROFILE_AUDIT);
 }
 
 // === Branding Helper ===
 export async function analyzeBrand(text: string): Promise<string> {
-    return ask(`Analiza este texto de marca:\n---\n${text}\n---`, PROMPTS.ANALYZE_BRAND);
+    const res = await ask(`Analiza este texto de marca:\n---\n${text}\n---`, PROMPTS.ANALYZE_BRAND);
+    return cleanJson(res);
 }
 
 function getBrandContext(p: any): string {
@@ -606,4 +694,59 @@ export async function analyzeTrends(p: Record<string, unknown>, o: Record<string
 export async function refineContent(originalContent: string, userInstruction: string): Promise<string> {
     const prompt = `CONTENIDO ORIGINAL:\n${originalContent}\n\nINSTRUCCIÓN DEL USUARIO: "${userInstruction}"\n\nTU TAREA: Reescribe o modifica el contenido original siguiendo ESTRICTAMENTE la instrucción del usuario. Mantén el mismo formato (si es HTML mantén HTML, si es Markdown mantén Markdown).`;
     return ask(prompt, 'Eres un editor de contenido experto y obediente. Tu única misión es ajustar el texto según lo pedido. Si el contenido es HTML, devuelve HTML válido. Si es Markdown, devuelve Markdown.');
+}
+
+// === Agent Simulation ===
+import type { AiAgent, OrgProfile } from './types';
+
+export async function chatWithAgent(
+    agent: AiAgent,
+    history: { role: string, content: string }[],
+    userMsg: string,
+    courseContext?: any,
+    orgProfile?: OrgProfile
+): Promise<string> {
+    const courseInfo = courseContext ? `
+    INFORMACIÓN DEL CURSO QUE VENDES:
+    ${JSON.stringify(courseContext, null, 2)}
+    
+    TUS HERRAMIENTAS DE VENTA (Archivos):
+    ${courseContext.attachments ? JSON.stringify(courseContext.attachments) : 'No tienes archivos adjuntos por ahora.'}
+    ` : '';
+
+    const orgInfo = orgProfile ? `
+    INFORMACIÓN DE LA INSTITUCIÓN:
+    Nombre: ${orgProfile.name}
+    Ubicación Central: ${orgProfile.location || 'No especificado'}
+    Correo de contacto: ${orgProfile.contactEmail || 'No especificado'}
+    Múltiples Sedes: ${orgProfile.locations ? orgProfile.locations.map(l => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes múltiples registradas'}
+    Horario de Atención: ${orgProfile.operatingHours ? orgProfile.operatingHours.map(h => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
+    ` : '';
+
+    const systemPrompt = `ACTÚA COMO ESTE AGENTE DE IA ESPECIALIZADO EN VENTAS:
+    NOMBRE: ${agent.name}
+    ROL: ${agent.role}
+    PERSONALIDAD: ${agent.personality}
+    TONO: ${agent.tone}
+    OBJETIVO: Vender el curso asignado de forma persuasiva.
+
+    REGLAS DE ORO PARA EL CIERRE:
+    1. Si el usuario muestra intención clara de compra (ej: "lo quiero", "cómo pago"), DEBES usar la frase exacta: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
+    2. Si el usuario pide hablar con un humano, tiene dudas complejas o pide agendar una llamada, DEBES usar la frase exacta: "Te paso con el equipo de ventas para coordinar los detalles finales."
+    3. Usa los beneficios del curso para rebatir objeciones: ${courseContext?.benefits?.join(', ') || 'Calidad garantizada'}.
+    4. Si hay bonos, úsalos como incentivo: ${courseContext?.bonuses?.join(', ') || 'Material exclusivo'}.
+
+    CONTEXTO DEL CURSO:
+    ${courseInfo}
+
+    ${orgInfo}
+
+    INSTRUCCIONES ADICIONALES:
+    - ${agent.systemPrompt || 'Sé amable pero firme en la venta.'}
+    - Nunca digas que eres una IA a menos que te pregunten directamente.
+    - Mantén las respuestas concisas y directas al grano.
+    `;
+
+    const context = history.map(m => `${m.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${m.content}`).join('\n');
+    return ask(`HISTORIAL:\n${context}\n\nUSUARIO: ${userMsg}`, systemPrompt);
 }

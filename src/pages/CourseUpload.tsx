@@ -1,735 +1,800 @@
 import { useState, useRef, useEffect } from 'react';
-import { analyzeRawText, analyzeFileContent, completeField } from '../lib/gemini';
-import { getGeminiKey, addCurso, addPrograma, addWebinar, generateId } from '../lib/storage';
-import { Upload, Sparkles, Loader, ArrowLeft, File, CheckCircle2, X, Plus, Send, AlertCircle, Save, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-
-const types = [
-    { key: 'auto', label: '🤖 Auto-detectar', desc: 'La IA identifica el tipo' },
-    { key: 'curso', label: '📚 Curso Libre', desc: 'Curso individual' },
-    { key: 'programa', label: '🎓 Programa', desc: 'Conjunto de cursos' },
-    { key: 'webinar', label: '🎤 Webinar/Taller', desc: 'Sesión corta' },
-];
-
-interface UploadedFile {
-    name: string;
-    size: number;
-    dataUrl: string;
-}
-
-interface SyllabusModule {
-    module: string;
-    topics: string[];
-}
+import {
+    Upload, FileText, Check, Loader, Wand2,
+    BookOpen, DollarSign, Layout, Video,
+    MessageSquare, Send, Paperclip, X, File, Link as LinkIcon
+} from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from '../lib/gemini';
+import { courseService } from '../lib/services/course.service';
+import type { Attachment, ContactInfo } from '../lib/types';
 
 interface CourseData {
-    type: string;
+    type: 'curso' | 'programa' | 'webinar';
     title: string;
     description: string;
     objectives: string[];
     targetAudience: string;
-    modality: string;
+    modality: 'online' | 'presencial' | 'hibrido';
     duration: string;
     hours: number | null;
     startDate: string | null;
     schedule: string | null;
-    syllabus: SyllabusModule[];
-    instructor: string | null;
-    instructorBio: string | null;
+    syllabus: any[];
+    instructor: string;
+    instructorBio: string;
     price: number | null;
     currency: string;
     maxStudents: number | null;
     category: string;
     prerequisites: string | null;
     certification: string | null;
+    promotions: string | null;
+    requirements: string[];
+    contactInfo: ContactInfo | null;
     missing: string[];
+    youtubeUrl?: string; // Add youtubeUrl
+    benefits?: string[];
+    urgencyTrigger?: string;
+    painPoints?: string[];
+    guarantee?: string;
+    socialProof?: string[];
+    faqs?: { question: string; answer: string }[];
+    tools?: string[];
+    bonuses?: string[];
+    attachments: Attachment[];
+    registrationLink?: string;
 }
 
-interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
-    updates?: Record<string, unknown>; // fields that were updated
-    applied?: boolean;
-}
-
-const FIELD_LABELS: Record<string, string> = {
-    type: 'Tipo', title: 'Título', description: 'Descripción', objectives: 'Objetivos',
-    targetAudience: 'Público Objetivo', modality: 'Modalidad', duration: 'Duración',
-    hours: 'Horas Totales', startDate: 'Fecha de Inicio', schedule: 'Horario',
-    syllabus: 'Temario', instructor: 'Instructor', instructorBio: 'Bio del Instructor',
-    price: 'Precio', currency: 'Moneda', maxStudents: 'Cupos Máximos',
-    category: 'Categoría', prerequisites: 'Requisitos', certification: 'Certificación',
+const INITIAL_STATE: CourseData = {
+    type: 'curso',
+    title: '',
+    description: '',
+    objectives: [],
+    targetAudience: '',
+    modality: 'online',
+    duration: '',
+    hours: null,
+    startDate: null,
+    schedule: null,
+    syllabus: [],
+    instructor: '',
+    instructorBio: '',
+    price: null,
+    currency: 'USD',
+    maxStudents: null,
+    category: 'Negocios',
+    prerequisites: null,
+    certification: null,
+    promotions: null,
+    requirements: [],
+    contactInfo: null,
+    missing: [],
+    painPoints: [],
+    guarantee: '',
+    socialProof: [],
+    faqs: [],
+    bonuses: [],
+    attachments: [],
+    registrationLink: ''
 };
 
-// Normalize syllabus: if AI returns flat strings, convert to modules
-function normalizeSyllabus(raw: unknown): SyllabusModule[] {
-    if (!raw || !Array.isArray(raw)) return [];
-    // If already hierarchical
-    if (raw.length > 0 && typeof raw[0] === 'object' && raw[0] !== null && 'module' in raw[0]) {
-        return raw as SyllabusModule[];
-    }
-    // Flat array of strings → group by detecting module headers (bold, numbered, caps)
-    const modules: SyllabusModule[] = [];
-    let currentModule: SyllabusModule | null = null;
-    for (const item of raw) {
-        const text = String(item).trim();
-        // Detect module headers: starts with **, number+dot, or ALL CAPS
-        const isHeader = /^\*\*/.test(text) || /^\d+[\.\)]?\s+[A-ZÁÉÍÓÚ]/.test(text) ||
-            (text === text.toUpperCase() && text.length > 5 && !text.startsWith('-'));
-        if (isHeader || !currentModule) {
-            currentModule = { module: text.replace(/^\*\*|\*\*$/g, '').trim(), topics: [] };
-            modules.push(currentModule);
-        } else {
-            currentModule.topics.push(text.replace(/^[-–•]\s*/, ''));
-        }
-    }
-    return modules.length > 0 ? modules : [{ module: 'Contenido General', topics: raw.map(String) }];
-}
+type AnalysisStatus = 'idle' | 'analyzing' | 'success' | 'error';
+type Tab = 'upload' | 'details' | 'content' | 'marketing';
 
-function parseAIResponse(raw: string): CourseData | null {
-    try {
-        let cleaned = raw.trim();
-        if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-        }
-        const parsed = JSON.parse(cleaned);
-        parsed.syllabus = normalizeSyllabus(parsed.syllabus);
-        return parsed;
-    } catch {
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                parsed.syllabus = normalizeSyllabus(parsed.syllabus);
-                return parsed;
-            } catch { return null; }
-        }
-        return null;
-    }
-}
-
-function parseAgentResponse(raw: string): { updates: Record<string, unknown>; message: string } | null {
-    try {
-        let cleaned = raw.trim();
-        if (cleaned.startsWith('```')) {
-            cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-        }
-        const parsed = JSON.parse(cleaned);
-        if (parsed.updates && parsed.message) return parsed;
-        return null;
-    } catch {
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.updates && parsed.message) return parsed;
-            } catch { /* fall through */ }
-        }
-        return null;
-    }
-}
-
-export default function CourseUploadPage() {
+export default function CourseUpload() {
     const navigate = useNavigate();
+    const { id } = useParams(); // Get ID from URL
+    const [status, setStatus] = useState<AnalysisStatus>('idle');
+    const [data, setData] = useState<CourseData>(INITIAL_STATE);
     const [text, setText] = useState('');
-    const [type, setType] = useState('auto');
-    const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [files, setFiles] = useState<UploadedFile[]>([]);
-    const [courseData, setCourseData] = useState<CourseData | null>(null);
-    const [rawError, setRawError] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const chatEndRef = useRef<HTMLDivElement>(null);
+    const [youtubeUrl, setYoutubeUrl] = useState('');
+    const [activeTab, setActiveTab] = useState<Tab>('upload');
 
-    // Chat agent state
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    // Chat & AI State
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatMessages, setChatMessages] = useState<{ role: string, content: string }[]>([]);
     const [chatInput, setChatInput] = useState('');
-    const [chatLoading, setChatLoading] = useState(false);
+    const [applyingChange, setApplyingChange] = useState(false);
 
-    // Syllabus expand state
-    const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    // Auto-scroll chat
+    // Load data if editing
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatMessages]);
-
-    async function handleAnalyze() {
-        if (!text.trim() && files.length === 0) { setRawError('⚠️ Pega texto o sube un archivo.'); return; }
-        if (!getGeminiKey()) { setRawError('⚠️ Configura tu API Key de Gemini en Configuración.'); return; }
-        setLoading(true); setRawError(''); setCourseData(null); setChatMessages([]);
-
-        try {
-            let result: string;
-            const typeHint = type === 'auto' ? undefined : type;
-
-            if (files.length > 0) {
-                result = await analyzeFileContent(files[0].dataUrl, files[0].name, typeHint);
-            } else {
-                result = await analyzeRawText(text, typeHint);
+        const fetchItem = async () => {
+            if (!id) {
+                setData(INITIAL_STATE);
+                setStatus('idle');
+                setChatMessages([]);
+                setActiveTab('upload');
+                return;
             }
 
-            const parsed = parseAIResponse(result);
-            if (parsed) {
-                setCourseData(parsed);
-                // Expand all modules by default
-                setExpandedModules(new Set(parsed.syllabus.map((_, i) => i)));
-                // Pre-populate chat
-                const missingCount = parsed.missing?.length || 0;
-                if (missingCount > 0) {
-                    setChatMessages([{
-                        role: 'assistant',
-                        content: `✅ Analicé tu documento. Encontré **${missingCount} campo(s)** sin información: ${parsed.missing.map(m => FIELD_LABELS[m] || m).join(', ')}.\n\nPuedes pedirme que los complete. Por ejemplo:\n• "Completa la información faltante"\n• "Genera una descripción persuasiva"\n• "Sugiere un precio competitivo"`,
-                    }]);
-                } else {
-                    setChatMessages([{
-                        role: 'assistant',
-                        content: '✅ ¡Toda la información se extrajo correctamente! Puedes editar los campos manualmente o pedirme mejoras. Por ejemplo: "Mejora la descripción" o "Sugiere más objetivos".',
-                    }]);
-                }
-            } else {
-                setRawError('⚠️ No se pudo estructurar la respuesta. Intenta con un documento diferente o texto más claro.');
-            }
-        } catch (err: unknown) {
-            setRawError(`❌ Error: ${err instanceof Error ? err.message : 'Error desconocido'}`);
-        }
-        setLoading(false);
-    }
+            try {
+                // Use analyzing as a temporary loading state
+                setStatus('analyzing');
+                const found = await courseService.getById(id);
 
-    // AI Chat Agent — now with auto-apply
-    async function handleChat(overrideMsg?: string) {
-        const userMsg = (overrideMsg || chatInput).trim();
-        if (!userMsg || !courseData) return;
-        if (!overrideMsg) setChatInput('');
-        setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-        setChatLoading(true);
-
-        try {
-            const context = JSON.stringify(courseData, null, 2);
-            const response = await completeField(context, userMsg);
-            const parsed = parseAgentResponse(response);
-
-            if (parsed) {
-                // Auto-apply the updates
-                const updatedData = { ...courseData };
-                for (const [key, value] of Object.entries(parsed.updates)) {
-                    if (key === 'syllabus') {
-                        (updatedData as Record<string, unknown>)[key] = normalizeSyllabus(value as unknown[]);
-                    } else {
-                        (updatedData as Record<string, unknown>)[key] = value;
+                if (found) {
+                    // Determine type based on properties or stored type
+                    let type: 'curso' | 'programa' | 'webinar' = 'curso';
+                    if (found.type) {
+                        type = found.type;
+                    } else if ('totalDuration' in found || 'courses' in found) {
+                        type = 'programa';
+                    } else if ('speaker' in found || 'date' in found) {
+                        type = 'webinar';
                     }
+
+                    // Robust mapping from API to local form state
+                    setData({
+                        type,
+                        title: found.title || '',
+                        description: found.description || '',
+                        objectives: found.objectives || [],
+                        targetAudience: found.targetAudience || '',
+                        modality: found.modality || 'online',
+                        duration: found.duration || found.totalDuration || '',
+                        hours: found.hours || found.totalHours || null,
+                        startDate: found.startDate || found.date || null,
+                        schedule: found.schedule || found.time || null,
+                        syllabus: found.syllabus || found.courses || [],
+                        instructor: found.instructor || found.speaker || '',
+                        instructorBio: found.instructorBio || found.speakerBio || '',
+                        price: found.price || null,
+                        currency: found.currency || 'USD',
+                        maxStudents: found.maxStudents || null,
+                        category: found.category || 'General',
+                        prerequisites: found.prerequisites || null,
+                        certification: found.certification || null,
+                        promotions: found.promotions || null,
+                        requirements: found.requirements || [],
+                        contactInfo: found.contactInfo || null,
+                        missing: [],
+                        benefits: found.benefits || [],
+                        painPoints: found.painPoints || [],
+                        guarantee: found.guarantee || '',
+                        socialProof: found.socialProof || [],
+                        faqs: found.faqs || [],
+                        bonuses: found.bonuses || [],
+                        registrationLink: found.registrationLink || '',
+                        attachments: found.attachments || []
+                    });
+                    setActiveTab('details'); // Skip upload step
+                    setStatus('success'); // Mark as loaded
                 }
-                // Remove applied fields from missing
-                updatedData.missing = (updatedData.missing || []).filter(
-                    m => !Object.keys(parsed.updates).includes(m)
-                );
-                setCourseData(updatedData);
-
-                const updatedFields = Object.keys(parsed.updates).map(k => FIELD_LABELS[k] || k);
-                setChatMessages(prev => [...prev, {
-                    role: 'assistant',
-                    content: parsed.message,
-                    updates: parsed.updates,
-                    applied: true,
-                }]);
-            } else {
-                // Couldn't parse as JSON — show as plain text
-                setChatMessages(prev => [...prev, {
-                    role: 'assistant',
-                    content: response,
-                }]);
+            } catch (err) {
+                console.error("Error fetching course detail:", err);
+                setStatus('error');
             }
-        } catch {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: '❌ Error al consultar la IA. Intenta de nuevo.' }]);
+        };
+
+        fetchItem();
+    }, [id]);
+
+    const handleAnalyze = async () => {
+        if (!text && !youtubeUrl && !selectedFile) return;
+
+        setStatus('analyzing');
+        try {
+            let resultJson = '';
+
+            // Prioritize Video/File analysis
+            if (selectedFile) {
+                const file = selectedFile;
+                const reader = new FileReader();
+                const content = await new Promise<string>((resolve) => {
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.readAsDataURL(file);
+                });
+                resultJson = await analyzeFileContent(content, file.name, data.type);
+            } else if (youtubeUrl) {
+                // If YouTube URL is present, ask AI to analyze it (it can't watch it, but can analyze title/context provided)
+                // For a real app, you'd use a server to get transcript. Here we pass URL + Context.
+                resultJson = await analyzeRawText(`Analiza este recurso: ${youtubeUrl}\n\nContexto adicional: ${text}`, data.type);
+            } else {
+                resultJson = await analyzeRawText(text, data.type);
+            }
+
+            const parsed = JSON.parse(resultJson);
+
+            // Calculate new attachment to add
+            let attachmentToAdd: any = null;
+            if (selectedFile) {
+                const file = selectedFile;
+                attachmentToAdd = {
+                    id: Date.now().toString(),
+                    name: file.name,
+                    url: '#', // In a real app, upload result URL
+                    type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'video',
+                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB'
+                };
+            } else if (youtubeUrl) {
+                attachmentToAdd = {
+                    id: Date.now().toString(),
+                    name: 'YouTube Resource',
+                    url: youtubeUrl,
+                    type: 'link'
+                };
+            }
+
+            // Merge with initial state to ensure all fields exist
+            setData(prev => {
+                const currentAttachments = prev.attachments || [];
+                const updatedAttachments = attachmentToAdd
+                    ? [...currentAttachments, attachmentToAdd]
+                    : currentAttachments;
+
+                return {
+                    ...prev,
+                    ...parsed,
+                    objectives: parsed.objectives || [],
+                    syllabus: parsed.syllabus || [],
+                    requirements: parsed.requirements || [],
+                    attachments: updatedAttachments
+                };
+            });
+
+            setStatus('success');
+            setActiveTab('details');
+
+            // Proactive Review
+            try {
+                const reviewJson = await reviewContent(parsed);
+                const review = JSON.parse(reviewJson);
+                setChatMessages([
+                    { role: 'assistant', content: '✅ Información extraída.' },
+                    { role: 'assistant', content: `🕵️ **Auditoría de Ventas:**\n\n**Puntaje:** ${review.score}/10\n\n_${review.critique}_\n\n**Sugerencias:**\n${review.suggestions.map((s: any) => `• ${s}`).join('\n')}` }
+                ]);
+            } catch (e) {
+                setChatMessages([{ role: 'assistant', content: '¡He extraído la información! Revisa los campos.' }]);
+            }
+
+        } catch (error) {
+            console.error(error);
+            setStatus('error');
         }
-        setChatLoading(false);
-    }
+    };
 
-    function updateField(field: string, value: unknown) {
-        if (!courseData) return;
-        setCourseData({ ...courseData, [field]: value });
-    }
-
-    // Save to catalog
-    async function handleSave() {
-        if (!courseData) return;
-        setSaving(true);
-        const now = new Date().toISOString();
-        const id = generateId();
+    const handleChatAction = async () => {
+        if (!chatInput.trim()) return;
+        const msg = chatInput;
+        setChatInput('');
+        setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
+        setApplyingChange(true);
 
         try {
-            if (courseData.type === 'programa') {
-                addPrograma({
-                    id, title: courseData.title, description: courseData.description,
-                    objectives: courseData.objectives || [], targetAudience: courseData.targetAudience || '',
-                    modality: (courseData.modality as 'online' | 'presencial' | 'hibrido') || 'online',
-                    totalDuration: courseData.duration || '', totalHours: courseData.hours || 0,
-                    courses: (courseData.syllabus || []).map((mod, i) => ({
-                        id: `${id}c${i + 1}`, order: i + 1, title: mod.module,
-                        description: mod.topics.join(', '), hours: 0, topics: mod.topics
-                    })),
-                    price: courseData.price || 0, currency: courseData.currency || 'USD',
-                    maxStudents: courseData.maxStudents || 30,
-                    certification: courseData.certification || '', category: courseData.category || 'General',
-                    tags: [], status: 'borrador', startDate: courseData.startDate || '',
-                    createdAt: now, updatedAt: now,
-                });
-            } else if (courseData.type === 'webinar') {
-                addWebinar({
-                    id, title: courseData.title, description: courseData.description,
-                    type: 'webinar', speaker: courseData.instructor || '',
-                    speakerBio: courseData.instructorBio || '',
-                    date: courseData.startDate || '', time: courseData.schedule || '19:00',
-                    duration: courseData.duration || '90 min',
-                    modality: (courseData.modality as 'online' | 'presencial' | 'hibrido') || 'online',
-                    platform: 'zoom', price: courseData.price || 0, currency: courseData.currency || 'USD',
-                    maxAttendees: courseData.maxStudents || 100,
-                    keyTopics: courseData.syllabus.flatMap(m => [m.module, ...m.topics]),
-                    targetAudience: courseData.targetAudience || '',
-                    category: courseData.category || 'General', tags: [],
-                    status: 'borrador', createdAt: now, updatedAt: now,
-                });
+            // Context is current form data
+            const context = JSON.stringify(data);
+            const responseJson = await completeField(context, msg);
+            const response = JSON.parse(responseJson);
+
+            if (response.updates) {
+                setData(prev => ({ ...prev, ...response.updates }));
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `✅ ${response.message}` }]);
             } else {
-                addCurso({
-                    id, title: courseData.title, description: courseData.description,
-                    objectives: courseData.objectives || [], targetAudience: courseData.targetAudience || '',
-                    modality: (courseData.modality as 'online' | 'presencial' | 'hibrido') || 'online',
-                    startDate: courseData.startDate || '', duration: courseData.duration || '',
-                    totalHours: courseData.hours || 0, schedule: courseData.schedule || '',
-                    syllabus: (courseData.syllabus || []).map((mod, i) => ({
-                        id: `${id}m${i + 1}`, title: mod.module, description: '',
-                        topics: mod.topics, hours: 0,
-                    })),
-                    instructor: courseData.instructor || '', instructorBio: courseData.instructorBio || '',
-                    price: courseData.price || 0, currency: courseData.currency || 'USD',
-                    maxStudents: courseData.maxStudents || 30, prerequisites: courseData.prerequisites || '',
-                    certification: courseData.certification || '', category: courseData.category || 'General',
-                    tags: [], status: 'borrador', createdAt: now, updatedAt: now,
-                });
+                setChatMessages(prev => [...prev, { role: 'assistant', content: response.message || 'No pude entender el cambio solicitado.' }]);
             }
-            navigate('/courses');
-        } catch (err) {
-            setRawError(`❌ Error al guardar: ${err instanceof Error ? err.message : 'Error'}`);
+        } catch (e) {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: '❌ Error al procesar la solicitud.' }]);
+        } finally {
+            setApplyingChange(false);
         }
-        setSaving(false);
-    }
+    };
 
-    function processFile(file: globalThis.File) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const dataUrl = ev.target?.result as string;
-            setFiles(prev => [...prev, { name: file.name, size: file.size, dataUrl }]);
+    const handleSave = async () => {
+        // Basic validation
+        if (!data.title) {
+            alert('Por favor, ingresa un título');
+            return;
+        }
+
+        try {
+            setStatus('analyzing');
+
+            const payload = {
+                ...data,
+                status: 'borrador', // Default status for new/edited courses
+                updatedAt: new Date().toISOString()
+            };
+
+            if (id) {
+                await courseService.update(id, payload);
+            } else {
+                await courseService.create(payload);
+            }
+
+            navigate('/courses');
+        } catch (error: any) {
+            console.error("Error saving course:", error);
+            alert("Error al guardar: " + (error.message || "Intenta de nuevo"));
+            setStatus('error');
+        }
+    };
+
+    const addAttachment = () => {
+        const newAtt: Attachment = {
+            id: Date.now().toString(),
+            name: 'Nuevo Recurso.pdf',
+            type: 'pdf',
+            url: '#',
+            size: '1.2 MB'
         };
-        reader.readAsDataURL(file);
-    }
-
-    function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-        const fileList = e.target.files;
-        if (!fileList) return;
-        Array.from(fileList).forEach(processFile);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-
-    function removeFile(index: number) { setFiles(prev => prev.filter((_, i) => i !== index)); }
-
-    function formatSize(bytes: number): string {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-
-    function toggleModule(i: number) {
-        setExpandedModules(prev => {
-            const next = new Set(prev);
-            next.has(i) ? next.delete(i) : next.add(i);
-            return next;
-        });
-    }
-
-    const isFieldMissing = (field: string) => courseData?.missing?.includes(field);
-    const missingStyle = { borderColor: '#FDE68A', background: '#FFFBEB' };
-    const missingLabelStyle = { color: '#D97706' };
+        setData(prev => ({ ...prev, attachments: [...prev.attachments, newAtt] }));
+    };
 
     return (
-        <div className="page-content" style={{ maxWidth: '800px', margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/courses')}><ArrowLeft size={16} /></button>
-                <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: 800 }}>📤 Subir & Analizar Información</h2>
-                    <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '14px' }}>Sube un archivo o pega texto. La IA extraerá y organizará la información para ti.</p>
-                </div>
-            </div>
-
-            {/* ======= PHASE 1: UPLOAD ======= */}
-            {!courseData && (
-                <>
-                    {/* Step 1: Type */}
-                    <div className="card mb-6 fade-in">
-                        <h3 className="form-section-title">1. ¿Qué tipo de oferta es?</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                            {types.map(t => {
-                                const isActive = type === t.key;
-                                return (
-                                    <button key={t.key} onClick={() => setType(t.key)} style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-                                        padding: '14px 8px', border: isActive ? '2px solid var(--brand)' : '1px solid var(--border)',
-                                        borderRadius: 'var(--radius)', background: isActive ? '#EFF6FF' : 'var(--bg)',
-                                        cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
-                                    }}>
-                                        {isActive && <CheckCircle2 size={14} style={{ position: 'absolute', top: '6px', right: '6px', color: 'var(--brand)' }} />}
-                                        <span style={{ fontSize: '20px', marginBottom: '4px' }}>{t.label.split(' ')[0]}</span>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: isActive ? 'var(--brand)' : 'inherit' }}>{t.label.split(' ').slice(1).join(' ')}</span>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{t.desc}</span>
-                                    </button>
-                                );
-                            })}
+        <div className="flex h-screen bg-gray-50 overflow-hidden">
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col overflow-hidden relative transition-all duration-300">
+                {/* Header */}
+                <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center z-10">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => navigate('/courses')} className="text-gray-400 hover:text-gray-600">
+                            <X size={24} />
+                        </button>
+                        <div>
+                            <h1 className="text-xl font-bold text-gray-900">
+                                {id ? `Editar ${data.type === 'webinar' ? 'Webinar' : data.type === 'programa' ? 'Programa' : 'Curso'}` : `Crear Nuevo ${data.type === 'webinar' ? 'Webinar' : 'Curso'}`}
+                            </h1>
+                            <p className="text-sm text-gray-500 flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                                {id ? 'Editando recurso existente' : status === 'success' ? 'Datos extraídos con IA' : 'Borrador'}
+                            </p>
                         </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setIsChatOpen(!isChatOpen)} className={`btn gap-2 ${isChatOpen ? 'btn-primary' : 'btn-ghost'}`}>
+                            <MessageSquare size={18} /> Asistente IA
+                        </button>
+                        <button onClick={handleSave} className="btn btn-primary gap-2 px-6">
+                            <Check size={18} /> Guardar Curso
+                        </button>
+                    </div>
+                </div>
 
-                    {/* Step 2: Upload */}
-                    <div className="card mb-6 fade-in delay-1">
-                        <h3 className="form-section-title">2. Carga la información</h3>
-                        <label className="file-drop-zone" style={{ display: 'block', marginBottom: '16px' }}
-                            onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.background = '#EFF6FF'; }}
-                            onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-subtle)'; }}
-                            onDrop={e => {
-                                e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-subtle)';
-                                if (e.dataTransfer.files) Array.from(e.dataTransfer.files).forEach(processFile);
-                            }}
-                        >
-                            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                                <Upload size={28} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
-                                <div style={{ fontWeight: 600, fontSize: '14px' }}>Arrastra archivos aquí o haz click para buscar</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>PDF, DOCX, TXT, CSV — Máx 10MB</div>
-                            </div>
-                            <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,.csv" multiple onChange={handleFileUpload} style={{ display: 'none' }} />
-                        </label>
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto p-8">
+                    <div className="max-w-5xl mx-auto">
 
-                        {files.length > 0 && (
-                            <div style={{ marginBottom: '16px' }}>
-                                {files.map((f, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 'var(--radius)', marginBottom: '8px' }}>
-                                        <File size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatSize(f.size)} — Lista para analizar</div>
-                                        </div>
-                                        <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}><X size={16} /></button>
-                                    </div>
-                                ))}
-                                <button onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', padding: '8px 14px', cursor: 'pointer', color: 'var(--brand)', fontSize: '13px', fontWeight: 500, width: '100%', justifyContent: 'center' }}>
-                                    <Plus size={14} /> Agregar otro archivo
+                        {/* Tabs */}
+                        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto">
+                            {[
+                                { id: 'upload', label: '1. Cargar Contenido', icon: Upload },
+                                { id: 'details', label: '2. Detalles Básicos', icon: Layout },
+                                { id: 'content', label: '3. Temario', icon: BookOpen },
+                                { id: 'tools', label: '4. Herramientas y Requisitos', icon: FileText },
+                                { id: 'marketing', label: '5. Venta y Marketing', icon: DollarSign },
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as Tab)}
+                                    className={`flex whitespace-nowrap items-center gap-2 px-6 py-4 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                                        ? 'border-blue-600 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                        }`}
+                                >
+                                    <tab.icon size={16} />
+                                    {tab.label}
                                 </button>
+                            ))}
+                        </div>
+
+                        {/* Step 1: Upload */}
+                        {activeTab === 'upload' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
+                                <div className="space-y-6">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                            <FileText className="text-blue-600" size={20} />
+                                            Pegar Información Texto
+                                        </h3>
+                                        <textarea
+                                            className="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            placeholder="Pega aquí el temario, brochure o notas del experto..."
+                                            value={text}
+                                            onChange={e => setText(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                            <Video className="text-red-600" size={20} />
+                                            Enlace de YouTube
+                                        </h3>
+                                        <input
+                                            className="input w-full"
+                                            placeholder="https://youtube.com/watch?v=..."
+                                            value={youtubeUrl}
+                                            onChange={e => setYoutubeUrl(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="bg-white p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors h-full flex flex-col items-center justify-center text-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept=".pdf,.docx,.txt,video/*"
+                                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        />
+                                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                                            <Upload className="text-blue-600 w-8 h-8" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900">Subir Archivo o Video</h3>
+                                        <p className="text-sm text-gray-500 mt-2 max-w-xs">
+                                            Arrastra tu PDF, Word o Video (MP4) aquí. La IA analizará el contenido visual o textual.
+                                        </p>
+                                        {selectedFile && (
+                                            <div className="mt-4 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                                                <Check size={14} />
+                                                {selectedFile.name}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="col-span-full">
+                                    <button
+                                        onClick={handleAnalyze}
+                                        disabled={status === 'analyzing' || (!text && !youtubeUrl && !selectedFile)}
+                                        className="btn btn-primary w-full py-4 text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {status === 'analyzing' ? (
+                                            <span className="flex items-center gap-2"><Loader className="animate-spin" /> Analizando Contenido...</span>
+                                        ) : (
+                                            <span className="flex items-center gap-2"><Wand2 /> Analizar y Extraer Datos</span>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         )}
 
-                        <div style={{ margin: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500 }}>— O pega texto directamente —</div>
-                        <textarea className="form-textarea" rows={6} value={text} onChange={e => setText(e.target.value)}
-                            placeholder="Pega aquí el temario, correos, notas o cualquier texto con la información de tu curso..."
-                            style={{ fontSize: '13px', resize: 'vertical' }}
-                        />
-                    </div>
+                        {/* Step 2: Details */}
+                        {activeTab === 'details' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
+                                <div className="space-y-4">
+                                    <label className="block text-sm font-medium text-gray-700">Título del Curso</label>
+                                    <input className="input w-full font-bold text-lg" value={data.title} onChange={e => setData({ ...data, title: e.target.value })} />
 
-                    <button className="btn btn-primary btn-xl full-width" onClick={handleAnalyze} disabled={loading} style={{ marginBottom: '24px' }}>
-                        {loading ? <Loader size={20} className="spin" /> : <Sparkles size={20} />}
-                        {loading ? 'Analizando con IA...' : 'Analizar y Estructurar'}
-                    </button>
+                                    <label className="block text-sm font-medium text-gray-700">Descripción Persuasiva</label>
+                                    <textarea className="input w-full h-32" value={data.description} onChange={e => setData({ ...data, description: e.target.value })} />
 
-                    {rawError && (
-                        <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 'var(--radius)', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>{rawError}</div>
-                    )}
-                </>
-            )}
-
-            {/* ======= PHASE 2: STRUCTURED FORM ======= */}
-            {courseData && (
-                <div className="fade-in">
-                    {/* Success banner */}
-                    <div className="card mb-6" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700, fontSize: '16px', color: '#166534' }}>✅ Información extraída exitosamente</div>
-                                <div style={{ fontSize: '13px', color: '#15803D', marginTop: '2px' }}>
-                                    Tipo: <strong>{courseData.type?.toUpperCase()}</strong> —
-                                    {courseData.missing?.length ? ` ${courseData.missing.length} campo(s) por completar` : ' Toda la información está completa'}
-                                </div>
-                            </div>
-                            <button className="btn btn-ghost btn-sm" onClick={() => { setCourseData(null); setChatMessages([]); }}>← Volver</button>
-                        </div>
-                    </div>
-
-                    {/* Missing fields alert */}
-                    {courseData.missing?.length > 0 && (
-                        <div className="card mb-6" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'start' }}>
-                                <AlertCircle size={18} style={{ color: '#D97706', marginTop: '2px', flexShrink: 0 }} />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 600, fontSize: '14px', color: '#92400E', marginBottom: '8px' }}>Campos por completar — usa el chat de IA para rellenarlos automáticamente</div>
-                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                        {courseData.missing.map((m, i) => (
-                                            <span key={i} style={{ display: 'inline-flex', padding: '2px 10px', background: '#FEF3C7', borderRadius: '12px', fontSize: '12px', fontWeight: 600, color: '#92400E' }}>
-                                                {FIELD_LABELS[m] || m}
-                                            </span>
-                                        ))}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Modalidad</label>
+                                            <select className="input w-full" value={data.modality} onChange={e => setData({ ...data, modality: e.target.value as any })}>
+                                                <option value="online">Online</option>
+                                                <option value="presencial">Presencial</option>
+                                                <option value="hibrido">Híbrido</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">Categoría</label>
+                                            <input className="input w-full" value={data.category} onChange={e => setData({ ...data, category: e.target.value })} />
+                                        </div>
                                     </div>
                                 </div>
-                                <button className="btn btn-sm" onClick={() => handleChat('Completa toda la información faltante con sugerencias profesionales')}
-                                    style={{ background: '#F59E0B', color: 'white', border: 'none', fontSize: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                    <Sparkles size={12} /> Auto-completar
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Editable Form */}
-                    <div className="card mb-6">
-                        <h3 className="form-section-title">📋 Datos del {courseData.type === 'programa' ? 'Programa' : courseData.type === 'webinar' ? 'Webinar' : 'Curso'}</h3>
-
-                        <div className="form-group">
-                            <label style={isFieldMissing('title') ? missingLabelStyle : {}}>
-                                {isFieldMissing('title') && '⚠️ '}Título
-                            </label>
-                            <input className="form-input" value={courseData.title || ''} onChange={e => updateField('title', e.target.value)}
-                                style={isFieldMissing('title') ? missingStyle : {}} />
-                        </div>
-
-                        <div className="form-group">
-                            <label style={isFieldMissing('description') ? missingLabelStyle : {}}>
-                                {isFieldMissing('description') && '⚠️ '}Descripción
-                            </label>
-                            <textarea className="form-textarea" rows={3} value={courseData.description || ''} onChange={e => updateField('description', e.target.value)}
-                                style={isFieldMissing('description') ? missingStyle : {}} />
-                        </div>
-
-                        <div className="grid-2">
-                            <div className="form-group">
-                                <label>Categoría</label>
-                                <input className="form-input" value={courseData.category || ''} onChange={e => updateField('category', e.target.value)} />
-                            </div>
-                            <div className="form-group">
-                                <label>Modalidad</label>
-                                <select className="form-select" value={courseData.modality || 'online'} onChange={e => updateField('modality', e.target.value)}>
-                                    <option value="online">Online</option><option value="presencial">Presencial</option><option value="hibrido">Híbrido</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="grid-2">
-                            <div className="form-group">
-                                <label style={isFieldMissing('duration') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('duration') && '⚠️ '}Duración
-                                </label>
-                                <input className="form-input" value={courseData.duration || ''} onChange={e => updateField('duration', e.target.value)}
-                                    placeholder="Ej: 8 semanas" style={isFieldMissing('duration') ? missingStyle : {}} />
-                            </div>
-                            <div className="form-group">
-                                <label style={isFieldMissing('hours') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('hours') && '⚠️ '}Horas Totales
-                                </label>
-                                <input className="form-input" type="number" value={courseData.hours || ''} onChange={e => updateField('hours', Number(e.target.value) || null)}
-                                    style={isFieldMissing('hours') ? missingStyle : {}} />
-                            </div>
-                        </div>
-
-                        <div className="grid-2">
-                            <div className="form-group">
-                                <label style={isFieldMissing('instructor') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('instructor') && '⚠️ '}Instructor
-                                </label>
-                                <input className="form-input" value={courseData.instructor || ''} onChange={e => updateField('instructor', e.target.value)}
-                                    style={isFieldMissing('instructor') ? missingStyle : {}} />
-                            </div>
-                            <div className="form-group">
-                                <label style={isFieldMissing('targetAudience') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('targetAudience') && '⚠️ '}Público Objetivo
-                                </label>
-                                <input className="form-input" value={courseData.targetAudience || ''} onChange={e => updateField('targetAudience', e.target.value)}
-                                    style={isFieldMissing('targetAudience') ? missingStyle : {}} />
-                            </div>
-                        </div>
-
-                        <div className="grid-2">
-                            <div className="form-group">
-                                <label style={isFieldMissing('price') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('price') && '⚠️ '}Precio
-                                </label>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <select className="form-select" style={{ width: '80px' }} value={courseData.currency || 'USD'} onChange={e => updateField('currency', e.target.value)}>
-                                        <option value="USD">USD</option><option value="PEN">PEN</option><option value="EUR">EUR</option>
-                                    </select>
-                                    <input className="form-input" type="number" value={courseData.price ?? ''} onChange={e => updateField('price', Number(e.target.value) || null)}
-                                        placeholder="0 = Gratis" style={isFieldMissing('price') ? missingStyle : {}} />
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label style={isFieldMissing('startDate') ? missingLabelStyle : {}}>
-                                    {isFieldMissing('startDate') && '⚠️ '}Fecha de Inicio
-                                </label>
-                                <input className="form-input" type="date" value={courseData.startDate || ''} onChange={e => updateField('startDate', e.target.value)}
-                                    style={isFieldMissing('startDate') ? missingStyle : {}} />
-                            </div>
-                        </div>
-
-                        {/* Objectives */}
-                        <div className="form-group">
-                            <label>🎯 Objetivos de Aprendizaje</label>
-                            {(courseData.objectives || []).map((obj, i) => (
-                                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '36px', flexShrink: 0 }}>{i + 1}.</span>
-                                    <input className="form-input" value={obj} onChange={e => {
-                                        const newObj = [...(courseData.objectives || [])]; newObj[i] = e.target.value; updateField('objectives', newObj);
-                                    }} />
-                                    <button onClick={() => updateField('objectives', courseData.objectives.filter((_, j) => j !== i))}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
-                                </div>
-                            ))}
-                            <button onClick={() => updateField('objectives', [...(courseData.objectives || []), ''])}
-                                style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', padding: '6px 12px', cursor: 'pointer', color: 'var(--brand)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Plus size={12} /> Agregar objetivo
-                            </button>
-                        </div>
-
-                        {/* Hierarchical Syllabus */}
-                        <div className="form-group">
-                            <label>📚 Temario / Módulos</label>
-                            {(courseData.syllabus || []).map((mod, mi) => (
-                                <div key={mi} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: '8px', overflow: 'hidden' }}>
-                                    {/* Module header */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: 'var(--bg-subtle)', cursor: 'pointer' }}
-                                        onClick={() => toggleModule(mi)}>
-                                        {expandedModules.has(mi) ? <ChevronDown size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} /> : <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
-                                        <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--brand)', flexShrink: 0 }}>Módulo {mi + 1}</span>
-                                        <input className="form-input" value={mod.module}
-                                            onClick={e => e.stopPropagation()}
-                                            onChange={e => {
-                                                const newSyl = [...courseData.syllabus]; newSyl[mi] = { ...mod, module: e.target.value }; updateField('syllabus', newSyl);
-                                            }}
-                                            style={{ fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', padding: '0 4px' }}
-                                        />
-                                        <button onClick={(e) => { e.stopPropagation(); updateField('syllabus', courseData.syllabus.filter((_, j) => j !== mi)); }}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', marginLeft: 'auto', flexShrink: 0 }}><X size={16} /></button>
+                                <div className="space-y-4 bg-white p-6 rounded-xl border border-gray-200">
+                                    <h3 className="font-bold border-b pb-2 mb-4">Información del Instructor</h3>
+                                    <div className="flex gap-4">
+                                        <div className="w-16 h-16 bg-gray-200 rounded-full flex-shrink-0"></div>
+                                        <div className="flex-1 space-y-3">
+                                            <input className="input w-full" placeholder="Nombre Instructor" value={data.instructor} onChange={e => setData({ ...data, instructor: e.target.value })} />
+                                            <textarea className="input w-full h-20 text-sm" placeholder="Bio corta..." value={data.instructorBio} onChange={e => setData({ ...data, instructorBio: e.target.value })} />
+                                        </div>
                                     </div>
-                                    {/* Topics */}
-                                    {expandedModules.has(mi) && (
-                                        <div style={{ padding: '8px 12px 12px 36px' }}>
-                                            {mod.topics.map((topic, ti) => (
-                                                <div key={ti} style={{ display: 'flex', gap: '6px', marginBottom: '4px', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>•</span>
-                                                    <input className="form-input" value={topic}
-                                                        onChange={e => {
-                                                            const newSyl = [...courseData.syllabus];
-                                                            const newTopics = [...mod.topics]; newTopics[ti] = e.target.value;
-                                                            newSyl[mi] = { ...mod, topics: newTopics }; updateField('syllabus', newSyl);
-                                                        }}
-                                                        style={{ fontSize: '12px', padding: '4px 8px' }}
-                                                    />
-                                                    <button onClick={() => {
-                                                        const newSyl = [...courseData.syllabus];
-                                                        newSyl[mi] = { ...mod, topics: mod.topics.filter((_, j) => j !== ti) }; updateField('syllabus', newSyl);
-                                                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={14} /></button>
+                                </div>
+                                <div className="col-span-full">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Público Objetivo</label>
+                                    <textarea className="input w-full h-20" value={data.targetAudience} onChange={e => setData({ ...data, targetAudience: e.target.value })} />
+                                </div>
+
+                                <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Fecha de Inicio / Evento</label>
+                                        <input type="date" className="input w-full" value={data.startDate?.split('T')[0] || ''} onChange={e => setData({ ...data, startDate: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Duración / Horas</label>
+                                        <div className="flex gap-2">
+                                            <input className="input w-2/3" placeholder="Ej: 4 semanas" value={data.duration || ''} onChange={e => setData({ ...data, duration: e.target.value })} />
+                                            <input type="number" className="input w-1/3" placeholder="Hrs" value={data.hours || ''} onChange={e => setData({ ...data, hours: Number(e.target.value) })} />
+                                        </div>
+                                    </div>
+                                </div>
+                                {data.type === 'webinar' && (
+                                    <div className="col-span-full">
+                                        <label className="block text-sm font-medium text-gray-700">Link de Registro (Zoom, Eventbrite, etc)</label>
+                                        <input className="input w-full" placeholder="https://zoom.us/webinar/..." value={data.registrationLink || ''} onChange={e => setData({ ...data, registrationLink: e.target.value })} />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Step 2.5: Tools and Requirements */}
+                        {activeTab === 'tools' as Tab && (
+                            <div className="grid grid-cols-1 gap-8 animate-fade-in bg-white p-6 rounded-xl border border-gray-200">
+                                <div>
+                                    <h3 className="font-bold text-lg mb-2">Herramientas a Enseñar</h3>
+                                    <p className="text-sm text-gray-500 mb-4">¿Qué plataformas, softwares o herramientas se enseñarán durante el programa?</p>
+                                    <input className="input w-full" placeholder="Ej: Excel, ChatGPT, n8n, Python" value={data.tools?.join(', ') || ''} onChange={e => setData({ ...data, tools: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                </div>
+                                <hr className="border-gray-100" />
+                                <div>
+                                    <h3 className="font-bold text-lg mb-2">Requisitos Previos</h3>
+                                    <p className="text-sm text-gray-500 mb-4">¿Qué necesita el estudiante antes de empezar? (Ej: Laptop, Experiencia previa).</p>
+                                    <input className="input w-full" placeholder="Ej: Experiencia previa en ventas, Laptop moderna" value={data.requirements?.join(', ') || ''} onChange={e => setData({ ...data, requirements: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 3: Content */}
+                        {activeTab === 'content' && (
+                            <div className="space-y-8 animate-fade-in">
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg">Malla Curricular</h3>
+                                        <button className="text-sm text-blue-600 font-medium hover:underline">+ Agregar Módulo</button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {data.syllabus.map((mod, idx) => (
+                                            <div key={idx} className="border border-gray-100 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                                                <div className="flex justify-between font-bold text-gray-800 mb-2">
+                                                    <span>{mod.module || `Módulo ${idx + 1}`}</span>
+                                                    <span className="text-gray-400 text-sm font-normal">Editar</span>
                                                 </div>
-                                            ))}
-                                            <button onClick={() => {
-                                                const newSyl = [...courseData.syllabus];
-                                                newSyl[mi] = { ...mod, topics: [...mod.topics, ''] }; updateField('syllabus', newSyl);
-                                            }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                                <Plus size={12} /> Agregar tema
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                            <button onClick={() => updateField('syllabus', [...(courseData.syllabus || []), { module: '', topics: [''] }])}
-                                style={{ background: 'none', border: '1px dashed var(--border)', borderRadius: 'var(--radius)', padding: '8px 14px', cursor: 'pointer', color: 'var(--brand)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', width: '100%', justifyContent: 'center' }}>
-                                <Plus size={12} /> Agregar módulo
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* ======= AI CHAT AGENT ======= */}
-                    <div className="card mb-6">
-                        <h3 className="form-section-title">🤖 Asistente IA — Completa y mejora</h3>
-                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                            Pídele que complete campos faltantes, mejore descripciones o sugiera contenido. <strong>Los cambios se aplican automáticamente al formulario.</strong>
-                        </p>
-
-                        <div style={{ maxHeight: '320px', overflowY: 'auto', marginBottom: '12px', padding: '4px' }}>
-                            {chatMessages.map((msg, i) => (
-                                <div key={i} style={{ marginBottom: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                                        <div style={{
-                                            maxWidth: '85%', padding: '10px 14px', borderRadius: '14px', fontSize: '13px', lineHeight: 1.5,
-                                            background: msg.role === 'user' ? 'var(--brand)' : 'var(--bg-subtle)',
-                                            color: msg.role === 'user' ? 'white' : 'var(--text)',
-                                            border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                                        }}>
-                                            {msg.content}
-                                        </div>
+                                                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-2">
+                                                    {mod.topics?.map((t: string, i: number) => <li key={i}>{t}</li>)}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                        {data.syllabus.length === 0 && <p className="text-gray-400 italic text-center py-8">No se ha detectado temario aún.</p>}
                                     </div>
-                                    {/* Applied indicator */}
-                                    {msg.applied && msg.updates && (
-                                        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '4px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '10px', fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>
-                                                <CheckCircle2 size={12} />
-                                                Aplicado: {Object.keys(msg.updates).map(k => FIELD_LABELS[k] || k).join(', ')}
+                                </div>
+
+                                {/* Attachments Section */}
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg">Recursos Descargables (Brochure, Guías)</h3>
+                                        <button onClick={addAttachment} className="btn btn-sm btn-outline gap-2">
+                                            <Paperclip size={14} /> Adjuntar
+                                        </button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {data.attachments.map((att) => (
+                                            <div key={att.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-white rounded shadow-sm">
+                                                        {att.type === 'pdf' ? <File className="text-red-500" size={20} /> : <LinkIcon className="text-blue-500" size={20} />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-sm text-gray-900">{att.name}</p>
+                                                        <p className="text-xs text-gray-500">{att.size || 'Enlace externo'}</p>
+                                                    </div>
+                                                </div>
+                                                <button className="text-gray-400 hover:text-red-500"><X size={16} /></button>
+                                            </div>
+                                        ))}
+                                        {data.attachments.length === 0 && (
+                                            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-sm">
+                                                Arrastra archivos aquí o haz clic en "Adjuntar"
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Step 4: Marketing */}
+                        {activeTab === 'marketing' && (
+                            <div className="space-y-8 animate-fade-in">
+                                {/* Pricing & Guarantee */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 text-green-700 flex items-center gap-2"><DollarSign size={20} /> Oferta Irresistible</h3>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700">Precio</label>
+                                                    <input type="number" className="input w-full" value={data.price || ''} onChange={e => setData({ ...data, price: Number(e.target.value) })} />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700">Moneda</label>
+                                                    <select className="input w-full" value={data.currency} onChange={e => setData({ ...data, currency: e.target.value })}>
+                                                        <option value="USD">USD</option>
+                                                        <option value="PEN">PEN</option>
+                                                        <option value="MXN">MXN</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700">Promoción (Descuento)</label>
+                                                <input className="input w-full bg-yellow-50 border-yellow-200" placeholder="Ej: 50% OFF por 24 horas" value={data.promotions || ''} onChange={e => setData({ ...data, promotions: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700">Gatillo de Urgencia</label>
+                                                <input className="input w-full" placeholder="Ej: Solo 5 cupos disponibles" value={data.urgencyTrigger || ''} onChange={e => setData({ ...data, urgencyTrigger: e.target.value })} />
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
-                            {chatLoading && (
-                                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '8px' }}>
-                                    <div style={{ padding: '10px 14px', borderRadius: '14px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Loader size={14} className="spin" /> Analizando y aplicando cambios...
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🛡️ Garantía y Bonos</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700">Garantía de Riesgo Cero</label>
+                                                <textarea
+                                                    className="input w-full h-20"
+                                                    placeholder="Ej: Si no te encanta en 30 días, te devolvemos el 100%..."
+                                                    value={data.guarantee || ''}
+                                                    onChange={e => setData({ ...data, guarantee: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-bold text-gray-700">Bonos (Uno por línea)</label>
+                                                <textarea
+                                                    className="input w-full h-20"
+                                                    placeholder="- Ebook de Regalo&#10;- Plantilla Excel"
+                                                    value={data.bonuses?.join('\n') || ''}
+                                                    onChange={e => setData({ ...data, bonuses: e.target.value.split('\n') })}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
 
-                        {/* Chat input */}
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input className="form-input" value={chatInput} onChange={e => setChatInput(e.target.value)}
-                                placeholder="Ej: Completa toda la información faltante..."
-                                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleChat()}
-                                disabled={chatLoading}
-                            />
-                            <button className="btn btn-primary" onClick={() => handleChat()} disabled={chatLoading || !chatInput.trim()}>
-                                <Send size={16} />
-                            </button>
-                        </div>
+                                {/* Deep Psychology */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">😩 Dolores (Antes)</h3>
+                                        <p className="text-xs text-gray-500 mb-2">¿Qué problemas tiene tu alumno ideal hoy?</p>
+                                        <textarea
+                                            className="input w-full h-32 bg-red-50 border-red-100 focus:border-red-300"
+                                            placeholder="- Siento que pierdo el tiempo...&#10;- No logro vender..."
+                                            value={data.painPoints?.join('\n') || ''}
+                                            onChange={e => setData({ ...data, painPoints: e.target.value.split('\n') })}
+                                        />
+                                    </div>
 
-                        {/* Quick prompts */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
-                            {[
-                                'Completa toda la información faltante',
-                                'Mejora la descripción del curso',
-                                'Sugiere 5 objetivos de aprendizaje',
-                                'Recomienda un precio competitivo',
-                                'Sugiere duración y horarios',
-                            ].map(prompt => (
-                                <button key={prompt} onClick={() => handleChat(prompt)}
-                                    disabled={chatLoading}
-                                    style={{ padding: '5px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: '16px', fontSize: '11px', cursor: chatLoading ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)', transition: 'all 0.15s' }}>
-                                    ✨ {prompt}
-                                </button>
-                            ))}
-                        </div>
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-blue-600"><Sparkles size={20} /> Transformación (Después)</h3>
+                                        <p className="text-xs text-gray-500 mb-2">¿Qué logrará tras tomar el curso?</p>
+                                        <textarea
+                                            className="input w-full h-32 bg-blue-50 border-blue-100 focus:border-blue-300"
+                                            placeholder="- Certificado Validado&#10;- Aumento de sueldo..."
+                                            value={data.benefits?.join('\n') || ''}
+                                            onChange={e => setData({ ...data, benefits: e.target.value.split('\n') })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Authority & Social Proof */}
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <h3 className="font-bold text-lg mb-4">🏆 Prueba Social</h3>
+                                    <textarea
+                                        className="input w-full h-24"
+                                        placeholder="Pegar testimonios cortos o menciones en prensa (uno por línea)..."
+                                        value={data.socialProof?.join('\n') || ''}
+                                        onChange={e => setData({ ...data, socialProof: e.target.value.split('\n') })}
+                                    />
+                                </div>
+
+                                {/* FAQs */}
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg">❓ Preguntas Frecuentes</h3>
+                                        <button
+                                            onClick={() => setData(prev => ({ ...prev, faqs: [...(prev.faqs || []), { question: '', answer: '' }] }))}
+                                            className="text-sm text-blue-600 hover:underline font-bold"
+                                        >
+                                            + Agregar Pregunta
+                                        </button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {data.faqs?.map((faq, idx) => (
+                                            <div key={idx} className="flex gap-4 items-start p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <span className="font-bold text-gray-400 mt-2">Q{idx + 1}</span>
+                                                <div className="flex-1 space-y-2">
+                                                    <input
+                                                        className="input w-full font-bold"
+                                                        placeholder="Pregunta..."
+                                                        value={faq.question}
+                                                        onChange={e => {
+                                                            const newFaqs = [...(data.faqs || [])];
+                                                            newFaqs[idx].question = e.target.value;
+                                                            setData({ ...data, faqs: newFaqs });
+                                                        }}
+                                                    />
+                                                    <textarea
+                                                        className="input w-full h-20 text-sm"
+                                                        placeholder="Respuesta..."
+                                                        value={faq.answer}
+                                                        onChange={e => {
+                                                            const newFaqs = [...(data.faqs || [])];
+                                                            newFaqs[idx].answer = e.target.value;
+                                                            setData({ ...data, faqs: newFaqs });
+                                                        }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => setData(prev => ({ ...prev, faqs: prev.faqs?.filter((_, i) => i !== idx) }))}
+                                                    className="text-gray-400 hover:text-red-500"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {(!data.faqs || data.faqs.length === 0) && (
+                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay preguntas frecuentes aún.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
+                </div>
+            </div>
 
-                    {/* SAVE BUTTON */}
-                    <button className="btn btn-primary btn-xl full-width" onClick={handleSave} disabled={saving} style={{ marginBottom: '24px', background: '#16A34A' }}>
-                        {saving ? <Loader size={20} className="spin" /> : <Save size={20} />}
-                        {saving ? 'Guardando...' : `Guardar ${courseData.type === 'programa' ? 'Programa' : courseData.type === 'webinar' ? 'Webinar' : 'Curso'} en Catálogo`}
-                    </button>
+            {/* AI Assistant Sidebar */}
+            <div className={`w-96 bg-white border-l border-gray-200 flex flex-col transition-all duration-300 transform ${isChatOpen ? 'translate-x-0' : 'translate-x-full absolute right-0 h-full shadow-2xl'}`}>
+                <div className="p-4 border-b border-gray-200 bg-blue-50 flex justify-between items-center">
+                    <h3 className="font-bold text-blue-900 flex items-center gap-2">
+                        <Wand2 size={16} /> Asistente de Contenido
+                    </h3>
+                    <button onClick={() => setIsChatOpen(false)}><X size={18} className="text-blue-400 hover:text-blue-700" /></button>
+                </div>
 
-                    {rawError && (
-                        <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 'var(--radius)', color: '#DC2626', fontSize: '13px' }}>{rawError}</div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                    {chatMessages.length === 0 && (
+                        <div className="text-center text-gray-400 text-sm mt-10 p-4">
+                            <p>¡Hola! Soy tu editor personal.</p>
+                            <p className="mt-2">Pídeme cosas como:</p>
+                            <ul className="mt-2 space-y-2 text-blue-600 cursor-pointer">
+                                <li className="hover:underline" onClick={() => setChatInput("Mejora la descripción para que sea más vendedora")}>"Mejora la descripción"</li>
+                                <li className="hover:underline" onClick={() => setChatInput("Agrega un módulo de IA al temario")}>"Agrega un módulo sobre IA"</li>
+                                <li className="hover:underline" onClick={() => setChatInput("Cambia el precio a 299 USD y pon una oferta")}>"Cambia precio a 299"</li>
+                            </ul>
+                        </div>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border text-gray-800 shadow-sm'}`}>
+                                {msg.content}
+                            </div>
+                        </div>
+                    ))}
+                    {applyingChange && (
+                        <div className="flex gap-2 items-center text-xs text-gray-500 ml-4">
+                            <Loader size={12} className="animate-spin" /> Aplicando cambios...
+                        </div>
                     )}
                 </div>
-            )}
+
+                <div className="p-4 border-t border-gray-200 bg-white">
+                    <div className="relative">
+                        <input
+                            className="w-full pl-4 pr-10 py-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                            placeholder="Escribe tu instrucción..."
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleChatAction()}
+                            disabled={applyingChange}
+                        />
+                        <button
+                            onClick={handleChatAction}
+                            disabled={!chatInput.trim() || applyingChange}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50"
+                        >
+                            <Send size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
+
+// Icon helper
+import { Sparkles } from 'lucide-react';

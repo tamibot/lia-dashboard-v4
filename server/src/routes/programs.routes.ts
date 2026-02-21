@@ -17,24 +17,17 @@ router.get('/', async (req: Request, res: Response) => {
         const where: any = { orgId };
         if (status) where.status = status;
 
-        const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+        const programs = await prisma.program.findMany({
+            where,
+            include: {
+                programCourses: { orderBy: { sortOrder: 'asc' } },
+                attachments: true,
+                faqs: { orderBy: { sortOrder: 'asc' } },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
 
-        const [programs, total] = await Promise.all([
-            prisma.program.findMany({
-                where,
-                include: {
-                    programCourses: { orderBy: { sortOrder: 'asc' } },
-                    attachments: true,
-                    faqs: { orderBy: { sortOrder: 'asc' } },
-                },
-                orderBy: { updatedAt: 'desc' },
-                skip,
-                take: parseInt(limit as string),
-            }),
-            prisma.program.count({ where }),
-        ]);
-
-        res.json({ data: programs, total, page: parseInt(page as string) });
+        res.json(programs);
     } catch (err) {
         console.error('List programs error:', err);
         res.status(500).json({ error: 'Internal server error' });

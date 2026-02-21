@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getGeminiKey, setGeminiKey, removeGeminiKey, getOpenAIKey, setOpenAIKey, removeOpenAIKey } from '../lib/storage';
+import { settingsService } from '../lib/services/settings.service';
 import { resetClient, validateGeminiKey, validateOpenAIKey, type ValidationResult } from '../lib/gemini';
-import { Eye, EyeOff, Trash2, ExternalLink, Copy, CheckCircle, Loader, ShieldCheck, ShieldX, AlertTriangle, Zap, Bot } from 'lucide-react';
+import { Eye, EyeOff, Trash2, ExternalLink, Copy, CheckCircle, Loader, ShieldCheck, ShieldX, AlertTriangle, Zap, Bot, RefreshCcw, Database } from 'lucide-react';
 
 type ValidationState = 'idle' | 'validating' | 'success' | 'warning' | 'error';
 
@@ -202,10 +202,28 @@ export default function SettingsPage() {
     const DEFAULT_GEMINI_KEY = '';
     const DEFAULT_OPENAI_KEY = '';
 
-    const geminiKey = getGeminiKey();
-    const openaiKey = getOpenAIKey();
-    const geminiIsDefault = !geminiKey || geminiKey === DEFAULT_GEMINI_KEY;
-    const openaiIsDefault = !openaiKey || openaiKey === DEFAULT_OPENAI_KEY;
+    const [keys, setKeys] = useState<{ gemini_key: string | null, openai_key: string | null }>({ gemini_key: null, openai_key: null });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadKeys = async () => {
+            const data = await settingsService.getApiKeys();
+            setKeys(data);
+            setLoading(false);
+        };
+        loadKeys();
+    }, []);
+
+    const geminiIsDefault = !keys.gemini_key || keys.gemini_key === DEFAULT_GEMINI_KEY;
+    const openaiIsDefault = !keys.openai_key || keys.openai_key === DEFAULT_OPENAI_KEY;
+
+    if (loading) {
+        return (
+            <div className="page-content flex items-center justify-center min-h-[400px]">
+                <Loader size={32} className="spin text-blue-500" />
+            </div>
+        );
+    }
 
     return (
         <div className="page-content" style={{ maxWidth: '780px' }}>
@@ -253,10 +271,18 @@ export default function SettingsPage() {
                 provider="gemini"
                 title="Google Gemini"
                 icon="🔵"
-                currentKey={geminiKey}
+                currentKey={keys.gemini_key}
                 defaultKey={DEFAULT_GEMINI_KEY}
-                onSave={(k) => { setGeminiKey(k); resetClient(); }}
-                onDelete={() => { removeGeminiKey(); resetClient(); }}
+                onSave={async (k) => {
+                    await settingsService.updateGeminiKey(k);
+                    setKeys(prev => ({ ...prev, gemini_key: k }));
+                    resetClient();
+                }}
+                onDelete={async () => {
+                    await settingsService.deleteGeminiKey();
+                    setKeys(prev => ({ ...prev, gemini_key: null }));
+                    resetClient();
+                }}
                 onValidate={validateGeminiKey}
                 accentColor="#2563EB"
                 guideSteps={[
@@ -278,10 +304,16 @@ export default function SettingsPage() {
                 provider="openai"
                 title="OpenAI"
                 icon="🟢"
-                currentKey={openaiKey}
+                currentKey={keys.openai_key}
                 defaultKey={DEFAULT_OPENAI_KEY}
-                onSave={setOpenAIKey}
-                onDelete={removeOpenAIKey}
+                onSave={async (k) => {
+                    await settingsService.updateOpenAIKey(k);
+                    setKeys(prev => ({ ...prev, openai_key: k }));
+                }}
+                onDelete={async () => {
+                    await settingsService.deleteOpenAIKey();
+                    setKeys(prev => ({ ...prev, openai_key: null }));
+                }}
                 onValidate={validateOpenAIKey}
                 accentColor="#10A37F"
                 guideSteps={[
@@ -298,14 +330,55 @@ export default function SettingsPage() {
                 ]}
             />
 
+            {/* Data Management */}
+            <div className="card mb-6" style={{ border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4B5563' }}>
+                        <Database size={20} />
+                    </div>
+                    <div>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Gestión de Datos</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Controla los datos almacenados en el servidor.</p>
+                    </div>
+                </div>
+
+                <div style={{ background: '#FFFBEB', padding: '12px 16px', borderRadius: 'var(--radius)', border: '1px solid #FDE68A', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', color: '#92400E' }}>
+                        <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: '13px' }}>
+                            <strong>¿Quieres ver el nuevo contenido demo?</strong> Si has realizado cambios manuales o quieres actualizar el catálogo de cursos, programas y webinars con la versión más reciente, puedes resetear los datos demo.
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius)' }}>
+                    <div>
+                        <div style={{ fontSize: '14px', fontWeight: 600 }}>Resetear Datos Demo</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Se borrarán cursos, programas y agentes creados, y se cargarán los de fábrica. Tus <strong>API Keys NO se borrarán</strong>.</div>
+                    </div>
+                    <button
+                        className="btn btn-outline"
+                        onClick={async () => {
+                            if (confirm('¿Estás seguro de resetear los datos? Se perderán los cursos y agentes que hayas creado manualmente.')) {
+                                await settingsService.resetDemoData();
+                                window.location.reload();
+                            }
+                        }}
+                        style={{ color: 'var(--error)', borderColor: 'var(--error)' }}
+                    >
+                        <RefreshCcw size={16} /> Resetear Ahora
+                    </button>
+                </div>
+            </div>
+
             {/* Technical Info */}
             <div className="card" style={{ background: 'var(--bg)' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>ℹ️ Información técnica</h4>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                    <p>• <strong>Privacidad:</strong> Las API Keys se almacenan solo en tu navegador (localStorage). Nunca salen a ningún servidor.</p>
+                    <p>• <strong>Privacidad:</strong> Las API Keys se almacenan de forma segura en nuestros servidores y solo se usan para procesar tus solicitudes.</p>
                     <p>• <strong>Fallback inteligente:</strong> LIA intenta 3 modelos de Gemini (2.5-flash-lite → 2.5-flash → 2.0-flash) con pausa entre intentos. Si todos fallan, usa OpenAI automáticamente.</p>
-                    <p>• <strong>Rate limits:</strong> Los límites son por proyecto de Google Cloud y se reinician a medianoche (hora del Pacífico). Si ves error 429, espera unos minutos.</p>
-                    <p>• <strong>Sin intermediarios:</strong> Las llamadas van directo de tu navegador a Google/OpenAI. No hay servidores intermedios.</p>
+                    <p>• <strong>Rate limits:</strong> Los límites dependen de tu plan con Google/OpenAI. Si ves un error 429, espera unos minutos.</p>
+                    <p>• <strong>Seguridad:</strong> Todas las llamadas se realizan a través de conexiones cifradas directamente a los proveedores de IA.</p>
                 </div>
             </div>
         </div>

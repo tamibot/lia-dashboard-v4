@@ -51,6 +51,7 @@ model Organization {
   agents           AiAgent[]
   apiKeys          ApiKey[]
   generatedContent GeneratedContent[]
+  contacts         Contact[]
   
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -532,4 +533,92 @@ enum ItemStatus {
   borrador
   activo
   archivado
+}
+
+// ==============================
+// CONTACTS (GHL Integration)  
+// ==============================
+model Contact {
+  id              String   @id @default(uuid())
+  orgId           String   @map("org_id")
+
+  // Identification
+  ghlContactId    String?  @unique @map("ghl_contact_id")
+  name            String
+  email           String?
+  phone           String?
+  phoneCountry    String?  @map("phone_country")
+
+  // CRM / Pipeline
+  stage           ContactStage  @default(nuevo)
+  origin          ContactOrigin @default(organico)
+  customOrigin    String?  @map("custom_origin")
+
+  // Interest
+  courseInterest  String?  @map("course_interest")
+  programInterest String?  @map("program_interest")
+  budget          Decimal? @default(0)
+  currency        String   @default("USD")
+
+  // Location
+  city            String?
+  country         String?
+  timezone        String?
+
+  // Marketing / Tracking
+  utmSource       String?  @map("utm_source")
+  utmMedium       String?  @map("utm_medium")
+  utmCampaign     String?  @map("utm_campaign")
+  adPlatform      String?  @map("ad_platform")
+  landingPage     String?  @map("landing_page")
+
+  // Status
+  isActive        Boolean  @default(true) @map("is_active")
+  lastContactedAt DateTime? @map("last_contacted_at")
+  nextFollowUpAt  DateTime? @map("next_follow_up_at")
+
+  // Notes
+  notes           String?
+  tags            String[] @default([])
+
+  // GHL Sync
+  ghlLastSyncAt   DateTime? @map("ghl_last_sync_at")
+  ghlData         Json?     @map("ghl_data")
+
+  // Relations
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@index([orgId, stage])
+  @@index([ghlContactId])
+  @@index([phone])
+  @@map("contacts")
+}
+
+enum ContactStage {
+  nuevo
+  contactado
+  interesado
+  propuesta
+  negociacion
+  ganado
+  perdido
+  inactivo
+}
+
+enum ContactOrigin {
+  organico
+  meta_ads
+  google_ads
+  tiktok_ads
+  referido
+  webinar
+  evento
+  linkedin
+  whatsapp
+  email
+  otro
 }

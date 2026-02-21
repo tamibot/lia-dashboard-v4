@@ -29,24 +29,17 @@ router.get('/', async (req: Request, res: Response) => {
             ];
         }
 
-        const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+        const courses = await prisma.course.findMany({
+            where,
+            include: {
+                syllabusModules: { orderBy: { sortOrder: 'asc' } },
+                attachments: true,
+                faqs: { orderBy: { sortOrder: 'asc' } },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
 
-        const [courses, total] = await Promise.all([
-            prisma.course.findMany({
-                where,
-                include: {
-                    syllabusModules: { orderBy: { sortOrder: 'asc' } },
-                    attachments: true,
-                    faqs: { orderBy: { sortOrder: 'asc' } },
-                },
-                orderBy: { updatedAt: 'desc' },
-                skip,
-                take: parseInt(limit as string),
-            }),
-            prisma.course.count({ where }),
-        ]);
-
-        res.json({ data: courses, total, page: parseInt(page as string), limit: parseInt(limit as string) });
+        res.json(courses);
     } catch (err) {
         console.error('List courses error:', err);
         res.status(500).json({ error: 'Internal server error' });

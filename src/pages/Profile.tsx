@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { getProfile, saveProfile } from '../lib/storage';
+import { useState, useEffect } from 'react';
+import { profileService } from '../lib/services/profile.service';
 import { analyzeBrand } from '../lib/gemini';
 import type { OrgProfile, BrandingConfig } from '../lib/types';
-import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, User, MessageSquare, Shield, Palette, Type, Mic } from 'lucide-react';
+import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const GOOGLE_FONTS = [
     'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
@@ -23,32 +23,53 @@ const emptyProfile: OrgProfile = {
         voice: { tone: 'formal', style: 'Profesional y confiable', keywords: [] },
         visualIdentity: { mood: 'Moderno y limpio', shapes: 'rounded' }
     },
-    botConfig: { name: 'LIA Bot', gender: 'female', tone: 'professional', restrictions: '' }
+    socialMedia: {},
+    locations: [],
+    operatingHours: [],
+    courseCategories: []
 };
 
 export default function ProfilePage() {
-    const [data, setData] = useState<OrgProfile>(() => {
-        const p = getProfile();
-        if (!p) return emptyProfile;
-        // Migration safety
-        if (!p.branding?.colors) {
-            p.branding = {
-                ...emptyProfile.branding,
-                ...p.branding,
-                colors: {
-                    primary: p.branding?.primaryColor || '#2563EB',
-                    secondary: p.branding?.secondaryColor || '#1E40AF',
-                    accent: p.branding?.accentColor || '#F59E0B',
-                    neutral: '#F3F4F6'
-                }
-            };
-        }
-        return p;
-    });
-
+    const [data, setData] = useState<OrgProfile>(emptyProfile);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [brandAnalyzing, setBrandAnalyzing] = useState(false);
     const [brandText, setBrandText] = useState('');
-    const [tab, setTab] = useState<'general' | 'branding' | 'bot'>('general');
+    // @ts-ignore
+    const [tab, setTab] = useState<'general' | 'branding'>('general');
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                setLoading(true);
+                setError(false);
+                const p = await profileService.get();
+                if (p) {
+                    // Migration safety
+                    if (!p.branding?.colors) {
+                        p.branding = {
+                            ...emptyProfile.branding,
+                            ...p.branding,
+                            colors: {
+                                primary: (p.branding as any)?.primaryColor || '#2563EB',
+                                secondary: (p.branding as any)?.secondaryColor || '#1E40AF',
+                                accent: (p.branding as any)?.accentColor || '#F59E0B',
+                                neutral: '#F3F4F6'
+                            }
+                        };
+                    }
+                    setData(p);
+                }
+            } catch (err) {
+                console.error("Failed to fetch profile", err);
+                setError(true);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
 
     function handleChange(field: keyof OrgProfile, value: any) {
         if (field === 'type' && value !== data.type) {
@@ -70,12 +91,18 @@ export default function ProfilePage() {
         }));
     }
 
-    function handleSave() {
-        saveProfile(data);
-        alert('Perfil guardado correctamente ✅');
+    async function handleSave() {
+        try {
+            setBrandAnalyzing(true);
+            await profileService.update(data);
+            alert('Perfil guardado correctamente ✅');
+        } catch (err) {
+            console.error(err);
+            alert('Error al guardar el perfil ❌');
+        } finally {
+            setBrandAnalyzing(false);
+        }
     }
-
-
 
     async function handleBrandExtraction() {
         if (!brandText.trim()) return alert('Por favor pega algún texto sobre tu marca.');
@@ -146,6 +173,34 @@ export default function ProfilePage() {
         </div>
     );
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader className="w-12 h-12 text-blue-600 animate-spin" />
+                    <p className="text-gray-500 font-medium">Cargando perfil institucional...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh] p-8">
+                <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center">
+                    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Error al cargar</h3>
+                    <p className="text-gray-600 mb-8">Hubo un problema al obtener tu perfil institucional. Por favor, intenta de nuevo.</p>
+                    <button onClick={() => window.location.reload()} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors">
+                        <RefreshCw size={18} /> Reintentar
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="page-content" style={{ maxWidth: '900px', margin: '0 auto' }}>
             <div className="page-header">
@@ -153,52 +208,203 @@ export default function ProfilePage() {
                 <p>Define el ADN de tu institución para que la IA genere contenido 100% on-brand.</p>
             </div>
 
-            <div className="tabs mb-6">
-                <button className={`tab ${tab === 'general' ? 'active' : ''}`} onClick={() => setTab('general')}>General</button>
-                <button className={`tab ${tab === 'branding' ? 'active' : ''}`} onClick={() => setTab('branding')}>🎨 Identidad Visual</button>
-                <button className={`tab ${tab === 'bot' ? 'active' : ''}`} onClick={() => setTab('bot')}>🤖 Personalidad Bot</button>
-            </div>
-
             {tab === 'general' && (
-                <div className="card fade-in">
-                    <div className="form-group grid-3" style={{ gap: '10px', marginBottom: '20px' }}>
-                        {[
-                            { id: 'universidad', label: 'Universidad', icon: Building2 },
-                            { id: 'instituto', label: 'Instituto', icon: GraduationCap },
-                            { id: 'infoproductor', label: 'Infoproductor', icon: Laptop },
-                        ].map(t => (
+                <div className="flex flex-col gap-6">
+                    {/* Basic Info */}
+                    <div className="card fade-in">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <Building2 size={20} className="text-primary" /> Información Básica
+                        </h3>
+
+                        <div className="form-group grid-3" style={{ gap: '10px', marginBottom: '20px' }}>
+                            {[
+                                { id: 'universidad', label: 'Universidad', icon: Building2 },
+                                { id: 'instituto', label: 'Instituto', icon: GraduationCap },
+                                { id: 'infoproductor', label: 'Infoproductor', icon: Laptop },
+                            ].map(t => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => handleChange('type', t.id as any)}
+                                    className={`btn ${data.type === t.id ? 'btn-primary shadow-lg scale-105' : 'btn-outline border-slate-200'}`}
+                                    style={{
+                                        justifyContent: 'center',
+                                        flexDirection: 'column',
+                                        padding: '15px',
+                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        background: data.type === t.id ? 'var(--primary)' : 'white',
+                                        color: data.type === t.id ? 'white' : 'var(--text-main)',
+                                        border: data.type === t.id ? 'none' : '1px solid #E2E8F0'
+                                    }}
+                                >
+                                    <t.icon size={20} style={{ marginBottom: '5px', color: data.type === t.id ? 'white' : 'inherit' }} />
+                                    <span style={{ fontWeight: data.type === t.id ? 700 : 500 }}>{t.label}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="form-group">
+                            <label>Nombre de la Institución</label>
+                            <input className="form-input" value={data.name} onChange={e => handleChange('name', e.target.value)} placeholder="Ej: Universidad Tech Latam" />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Eslogan / Proposición de Valor</label>
+                            <input className="form-input" value={data.tagline || ''} onChange={e => handleChange('tagline', e.target.value)} placeholder="Ej: Innovación para el futuro" />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Descripción Institucional</label>
+                            <textarea className="form-textarea" rows={3} value={data.description} onChange={e => handleChange('description', e.target.value)} placeholder="¿Qué hacen y cuál es su misión?" />
+                        </div>
+
+                        <div className="grid-2" style={{ gap: '20px' }}>
+                            <div className="form-group">
+                                <label>Público Objetivo</label>
+                                <input className="form-input" value={data.targetAudience} onChange={e => handleChange('targetAudience', e.target.value)} placeholder="Ej: Jóvenes de 18-25 años" />
+                            </div>
+                            <div className="form-group">
+                                <label>Sitio Web Principal</label>
+                                <input className="form-input" value={data.website} onChange={e => handleChange('website', e.target.value)} placeholder="https://www.ejemplo.com" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Social Media */}
+                    <div className="card fade-in">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <Globe size={20} className="text-primary" /> Redes Sociales
+                        </h3>
+                        <div className="grid-2 gap-4">
+                            {[
+                                { id: 'instagram', icon: Instagram, label: 'Instagram' },
+                                { id: 'facebook', icon: Facebook, label: 'Facebook' },
+                                { id: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+                                { id: 'tiktok', icon: Video, label: 'TikTok' },
+                                { id: 'youtube', icon: Video, label: 'YouTube' },
+                                { id: 'website', icon: Globe, label: 'Web Adicional' },
+                            ].map(s => (
+                                <div key={s.id} className="form-group">
+                                    <label className="flex items-center gap-2">
+                                        <s.icon size={14} /> {s.label}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={(data.socialMedia as any)?.[s.id] || ''}
+                                        onChange={e => handleChange('socialMedia', { ...data.socialMedia, [s.id]: e.target.value })}
+                                        placeholder={`URL de ${s.label}`}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Locations */}
+                    <div className="card fade-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <MapPin size={20} className="text-primary" /> Sedes y Locales
+                            </h3>
                             <button
-                                key={t.id}
-                                onClick={() => handleChange('type', t.id)}
-                                className={`btn ${data.type === t.id ? 'btn-primary' : 'btn-outline'}`}
-                                style={{ justifyContent: 'center', flexDirection: 'column', padding: '15px' }}
+                                type="button"
+                                onClick={() => handleChange('locations', [...(data.locations || []), { id: crypto.randomUUID(), name: '', address: '' }])}
+                                className="btn btn-outline btn-sm"
                             >
-                                <t.icon size={20} style={{ marginBottom: '5px' }} />
-                                {t.label}
+                                <Plus size={14} /> Añadir Sede
                             </button>
-                        ))}
-                    </div>
-
-                    <div className="form-group">
-                        <label>Nombre de la Institución</label>
-                        <input className="form-input" value={data.name} onChange={e => handleChange('name', e.target.value)} placeholder="Ej: Universidad Tech Latam" />
-                    </div>
-
-                    <div className="form-group">
-                        <label>Descripción Corta</label>
-                        <textarea className="form-textarea" rows={2} value={data.description} onChange={e => handleChange('description', e.target.value)} placeholder="¿Qué hacen y cuál es su misión?" />
-                    </div>
-
-                    <div className="grid-2" style={{ gap: '20px' }}>
-                        <div className="form-group">
-                            <label>Público Objetivo</label>
-                            <input className="form-input" value={data.targetAudience} onChange={e => handleChange('targetAudience', e.target.value)} />
                         </div>
-                        <div className="form-group">
-                            <label>Sitio Web</label>
-                            <input className="form-input" value={data.website} onChange={e => handleChange('website', e.target.value)} />
+                        <div className="space-y-4">
+                            {(data.locations || []).map((loc, idx) => (
+                                <div key={loc.id} className="p-4 border border-slate-100 rounded-lg flex gap-4 items-start bg-slate-50/30">
+                                    <div className="flex-1 grid grid-2 gap-4">
+                                        <input
+                                            className="form-input"
+                                            placeholder="Nombre de la sede (Ej: Campus Central)"
+                                            value={loc.name}
+                                            onChange={e => {
+                                                const newLocs = [...(data.locations || [])];
+                                                newLocs[idx].name = e.target.value;
+                                                handleChange('locations', newLocs);
+                                            }}
+                                        />
+                                        <input
+                                            className="form-input"
+                                            placeholder="Dirección completa"
+                                            value={loc.address}
+                                            onChange={e => {
+                                                const newLocs = [...(data.locations || [])];
+                                                newLocs[idx].address = e.target.value;
+                                                handleChange('locations', newLocs);
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('locations', (data.locations || []).filter(l => l.id !== loc.id))}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                            {(data.locations || []).length === 0 && (
+                                <p className="text-center py-4 text-slate-400 italic">No tienes sedes registradas todavía.</p>
+                            )}
                         </div>
                     </div>
+
+                    {/* Operating Hours */}
+                    <div className="card fade-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Clock size={20} className="text-primary" /> Horarios de Atención
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => handleChange('operatingHours', [...(data.operatingHours || []), { days: '', hours: '' }])}
+                                className="btn btn-outline btn-sm"
+                            >
+                                <Plus size={14} /> Añadir Horario
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            {(data.operatingHours || []).map((oh, idx) => (
+                                <div key={idx} className="flex gap-4 items-start">
+                                    <input
+                                        className="form-input flex-1"
+                                        placeholder="Días (Ej: Lunes a Viernes)"
+                                        value={oh.days}
+                                        onChange={e => {
+                                            const newHrs = [...(data.operatingHours || [])];
+                                            newHrs[idx].days = e.target.value;
+                                            handleChange('operatingHours', newHrs);
+                                        }}
+                                    />
+                                    <input
+                                        className="form-input flex-1"
+                                        placeholder="Horario (Ej: 09:00 - 18:00)"
+                                        value={oh.hours}
+                                        onChange={e => {
+                                            const newHrs = [...(data.operatingHours || [])];
+                                            newHrs[idx].hours = e.target.value;
+                                            handleChange('operatingHours', newHrs);
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('operatingHours', (data.operatingHours || []).filter((_, i) => i !== idx))}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <button className="btn btn-primary btn-lg w-full flex justify-center sticky bottom-6 shadow-xl" onClick={handleSave}>
+                        <Save size={18} /> Guardar Perfil Institucional
+                    </button>
                 </div>
             )}
 
@@ -338,45 +544,6 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {tab === 'bot' && (
-                <div className="card fade-in">
-                    {/* ... Existing Bot Config Code ... */}
-                    <div className="alert alert-info mb-4" style={{ display: 'flex', gap: '10px', alignItems: 'start' }}>
-                        <MessageSquare size={20} />
-                        <div>
-                            <strong>Configuración del Agente IA</strong>
-                            <p style={{ fontSize: '13px', margin: '4px 0 0' }}>Define la personalidad del bot que atenderá a tus leads.</p>
-                        </div>
-                    </div>
-                    {/* Reuse existing bot form fields for brevity or functionality preservation */}
-                    <div className="form-group">
-                        <label>Nombre del Asistente</label>
-                        <input className="form-input" value={data.botConfig?.name} onChange={e => handleChange('botConfig', { ...data.botConfig, name: e.target.value })} />
-                    </div>
-                    <div className="grid-2" style={{ gap: '20px' }}>
-                        <div className="form-group">
-                            <label>Género</label>
-                            <select className="form-select" value={data.botConfig?.gender} onChange={e => handleChange('botConfig', { ...data.botConfig, gender: e.target.value })}>
-                                <option value="female">Femenino</option>
-                                <option value="male">Masculino</option>
-                                <option value="neutral">Neutro</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Tono</label>
-                            <select className="form-select" value={data.botConfig?.tone} onChange={e => handleChange('botConfig', { ...data.botConfig, tone: e.target.value })}>
-                                <option value="professional">Profesional</option>
-                                <option value="friendly">Amigable</option>
-                                <option value="sales">Ventas</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Restricciones</label>
-                        <textarea className="form-textarea" rows={3} value={data.botConfig?.restrictions} onChange={e => handleChange('botConfig', { ...data.botConfig, restrictions: e.target.value })} />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

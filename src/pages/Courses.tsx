@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCursos, getProgramas, getWebinars } from '../lib/storage';
-import { Plus, Search, List, Grid, Clock, Users, BookOpen, GraduationCap, Video, Tag } from 'lucide-react';
+import { courseService } from '../lib/services/course.service';
+import { Plus, Search, List, Grid, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit } from 'lucide-react';
 
 // Simple deterministic color from title (pastel)
 function titleColor(title: string): string {
@@ -18,9 +18,10 @@ function typeIcon(type: string) {
 }
 
 function statusColor(status: string) {
-    if (status === 'activo') return { bg: '#DCFCE7', color: '#16A34A', label: 'Activo' };
-    if (status === 'borrador') return { bg: '#FEF9C3', color: '#CA8A04', label: 'Borrador' };
-    if (status === 'finalizado') return { bg: '#E5E7EB', color: '#6B7280', label: 'Finalizado' };
+    const s = status?.toLowerCase() || 'borrador';
+    if (s === 'activo') return { bg: '#DCFCE7', color: '#16A34A', label: 'Activo' };
+    if (s === 'borrador') return { bg: '#FEF9C3', color: '#CA8A04', label: 'Borrador' };
+    if (s === 'finalizado') return { bg: '#E5E7EB', color: '#6B7280', label: 'Finalizado' };
     return { bg: '#DBEAFE', color: '#2563EB', label: status || 'Borrador' };
 }
 
@@ -30,9 +31,34 @@ export default function CoursesPage() {
     const [search, setSearch] = useState('');
     const [view, setView] = useState<'list' | 'grid'>('grid');
 
-    const cursos = getCursos();
-    const programas = getProgramas();
-    const webinars = getWebinars();
+    const [cursos, setCursos] = useState<any[]>([]);
+    const [programas, setProgramas] = useState<any[]>([]);
+    const [webinars, setWebinars] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                const [c, p, w] = await Promise.all([
+                    courseService.getAll('curso'),
+                    courseService.getAll('programa'),
+                    courseService.getAll('webinar')
+                ]);
+                setCursos(c);
+                setProgramas(p);
+                setWebinars(w);
+            } catch (err: any) {
+                console.error("Error fetching courses:", err);
+                setError("No se pudieron cargar los datos. Por favor, intenta de nuevo.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
 
     const getFilteredItems = () => {
         let items: any[] = [];
@@ -41,13 +67,24 @@ export default function CoursesPage() {
         if (tab === 'webinars') items = webinars.map(i => ({ ...i, _type: 'webinar' }));
 
         return items.filter(i =>
-            i.title.toLowerCase().includes(search.toLowerCase()) ||
+            (i.title || '').toLowerCase().includes(search.toLowerCase()) ||
             (i.category && i.category.toLowerCase().includes(search.toLowerCase()))
         );
     };
 
     const filteredItems = getFilteredItems();
     const tabCounts = { cursos: cursos.length, programas: programas.length, webinars: webinars.length };
+
+    if (isLoading) {
+        return (
+            <div className="page-content flex-center" style={{ height: '60vh' }}>
+                <div className="text-center">
+                    <div className="spinner mb-4" style={{ width: '40px', height: '40px', margin: '0 auto' }}></div>
+                    <p>Cargando tu catálogo...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="page-content">
@@ -56,10 +93,16 @@ export default function CoursesPage() {
                     <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Mi Catálogo</h2>
                     <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Gestiona toda tu oferta académica.</p>
                 </div>
-                <button onClick={() => navigate('/courses/upload')} className="btn btn-primary">
+                <button onClick={() => navigate('/courses/upload')} className="btn btn-primary text-white">
                     <Plus size={18} /> Nuevo Registro
                 </button>
             </div>
+
+            {error && (
+                <div className="card mb-6" style={{ borderLeft: '4px solid #ef4444', background: '#fef2f2' }}>
+                    <p style={{ color: '#b91c1c', fontSize: '14px' }}>{error}</p>
+                </div>
+            )}
 
             <div className="tabs mb-6" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -113,6 +156,7 @@ export default function CoursesPage() {
                                 <th>Precio</th>
                                 <th>Cupos</th>
                                 <th>Estado</th>
+                                <th style={{ width: '40px' }}></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -132,7 +176,9 @@ export default function CoursesPage() {
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: '13px' }}>{item.title}</div>
-                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.duration || item.totalDuration || '—'}</div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                        {item._type === 'webinar' ? `${item.date || item.startDate || ''} ${item.time || item.schedule || ''}` : (item.duration || item.totalDuration || '—')}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -142,6 +188,11 @@ export default function CoursesPage() {
                                         <td style={{ fontSize: '13px' }}>{item.maxStudents || item.maxAttendees || '—'}</td>
                                         <td>
                                             <span style={{ padding: '2px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
+                                        </td>
+                                        <td style={{ width: '40px' }} onClick={(e) => e.stopPropagation()}>
+                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }} className="btn-icon">
+                                                <Edit size={16} />
+                                            </button>
                                         </td>
                                     </tr>
                                 );
@@ -161,7 +212,8 @@ export default function CoursesPage() {
                                 style={{
                                     borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s ease',
                                     border: '1px solid var(--border)', background: 'var(--bg)',
-                                    borderLeft: `3px solid ${accent}`
+                                    borderLeft: `3px solid ${accent}`,
+                                    position: 'relative'
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.08)'; }}
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
@@ -219,11 +271,12 @@ export default function CoursesPage() {
 
                                     {/* Stats */}
                                     <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                                        {(item.duration || item.totalDuration) && (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                <Clock size={11} />{item.duration || item.totalDuration}
-                                            </span>
-                                        )}
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                            <Clock size={11} />
+                                            {item._type === 'webinar' ?
+                                                `${item.date || item.startDate || ''} ${item.time || item.schedule || ''}`
+                                                : (item.duration || item.totalDuration || '—')}
+                                        </span>
                                         {(item.maxStudents || item.maxAttendees) && (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                                                 <Users size={11} />{item.maxStudents || item.maxAttendees}
@@ -245,6 +298,21 @@ export default function CoursesPage() {
                                             Ver detalle →
                                         </span>
                                     </div>
+
+                                    <button onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }}
+                                        style={{
+                                            position: 'absolute', top: '12px', right: '12px',
+                                            background: 'white', border: '1px solid var(--border)', borderRadius: '6px',
+                                            padding: '4px', cursor: 'pointer', color: 'var(--text-muted)',
+                                            display: 'none'
+                                        }}
+                                        className="edit-btn"
+                                    >
+                                        <Edit size={14} />
+                                    </button>
+                                    <style>{`
+                                        div:hover > .edit-btn { display: block !important; }
+                                    `}</style>
                                 </div>
                             </div>
                         );
@@ -254,3 +322,4 @@ export default function CoursesPage() {
         </div>
     );
 }
+

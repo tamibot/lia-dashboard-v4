@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getCursos, getProgramas, getWebinars, getProfile, getGeminiKey } from '../lib/storage';
+import { courseService } from '../lib/services/course.service';
+import { profileService } from '../lib/services/profile.service';
+import { settingsService } from '../lib/services/settings.service';
 import {
     generateLanding, generateEmailSequence, generateWhatsAppSequence, generateMarketing,
     analyzeCourseData, generateContentIdeas, refineContent,
     generateLaunchContent, generateBanner, generateSocialPosts, generateCourseSheet
 } from '../lib/gemini';
 import {
-    ArrowLeft, Sparkles, Loader, Globe, Mail, MessageCircle, Megaphone, FileText, Lightbulb,
-    Send, Copy, Check, Download, BookOpen, GraduationCap, Video, Rocket, Image, Layout,
-    Clock, Users, Tag, DollarSign, MapPin, Award, ChevronDown, ChevronRight, X, RefreshCw
+    ArrowLeft, Sparkles, Loader, Send, Copy, Check, Download,
+    Clock, Users, Tag, DollarSign, MapPin, Award, ChevronDown, ChevronRight, RefreshCw, Edit, Play, Book, AlertTriangle
 } from 'lucide-react';
+import SalesPlayground from '../components/SalesPlayground';
+import type { AiAgent, ContactInfo, Attachment } from '../lib/types';
 
 // --- Types ---
 type ChatMsg = { role: 'user' | 'ai'; text: string };
@@ -62,19 +65,11 @@ const ALL_TOOLS: ToolDef[] = [
 ];
 
 export default function CourseDetailPage() {
-    const { type, id } = useParams<{ type: string; id: string }>();
+    const { type: urlType, id } = useParams<{ type: string; id: string }>();
     const navigate = useNavigate();
-    const profile = getProfile();
-
-    // Find item
-    let item: Record<string, unknown> | null = null;
-    let itemTitle = '';
-    const findItem = (list: any[]) => list.find(x => x.id === id);
-    if (type === 'curso') { const f = findItem(getCursos()); if (f) { item = f; itemTitle = f.title; } }
-    else if (type === 'programa') { const f = findItem(getProgramas()); if (f) { item = f; itemTitle = f.title; } }
-    else if (type === 'webinar') { const f = findItem(getWebinars()); if (f) { item = f; itemTitle = f.title; } }
-
-    // State
+    const [item, setItem] = useState<any>(null);
+    const [profile, setProfile] = useState<any>(null);
+    const [fetchStatus, setFetchStatus] = useState<'loading' | 'success' | 'error' | 'not_found'>('loading');
     const [activeTool, setActiveTool] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [content, setContent] = useState('');
@@ -83,13 +78,42 @@ export default function CourseDetailPage() {
     const [refining, setRefining] = useState(false);
     const [copied, setCopied] = useState(false);
     const [expandSyllabus, setExpandSyllabus] = useState(false);
+    const [showSalesTest, setShowSalesTest] = useState(false);
 
-    const typeEmoji = type === 'curso' ? '📚' : type === 'programa' ? '🎓' : '🎥';
-    const typeLabel = type === 'curso' ? 'Curso Libre' : type === 'programa' ? 'Programa' : 'Webinar';
+    // Fetch Data
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!id) return;
+            try {
+                setFetchStatus('loading');
+                const [itemData, profileData] = await Promise.all([
+                    courseService.getById(id),
+                    profileService.get()
+                ]);
+
+                if (itemData) {
+                    setItem(itemData);
+                    setProfile(profileData);
+                    setFetchStatus('success');
+                } else {
+                    setFetchStatus('not_found');
+                }
+            } catch (err) {
+                console.error("Error fetching course detail or profile:", err);
+                setFetchStatus('error');
+            }
+        };
+        fetchData();
+    }, [id]);
+
+    const itemType = item?.type || urlType;
+    const itemTitle = item?.title || '';
+    const typeEmoji = itemType === 'curso' ? '📚' : itemType === 'programa' ? '🎓' : '🎥';
+    const typeLabel = itemType === 'curso' ? 'Curso Libre' : itemType === 'programa' ? 'Programa' : 'Webinar';
 
     // Run a tool
     async function runTool(toolId: string) {
-        if (!getGeminiKey()) { alert('Configura tu API Key de Gemini primero'); return; }
+        if (!settingsService.getGeminiKeySync()) { alert('Configura tu API Key de Gemini primero'); return; }
         if (!item || !profile) return;
         setActiveTool(toolId);
         setLoading(true);
@@ -101,7 +125,7 @@ export default function CourseDetailPage() {
             let result = '';
             const p = profile as unknown as Record<string, unknown>;
             switch (toolId) {
-                case 'analyze': result = await analyzeCourseData(item, type as any); break;
+                case 'analyze': result = await analyzeCourseData(item, itemType as any); break;
                 case 'landing': result = await generateLanding(item, p); break;
                 case 'banner': result = await generateBanner(item, p); break;
                 case 'social': result = await generateSocialPosts(item, p); break;
@@ -110,7 +134,7 @@ export default function CourseDetailPage() {
                 case 'whatsapp': result = await generateWhatsAppSequence(item, p); break;
                 case 'launch': result = await generateLaunchContent(item, p); break;
                 case 'marketing': result = await generateMarketing(item, p); break;
-                case 'content': result = await generateContentIdeas(p, { [type!]: item }); break;
+                case 'content': result = await generateContentIdeas(p, { [itemType!]: item }); break;
             }
             setContent(result);
         } catch (err: unknown) {
@@ -150,11 +174,51 @@ export default function CourseDetailPage() {
         URL.revokeObjectURL(url);
     }
 
-    if (!item) {
+    if (fetchStatus === 'loading') {
         return (
-            <div className="page-content">
-                <div className="card empty-state"><h3>No encontrado</h3>
-                    <Link to="/courses" className="btn btn-primary">Volver</Link>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader className="w-12 h-12 text-blue-600 animate-spin" />
+                    <p className="text-gray-500 font-medium">Cargando detalles...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (fetchStatus === 'error') {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh] p-8">
+                <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center">
+                    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Error al cargar</h3>
+                    <p className="text-gray-600 mb-8">Hubo un problema al obtener la información del curso. Por favor, intenta de nuevo.</p>
+                    <div className="flex flex-col gap-3">
+                        <button onClick={() => window.location.reload()} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors">
+                            <RefreshCw size={18} /> Reintentar
+                        </button>
+                        <Link to="/courses" className="w-full px-6 py-3 text-gray-600 font-medium hover:bg-gray-50 rounded-xl transition-colors">
+                            Volver al catálogo
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!item || fetchStatus === 'not_found') {
+        return (
+            <div className="flex items-center justify-center min-h-[60vh] p-8">
+                <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Book className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No encontrado</h3>
+                    <p className="text-gray-600 mb-8">El curso o programa solicitado no existe o ha sido eliminado.</p>
+                    <Link to="/courses" className="w-full block px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors">
+                        Ir al catálogo
+                    </Link>
                 </div>
             </div>
         );
@@ -173,6 +237,23 @@ export default function CourseDetailPage() {
     const category = (item.category as string) || 'General';
     const certification = (item.certification as string) || '';
 
+    // Webinar specifics
+    const date = (item.date as string) || (item.startDate as string) || '';
+    const time = (item.time as string) || (item.schedule as string) || '';
+    const registrationLink = (item.registrationLink as string) || '';
+
+    // Commercial & details
+    const tools = (item.tools as string[]) || [];
+    const requirements = (item.requirements as string[]) || [];
+    const benefits = (item.benefits as string[]) || [];
+    const faqs = (item.faqs as { question: string; answer: string }[]) || [];
+    const bonuses = (item.bonuses as string[]) || [];
+    const guarantee = (item.guarantee as string) || '';
+    const socialProof = (item.socialProof as string[]) || [];
+    const promotions = (item.promotions as string) || '';
+    const contactInfo = (item.contactInfo as ContactInfo) || null;
+    const attachments = (item.attachments as Attachment[]) || [];
+
     const currentTool = ALL_TOOLS.find(t => t.id === activeTool);
     const htmlContent = currentTool?.visual && content ? extractHtml(content) : null;
 
@@ -180,52 +261,48 @@ export default function CourseDetailPage() {
     const categories = [...new Set(ALL_TOOLS.map(t => t.category))];
 
     return (
-        <div className="page-content" style={{ maxWidth: '1100px', margin: '0 auto' }}>
+        <div className="page-content max-w-6xl mx-auto p-4 md:p-8">
             {/* ====== HEADER ====== */}
-            <div style={{
-                borderRadius: '14px', overflow: 'hidden', marginBottom: '20px',
-                border: '1px solid var(--border)', background: 'var(--bg)'
-            }}>
-                <div style={{
-                    padding: '20px 24px', background: '#f8fafc', borderBottom: '1px solid var(--border)',
-                    display: 'flex', alignItems: 'flex-start', gap: '16px'
-                }}>
-                    <button onClick={() => navigate('/courses')} className="btn btn-ghost btn-sm" style={{ marginTop: '2px' }}>
-                        <ArrowLeft size={16} />
-                    </button>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                            <span style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                padding: '2px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                                background: '#EFF6FF', color: '#3B82F6'
-                            }}>
-                                {typeEmoji} {typeLabel}
-                            </span>
-                            <span style={{
-                                padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                                background: '#F0FDF4', color: '#16A34A'
-                            }}>● Activo</span>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
+                <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-start justify-between gap-6 border-b border-gray-100 bg-gradient-to-br from-white to-gray-50">
+                    <div className="flex items-start gap-4">
+                        <button onClick={() => navigate('/courses')} className="mt-1 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <div className="flex items-center gap-3 mb-3">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                    {typeEmoji} {typeLabel}
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Activo
+                                </span>
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">{itemTitle}</h1>
                         </div>
-                        <h1 style={{ fontSize: '22px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>{itemTitle}</h1>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                        <button onClick={() => navigate(`/courses/edit/${id}`)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-all text-sm font-medium shadow-sm">
+                            <Edit size={16} /> Editar
+                        </button>
+                        <button onClick={() => setShowSalesTest(true)} className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all text-sm font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                            <Play size={16} fill="currentColor" /> Probar Vendedor
+                        </button>
                     </div>
                 </div>
 
                 {/* Stats bar */}
-                <div style={{ display: 'flex', borderTop: '1px solid var(--border)' }}>
+                <div className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-gray-100 bg-white">
                     {[
-                        { icon: <Tag size={12} />, label: category },
-                        { icon: <MapPin size={12} />, label: modality.charAt(0).toUpperCase() + modality.slice(1) },
-                        { icon: <Clock size={12} />, label: duration || '—' },
-                        { icon: <Users size={12} />, label: maxStudents ? `${maxStudents} cupos` : '—' },
-                        { icon: <DollarSign size={12} />, label: price ? `${currency} ${price}` : 'Gratis' },
+                        { icon: <Tag size={16} />, label: category },
+                        { icon: <MapPin size={16} />, label: modality.charAt(0).toUpperCase() + modality.slice(1) },
+                        { icon: <Clock size={16} />, label: itemType === 'webinar' ? `${date} ${time}` : (duration || '—') },
+                        { icon: <Users size={16} />, label: maxStudents ? `${maxStudents} cupos` : '—' },
+                        { icon: <DollarSign size={16} />, label: price ? `${currency} ${price}` : 'Gratis' },
                     ].map((s, i) => (
-                        <div key={i} style={{
-                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
-                            padding: '8px', fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500,
-                            borderRight: i < 4 ? '1px solid var(--border)' : 'none'
-                        }}>
-                            {s.icon} {s.label}
+                        <div key={i} className="flex items-center justify-center gap-2.5 p-4 text-sm font-medium text-gray-600">
+                            {s.icon} <span>{s.label}</span>
                         </div>
                     ))}
                 </div>
@@ -234,96 +311,264 @@ export default function CourseDetailPage() {
             {/* ====== COURSE INFO ====== */}
             {!activeTool && (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {/* Description */}
-                        <div className="card" style={{ padding: '16px' }}>
-                            <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Descripción</h4>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                                {description || <em style={{ color: 'var(--text-muted)' }}>Sin descripción</em>}
+                        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <Book size={16} /> Descripción General
+                            </h4>
+                            <p className="text-gray-600 leading-relaxed">
+                                {description || <em className="text-gray-400">Sin descripción</em>}
                             </p>
                         </div>
 
                         {/* Instructor + cert */}
-                        <div className="card" style={{ padding: '16px' }}>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6">
                             {instructor && (
-                                <div style={{ marginBottom: certification ? '12px' : 0 }}>
-                                    <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Instructor</h4>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{
-                                            width: '32px', height: '32px', borderRadius: '50%', background: '#EFF6FF',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6',
-                                            fontWeight: 700, fontSize: '14px', flexShrink: 0
-                                        }}>
+                                <div>
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                        <Users size={16} /> Instructor
+                                    </h4>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center shrink-0">
                                             {instructor.charAt(0).toUpperCase()}
                                         </div>
-                                        <span style={{ fontWeight: 600, fontSize: '13px' }}>{instructor}</span>
+                                        <span className="font-semibold text-gray-900">{instructor}</span>
                                     </div>
                                 </div>
                             )}
                             {certification && (
                                 <div>
-                                    <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-                                        <Award size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Certificación
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                        <Award size={16} /> Certificación
                                     </h4>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{certification}</p>
+                                    <p className="text-sm text-gray-600">{certification}</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Objectives */}
-                    {objectives.length > 0 && (
-                        <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
-                            <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                                🎯 Objetivos ({objectives.length})
-                            </h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '6px' }}>
-                                {objectives.map((obj, i) => (
-                                    <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, display: 'flex', gap: '6px' }}>
-                                        <span style={{ color: '#16A34A', flexShrink: 0 }}>✓</span>{obj}
+                    {/* Objectives & Tools */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        {objectives.length > 0 && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Sparkles size={16} /> Objetivos del Aprendizaje
+                                </h4>
+                                <ul className="space-y-3">
+                                    {objectives.map((obj, i) => (
+                                        <li key={i} className="flex gap-3 text-sm text-gray-600">
+                                            <div className="mt-0.5 w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                                <Check size={10} strokeWidth={3} />
+                                            </div>
+                                            <span>{obj}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {(tools.length > 0 || requirements.length > 0) && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                {tools.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                            🛠️ Herramientas
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {tools.map((t, i) => (
+                                                <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
+                                                    {t}
+                                                </span>
+                                            ))}
+                                        </div>
                                     </div>
-                                ))}
+                                )}
+                                {requirements.length > 0 && (
+                                    <div>
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                            📋 Requisitos Previos
+                                        </h4>
+                                        <ul className="space-y-2">
+                                            {requirements.map((req, i) => (
+                                                <li key={i} className="flex gap-2 text-sm text-gray-600 items-start">
+                                                    <span className="text-gray-400 mt-0.5">•</span> {req}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Marketing specific fields */}
+                    {(benefits.length > 0 || guarantee || socialProof.length > 0 || promotions || faqs.length > 0) && (
+                        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-sm border border-indigo-100 p-6 mb-6">
+                            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+                                💼 Comercial & Venta
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    {benefits.length > 0 && (
+                                        <div className="mb-6">
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Beneficios Clave</h5>
+                                            <ul className="space-y-2">
+                                                {benefits.map((b, i) => (
+                                                    <li key={i} className="flex gap-2 text-sm text-indigo-800 items-start">
+                                                        <span className="text-indigo-400 mt-0.5">✨</span> {b}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {bonuses.length > 0 && (
+                                        <div className="mb-6">
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Bonos Extra</h5>
+                                            <ul className="space-y-2">
+                                                {bonuses.map((b, i) => (
+                                                    <li key={i} className="flex gap-2 text-sm text-emerald-700 font-medium items-start">
+                                                        <span className="mt-0.5">🎁</span> {b}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                                <div>
+                                    {promotions && (
+                                        <div className="mb-6">
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Promociones Activas</h5>
+                                            <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold">
+                                                <span>🏷️</span> {promotions}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {guarantee && (
+                                        <div className="mb-6">
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Garantía</h5>
+                                            <div className="flex items-center gap-2 text-sm text-indigo-800 bg-white/60 px-3 py-2 rounded-lg border border-indigo-100/50">
+                                                <span>🛡️</span> {guarantee}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {registrationLink && (
+                                        <div className="mb-6">
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Link de Registro</h5>
+                                            <a href={registrationLink} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline break-all">
+                                                {registrationLink}
+                                            </a>
+                                        </div>
+                                    )}
+                                    {faqs.length > 0 && (
+                                        <div>
+                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Preguntas Frecuentes Top</h5>
+                                            <div className="space-y-3">
+                                                {faqs.slice(0, 3).map((f, i) => (
+                                                    <div key={i} className="bg-white/60 p-3 rounded-lg border border-indigo-100/50">
+                                                        <div className="text-xs font-bold text-indigo-900 mb-1">Q: {f.question}</div>
+                                                        <div className="text-xs text-indigo-700">A: {f.answer}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {/* Syllabus */}
                     {syllabus.length > 0 && (
-                        <div className="card" style={{ padding: '16px', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                                onClick={() => setExpandSyllabus(!expandSyllabus)}>
-                                <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
-                                    Temario ({syllabus.length} {typeof syllabus[0] === 'object' && syllabus[0]?.module ? 'módulos' : 'temas'})
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                            <button
+                                onClick={() => setExpandSyllabus(!expandSyllabus)}
+                                className="w-full flex items-center justify-between text-left focus:outline-none group"
+                            >
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                    📚 Temario
+                                    <span className="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-[10px]">
+                                        {syllabus.length} {typeof syllabus[0] === 'object' && syllabus[0]?.module ? 'módulos' : 'temas'}
+                                    </span>
                                 </h4>
-                                {expandSyllabus ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </div>
+                                <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
+                                    {expandSyllabus ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                </div>
+                            </button>
+
                             {expandSyllabus && (
-                                <div style={{ marginTop: '10px' }}>
+                                <div className="mt-6 border-t border-gray-50 pt-4 space-y-4">
                                     {syllabus.map((mod: any, i: number) => (
-                                        <div key={i} style={{ padding: '6px 0', borderBottom: i < syllabus.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                        <div key={i} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                                             {typeof mod === 'object' && mod.module ? (
                                                 <>
-                                                    <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '3px' }}>
-                                                        <span style={{ color: '#3B82F6', marginRight: '6px' }}>M{i + 1}</span>{mod.module}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                                            M{i + 1}
+                                                        </div>
+                                                        <div>
+                                                            <h5 className="text-sm font-bold text-gray-900 mb-2">{mod.module}</h5>
+                                                            {mod.topics && (
+                                                                <ul className="space-y-1.5 pl-2 border-l-2 border-gray-100">
+                                                                    {mod.topics.map((t: string, ti: number) => (
+                                                                        <li key={ti} className="text-sm text-gray-600 pl-3 relative before:absolute before:w-1.5 before:h-1.5 before:bg-gray-300 before:rounded-full before:left-[-4px] before:top-2">
+                                                                            {t}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    {mod.topics && (
-                                                        <ul style={{ margin: '2px 0 0', paddingLeft: '28px' }}>
-                                                            {mod.topics.map((t: string, ti: number) => (
-                                                                <li key={ti} style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '1px' }}>{t}</li>
-                                                            ))}
-                                                        </ul>
-                                                    )}
                                                 </>
                                             ) : (
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                                    <span style={{ color: '#3B82F6', fontWeight: 600, marginRight: '6px' }}>{i + 1}.</span>
-                                                    {typeof mod === 'string' ? mod : mod.title || JSON.stringify(mod)}
+                                                <div className="flex items-start gap-3 text-sm">
+                                                    <span className="text-blue-500 font-bold shrink-0">{i + 1}.</span>
+                                                    <span className="text-gray-700">{typeof mod === 'string' ? mod : mod.title || JSON.stringify(mod)}</span>
                                                 </div>
                                             )}
                                         </div>
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Resources & Attachments */}
+                    {attachments.length > 0 && (
+                        <div className="card" style={{ padding: '16px', marginBottom: '14px' }}>
+                            <h4 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                📎 Recursos ({attachments.length})
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
+                                {attachments.map(att => (
+                                    <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', border: '1px solid var(--border)', borderRadius: '8px', background: '#f8fafc' }}>
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+                                            {att.type === 'pdf' ? <span style={{ color: '#E11D48' }}>P</span> :
+                                                att.type === 'image' ? <span style={{ color: '#3B82F6' }}>I</span> :
+                                                    att.type === 'video' ? <span style={{ color: '#8B5CF6' }}>V</span> :
+                                                        <span style={{ color: '#10B981' }}>L</span>}
+                                        </div>
+                                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</div>
+                                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{att.type.toUpperCase()}{att.size ? ` • ${att.size}` : ''}</div>
+                                        </div>
+                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#3B82F6', cursor: 'pointer' }}>Ver</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Contact Info */}
+                    {contactInfo && (contactInfo.email || contactInfo.phone || contactInfo.whatsapp) && (
+                        <div className="card" style={{ padding: '16px', marginBottom: '20px', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                            <h4 style={{ fontSize: '12px', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                📞 Información de Contacto
+                            </h4>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                {contactInfo.email && <div style={{ fontSize: '12px', color: '#166534', background: 'white', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>📧 {contactInfo.email}</div>}
+                                {contactInfo.phone && <div style={{ fontSize: '12px', color: '#166534', background: 'white', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>📞 {contactInfo.phone}</div>}
+                                {contactInfo.whatsapp && <div style={{ fontSize: '12px', color: '#166534', background: 'white', padding: '4px 8px', borderRadius: '4px', border: '1px solid #bbf7d0' }}>📱 {contactInfo.whatsapp}</div>}
+                            </div>
                         </div>
                     )}
                 </>
@@ -552,6 +797,23 @@ export default function CourseDetailPage() {
                         </div>
                     )}
                 </div>
+            )}
+            {/* ====== SALES PLAYGROUND MODAL ====== */}
+            {showSalesTest && (
+                <SalesPlayground
+                    agent={{
+                        id: 'sales-default',
+                        name: 'Asistente de Ventas',
+                        role: 'Estratega Comercial',
+                        personality: 'enthusiastic',
+                        avatar: '🚀',
+                        tone: 'Persuasivo, empático y enfocado en resultados.',
+                        systemPrompt: 'Tu objetivo es vender este curso. Resalta los beneficios y maneja objeciones.'
+                    } as AiAgent}
+                    courseContext={item}
+                    orgProfile={profile}
+                    onClose={() => setShowSalesTest(false)}
+                />
             )}
         </div>
     );

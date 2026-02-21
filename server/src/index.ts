@@ -12,6 +12,7 @@ import teamsRoutes from './routes/teams.routes.js';
 import agentsRoutes from './routes/agents.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import publicRoutes from './routes/public.routes.js';
+import contactsRoutes from './routes/contacts.routes.js';
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/agents', agentsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/contacts', contactsRoutes);
 
 // ===== 404 Handler =====
 app.use('/api/*path', (_req, res) => {
