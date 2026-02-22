@@ -14,8 +14,8 @@ export const agentService = {
         return api.post<AiAgent>('/agents', data);
     },
 
-    async update(id: string, data: Partial<AiAgent>) {
-        return api.patch<AiAgent>(`/agents/${id}`, data);
+    async update(id: string, data: any) {
+        return api.put<AiAgent>(`/agents/${id}`, data);
     },
 
     async delete(id: string) {

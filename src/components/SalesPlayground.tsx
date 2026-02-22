@@ -21,24 +21,36 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     // Fetch the REAL catalog from the backend so the agent doesn't invent courses
+    const [catalogLoading, setCatalogLoading] = useState(true);
+
+    // Fetch the REAL catalog from the backend so the agent doesn't invent courses
     useEffect(() => {
         // Try to get org slug from profile; fall back to localStorage or default
         const orgSlug = (orgProfile as any)?.slug
             || localStorage.getItem('orgSlug')
             || 'innovation-institute';
+
+        setCatalogLoading(true);
         const url = `${API_CONFIG.BASE_URL}/public/${orgSlug}/catalog`;
+
         fetch(url)
             .then(r => r.json())
-            .then(data => setFullCatalog(data))
-            .catch(err => console.warn('Could not load catalog for agent context:', err));
+            .then(data => {
+                setFullCatalog(data);
+                setCatalogLoading(false);
+            })
+            .catch(err => {
+                console.warn('Could not load catalog for agent context:', err);
+                setCatalogLoading(false);
+            });
     }, [orgProfile]);
 
     useEffect(() => {
         setMessages([{
             role: 'assistant',
-            content: `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Veo que te interesa ${courseContext?.title || 'nuestros cursos'}. ¿En qué puedo ayudarte?`
+            content: `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Veo que te interesa ${courseContext?.title || 'nuestros programas'}. ¿Qué te gustaría saber hoy?`
         }]);
-    }, [agent, courseContext]);
+    }, [agent.name, agent.role]); // Reduced deps to avoid resets
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,9 +123,29 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
 
                 {/* Chat Area */}
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-6">
+                    {/* Catalog Context Indicator */}
+                    <div className="flex justify-center -mt-2 mb-4">
+                        {catalogLoading ? (
+                            <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 flex items-center gap-2 shadow-sm">
+                                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping"></span>
+                                Sincronizando catálogo real...
+                            </span>
+                        ) : fullCatalog?.courses?.length || fullCatalog?.programs?.length || fullCatalog?.webinars?.length ? (
+                            <span className="text-[10px] bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-100 flex items-center gap-1 shadow-sm animate-fade-in">
+                                <CheckCircle size={10} className="text-green-500" />
+                                Agente conectado al catálogo (Grounding OK)
+                            </span>
+                        ) : (
+                            <span className="text-[10px] bg-red-50 text-red-600 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 shadow-sm animate-shake">
+                                <X size={10} />
+                                Catálogo vacío (Peligro de alucinación)
+                            </span>
+                        )}
+                    </div>
+
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative ${msg.role === 'user'
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                            <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative transition-all hover:shadow-md ${msg.role === 'user'
                                 ? 'bg-blue-600 text-white rounded-tr-none'
                                 : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                                 }`}>
@@ -125,19 +157,22 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         </div>
                     ))}
                     {loading && (
-                        <div className="flex justify-start">
-                            <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100 flex gap-1">
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75"></span>
-                                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span>
+                        <div className="flex justify-start animate-fade-in flex-col gap-2">
+                            <span className="text-[10px] text-gray-400 italic ml-2">
+                                {messages.length % 2 === 0 ? "Buscando en el catálogo..." : "Consultando base de datos..."}
+                            </span>
+                            <div className="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-gray-100 flex gap-1 w-fit">
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></span>
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                             </div>
                         </div>
                     )}
 
                     {/* Status Indicators */}
                     {status === 'transferred' && (
-                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
-                            <div className="bg-amber-100 p-2 rounded-full text-amber-600"><Phone size={20} /></div>
+                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 animate-slide-in-up">
+                            <div className="bg-amber-100 p-2 rounded-full text-amber-600 animate-pulse"><Phone size={20} /></div>
                             <div>
                                 <p className="font-bold text-amber-900 text-sm">Transferido a Ventas</p>
                                 <p className="text-xs text-amber-700">El agente ha detectado una oportunidad y está derivando el lead.</p>
@@ -145,8 +180,8 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         </div>
                     )}
                     {status === 'closed' && (
-                        <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
-                            <div className="bg-green-100 p-2 rounded-full text-green-600"><CheckCircle size={20} /></div>
+                        <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex items-center gap-3 animate-slide-in-up">
+                            <div className="bg-green-100 p-2 rounded-full text-green-600 animate-bounce"><CheckCircle size={20} /></div>
                             <div>
                                 <p className="font-bold text-green-900 text-sm">¡Venta Cerrada!</p>
                                 <p className="text-xs text-green-700">El agente ha logrado concretar la inscripción exitosamente.</p>

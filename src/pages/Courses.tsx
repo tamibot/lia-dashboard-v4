@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
-import { Plus, Search, List, Grid, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit } from 'lucide-react';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList } from 'lucide-react';
+import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
+import type { FilterState } from '../components/AdvancedCourseFilters';
 
 // Simple deterministic color from title (pastel)
 function titleColor(title: string): string {
@@ -28,8 +30,15 @@ function statusColor(status: string) {
 export default function CoursesPage() {
     const navigate = useNavigate();
     const [tab, setTab] = useState<'cursos' | 'programas' | 'webinars'>('cursos');
-    const [search, setSearch] = useState('');
     const [view, setView] = useState<'list' | 'grid'>('grid');
+    const [filters, setFilters] = useState<FilterState>({
+        search: '',
+        selectedCategories: [],
+        selectedModalities: [],
+        selectedLocations: [],
+        priceSort: null,
+        hasPromotion: false
+    });
 
     const [cursos, setCursos] = useState<any[]>([]);
     const [programas, setProgramas] = useState<any[]>([]);
@@ -60,16 +69,52 @@ export default function CoursesPage() {
         fetchData();
     }, []);
 
+    const categories = Array.from(new Set([
+        ...cursos.map(c => c.category),
+        ...programas.map(p => p.category),
+        ...webinars.map(w => w.category)
+    ].filter(Boolean)));
+
+    const locations = Array.from(new Set([
+        ...cursos.map(c => c.location),
+        ...programas.map(p => p.location),
+        ...webinars.map(w => w.location)
+    ].filter(Boolean)));
+
     const getFilteredItems = () => {
         let items: any[] = [];
         if (tab === 'cursos') items = cursos.map(i => ({ ...i, _type: 'curso' }));
         if (tab === 'programas') items = programas.map(i => ({ ...i, _type: 'programa' }));
         if (tab === 'webinars') items = webinars.map(i => ({ ...i, _type: 'webinar' }));
 
-        return items.filter(i =>
-            (i.title || '').toLowerCase().includes(search.toLowerCase()) ||
-            (i.category && i.category.toLowerCase().includes(search.toLowerCase()))
-        );
+        let filtered = items.filter(i => {
+            const matchesSearch = !filters.search ||
+                (i.title || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+                (i.code || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+                (i.description || '').toLowerCase().includes(filters.search.toLowerCase());
+
+            const matchesCategory = filters.selectedCategories.length === 0 ||
+                filters.selectedCategories.includes(i.category);
+
+            const matchesModality = filters.selectedModalities.length === 0 ||
+                filters.selectedModalities.includes(i.modality?.toLowerCase());
+
+            const matchesLocation = filters.selectedLocations.length === 0 ||
+                filters.selectedLocations.includes(i.location);
+
+            const matchesPromotion = !filters.hasPromotion || !!i.promotions;
+
+            return matchesSearch && matchesCategory && matchesModality && matchesLocation && matchesPromotion;
+        });
+
+        if (filters.priceSort) {
+            filtered.sort((a, b) => {
+                if (filters.priceSort === 'asc') return a.price - b.price;
+                return b.price - a.price;
+            });
+        }
+
+        return filtered;
     };
 
     const filteredItems = getFilteredItems();
@@ -104,6 +149,12 @@ export default function CoursesPage() {
                 </div>
             )}
 
+            <AdvancedCourseFilters
+                onFilterChange={setFilters}
+                categories={categories}
+                locations={locations}
+            />
+
             <div className="tabs mb-6" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '4px' }}>
                     {([
@@ -123,13 +174,21 @@ export default function CoursesPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <div className="search-box" style={{ position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input type="text" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '30px' }} />
-                    </div>
-                    <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px' }}>
-                        <button className={`btn-icon ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}><List size={16} /></button>
-                        <button className={`btn-icon ${view === 'grid' ? 'active' : ''}`} onClick={() => setView('grid')}><Grid size={16} /></button>
+                    <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '10px', background: 'white', overflow: 'hidden' }}>
+                        <button
+                            className={`btn-icon ${view === 'list' ? 'active' : ''}`}
+                            onClick={() => setView('list')}
+                            style={{ padding: '8px 12px', border: 'none', background: view === 'list' ? 'var(--bg-subtle)' : 'transparent', color: view === 'list' ? 'var(--brand)' : 'var(--text-muted)' }}
+                        >
+                            <LayoutList size={18} />
+                        </button>
+                        <button
+                            className={`btn-icon ${view === 'grid' ? 'active' : ''}`}
+                            onClick={() => setView('grid')}
+                            style={{ padding: '8px 12px', border: 'none', background: view === 'grid' ? 'var(--bg-subtle)' : 'transparent', color: view === 'grid' ? 'var(--brand)' : 'var(--text-muted)' }}
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -139,7 +198,7 @@ export default function CoursesPage() {
                     <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
                     <h3>No hay registros</h3>
                     <p style={{ margin: '8px 0 16px' }}>
-                        {search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${tab === 'cursos' ? 'cursos' : tab === 'programas' ? 'programas' : 'webinars'}.`}
+                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${tab === 'cursos' ? 'cursos' : tab === 'programas' ? 'programas' : 'webinars'}.`}
                     </p>
                     <button className="btn btn-primary" onClick={() => navigate('/courses/upload')}>
                         <Plus size={16} /> Crear {tab === 'cursos' ? 'Curso' : tab === 'programas' ? 'Programa' : 'Webinar'}

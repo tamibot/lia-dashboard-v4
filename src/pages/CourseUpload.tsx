@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
     Upload, FileText, Check, Loader, Wand2,
     BookOpen, DollarSign, Layout, Video,
-    MessageSquare, Send, Paperclip, X, File, Link as LinkIcon
+    MessageSquare, Send, Paperclip, X, File, Link as LinkIcon, Sparkles
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from '../lib/gemini';
@@ -293,10 +293,25 @@ export default function CourseUpload() {
         try {
             setStatus('analyzing');
 
+            // Strip UI-only fields NOT in Prisma schema
+            // Strip UI-only and read-only fields NOT in Prisma schema
+            const { missing, contactInfo, updatedAt, createdAt, id: _id, orgId: _orgId, ...cleanData } = data as any;
+
             const payload = {
-                ...data,
-                status: 'borrador', // Default status for new/edited courses
-                updatedAt: new Date().toISOString()
+                ...cleanData,
+                price: parseFloat(cleanData.price) || 0,
+                status: 'borrador',
+                // Ensure arrays are never null
+                objectives: cleanData.objectives || [],
+                requirements: cleanData.requirements || [],
+                benefits: cleanData.benefits || [],
+                painPoints: cleanData.painPoints || [],
+                socialProof: cleanData.socialProof || [],
+                bonuses: cleanData.bonuses || [],
+                tags: cleanData.tags || [],
+                tools: cleanData.tools || [],
+                faqs: cleanData.faqs || [],
+                syllabus: cleanData.syllabus || [],
             };
 
             if (id) {
@@ -796,5 +811,3 @@ export default function CourseUpload() {
     );
 }
 
-// Icon helper
-import { Sparkles } from 'lucide-react';

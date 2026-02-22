@@ -1,22 +1,15 @@
 import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import { settingsService } from './services/settings.service';
+import type { AiAgent, OrgProfile } from './types';
 
 // === Gemini Client ===
 let genAI: GoogleGenAI | null = null;
+let currentApiKey: string | null = null;
 const DEFAULT_GEMINI_KEY = 'AIzaSyAIs0JPwtbhEE34-ByvKxDZ2PgAVGU1EhI';
 
 /**
  * Gemini model fallback chain — ordered by availability and free tier limits:
- * 
- * | Model              | Free RPM | Free RPD | Best For              |
- * |--------------------|----------|----------|-----------------------|
- * | gemini-2.5-flash-lite | 15    | 1,000   | Validation, bulk      |
- * | gemini-2.5-flash      | 10    | 250     | General purpose       |
- * | gemini-2.0-flash      | 15    | 1,500   | Legacy fallback       |
- * 
- * Rate limits are PER PROJECT (not per key) and reset at midnight PT.
- * Strategy: Start with flash-lite (highest RPD), then escalate.
  */
 const GEMINI_MODELS = [
     'gemini-2.5-flash-lite',  // Fastest, highest free limits
@@ -26,11 +19,20 @@ const GEMINI_MODELS = [
 
 function getClient(): GoogleGenAI {
     const key = settingsService.getGeminiKeySync() || DEFAULT_GEMINI_KEY;
-    if (!genAI) genAI = new GoogleGenAI({ apiKey: key });
+
+    // Re-initialize if key changed or first time
+    if (!genAI || key !== currentApiKey) {
+        console.log('Initializing Gemini client with key:', key.substring(0, 10) + '...');
+        genAI = new GoogleGenAI({ apiKey: key });
+        currentApiKey = key;
+    }
     return genAI;
 }
 
-export function resetClient(): void { genAI = null; }
+export function resetClient(): void {
+    genAI = null;
+    currentApiKey = null;
+}
 
 // === Validation Functions ===
 
@@ -527,13 +529,57 @@ const PROMPTS = {
     - Si el texto no menciona colores específicos, SUGIERE una paleta profesional basada en la personalidad descrita.
     - Si no menciona fuentes, SUGIERE combinaciones modernas (ej: Inter/Roboto, Playfair/Lato).
     - El "tone" debe ser uno de los 4 valores permitidos.
-    - Responde SOLO con el JSON.`
+    - Responde SOLO con el JSON.`,
+
+    SQL_CATALOG_QUERY: `Actúa como un experto en SQL para PostgreSQL. Tu tarea es generar la consulta SQL que filtre la tabla \`public.catalog\` basándote en la solicitud del usuario.
+
+TABLA: \`public.catalog\`
+COLUMNAS DISPONIBLES:
+- code (string): Código único (ej: CRS-AI-001)
+- title (string): Nombre del programa
+- category (string): Área (IA, Marketing, Ventas, Finanzas, Liderazgo)
+- price (number): Costo
+- modality (string): 'online', 'presencial', 'hibrido'
+- location (string): Sede (ej: 'Virtual', 'Sede Central', 'Sede Miraflores')
+- instructor (string): Nombre del experto
+- duration (string): Duración (ej: '20 horas', '6 meses')
+- startDate (string): Fecha de inicio (YYYY-MM-DD)
+- hasPromotion (boolean): Indica si tiene descuento activo
+- tags (string[]): Etiquetas
+
+REGLAS DE SALIDA:
+1. Responde UNICAMENTE con la consulta SQL.
+2. Usa LIKE para búsquedas de texto: title LIKE '%IA%'
+3. Para categorías usa: category = 'Marketing'
+4. Para promociones usa: hasPromotion = true
+5. Para sedes usa: location LIKE '%Miraflores%'
+6. Para ordenamiento usa: ORDER BY price ASC | DESC
+7. Combina con AND / OR según la lógica del usuario.
+8. Si el usuario no pide nada específico, usa: SELECT * FROM public.catalog
+9. NO incluyas markdown (\`\`\`), solo el texto plano de la consulta.
+    `
 };
 
 
 // Helper to strip Markdown code blocks
-function cleanJson(text: string): string {
-    return text.replace(/```json\n?|\n?```/g, '').trim();
+function cleanJson(text: string): any {
+    try {
+        // Try to find the first '{' and last '}'
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+
+        if (start === -1 || end === -1) {
+            // Fallback to simple replace if no braces found
+            const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+            return JSON.parse(cleaned);
+        }
+
+        const jsonStr = text.substring(start, end + 1);
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.error('Error parsing JSON from Gemini:', e, text);
+        return null;
+    }
 }
 
 export async function analyzeCourseData(data: Record<string, unknown>, type: 'curso' | 'programa' | 'webinar'): Promise<string> {
@@ -596,7 +642,7 @@ export async function analyzeFileContent(content: string, fileName: string, type
 }
 
 // AI Chat Agent
-export async function completeField(courseContext: string, userQuestion: string): Promise<string> {
+export async function completeField(courseContext: string, userQuestion: string): Promise<any> {
     const res = await ask(
         `CONTEXTO DEL CURSO:\n${courseContext}\n\nPREGUNTA/INSTRUCCIÓN DEL USUARIO: ${userQuestion}`,
         PROMPTS.COMPLETE_FIELD
@@ -696,8 +742,76 @@ export async function refineContent(originalContent: string, userInstruction: st
     return ask(prompt, 'Eres un editor de contenido experto y obediente. Tu única misión es ajustar el texto según lo pedido. Si el contenido es HTML, devuelve HTML válido. Si es Markdown, devuelve Markdown.');
 }
 
-// === Agent Simulation ===
-import type { AiAgent, OrgProfile } from './types';
+// === Helper for SQL Filtering (Simulated) ===
+function filterCatalogItems(catalog: any[], sql: string): any[] {
+    console.log('[Grounding] Executing simulated SQL:', sql);
+    if (!sql || (sql.includes('SELECT * FROM public.catalog') && !sql.includes('WHERE') && !sql.includes('ORDER BY'))) return catalog;
+
+    try {
+        const whereMatch = sql.match(/WHERE\s+(.*?)(?:\s+ORDER BY|$)/i);
+        const whereClause = whereMatch ? whereMatch[1].trim() : '';
+
+        let filtered = catalog;
+
+        if (whereClause) {
+            filtered = catalog.filter(item => {
+                // Split by AND (basic version)
+                const terms = whereClause.split(/\s+AND\s+/i);
+                return terms.every(term => {
+                    // LIKE case
+                    const likeMatch = term.match(/(\w+)\s+LIKE\s+'%?(.+?)%?'/i);
+                    if (likeMatch) {
+                        const [, field, val] = likeMatch;
+                        const itemVal = String(item[field] || '').toLowerCase();
+                        return itemVal.includes(val.toLowerCase());
+                    }
+
+                    // Equality case
+                    const eqMatch = term.match(/(\w+)\s*=\s*['"]?(.+?)['"]?/i);
+                    if (eqMatch) {
+                        const [, field, val] = eqMatch;
+                        if (field === 'hasPromotion') {
+                            return val === 'true' ? !!item.promotions : !item.promotions;
+                        }
+                        return String(item[field] || '').toLowerCase() === val.toLowerCase();
+                    }
+
+                    // Comparison case
+                    const compMatch = term.match(/(\w+)\s*([<>]=?)\s*(\d+)/);
+                    if (compMatch) {
+                        const [, field, op, val] = compMatch;
+                        const itemVal = Number(item[field]);
+                        const numVal = Number(val);
+                        if (op === '>') return itemVal > numVal;
+                        if (op === '>=') return itemVal >= numVal;
+                        if (op === '<') return itemVal < numVal;
+                        if (op === '<=') return itemVal <= numVal;
+                    }
+                    return true;
+                });
+            });
+        }
+
+        // Handle ORDER BY
+        const orderMatch = sql.match(/ORDER BY\s+(\w+)\s+(ASC|DESC)/i);
+        if (orderMatch) {
+            const [, field, direction] = orderMatch;
+            filtered.sort((a, b) => {
+                const valA = a[field];
+                const valB = b[field];
+                if (direction.toUpperCase() === 'DESC') {
+                    return valB - valA;
+                }
+                return valA - valB;
+            });
+        }
+
+        return filtered;
+    } catch (e) {
+        console.warn('Error filtering catalog with simulated SQL:', e);
+        return catalog;
+    }
+}
 
 export async function chatWithAgent(
     agent: AiAgent,
@@ -708,15 +822,43 @@ export async function chatWithAgent(
     fullCatalog?: { courses?: any[], programs?: any[], webinars?: any[] } | null,
 ): Promise<string> {
 
+    // PRE-STEP: Grounding Query Generation
+    let filteredCatalog = fullCatalog;
+    try {
+        const sqlQuery = await ask(
+            `MENSAJE DEL USUARIO: ${userMsg}`,
+            PROMPTS.SQL_CATALOG_QUERY
+        );
+        console.log('AI generated grounding query:', sqlQuery);
+
+        if (fullCatalog) {
+            const allItems = [
+                ...(fullCatalog.courses || []).map(c => ({ ...c, itemType: 'curso' })),
+                ...(fullCatalog.programs || []).map(p => ({ ...p, itemType: 'programa' })),
+                ...(fullCatalog.webinars || []).map(w => ({ ...w, itemType: 'webinar' }))
+            ];
+
+            const results = filterCatalogItems(allItems, sqlQuery);
+            filteredCatalog = {
+                courses: results.filter(r => r.itemType === 'curso'),
+                programs: results.filter(r => r.itemType === 'programa'),
+                webinars: results.filter(r => r.itemType === 'webinar')
+            };
+            console.log(`Grounding results: ${results.length} items matched.`);
+        }
+    } catch (e) {
+        console.warn('Grounding query step failed, using full catalog as fallback.', e);
+    }
+
     // === Build the verified catalog block ===
     const catalogBlock = (() => {
-        if (!fullCatalog) return 'No hay catálogo disponible.';
+        if (!filteredCatalog) return 'No hay catálogo disponible.';
 
         const sections: string[] = [];
 
-        if (fullCatalog.courses?.length) {
+        if (filteredCatalog.courses?.length) {
             sections.push('=== CURSOS DISPONIBLES ===');
-            fullCatalog.courses.forEach((c: any) => {
+            filteredCatalog.courses.forEach((c: any) => {
                 sections.push(
                     `• [${c.code || ''}] ${c.title} | ${c.modality || 'online'} | ${c.duration || ''} | ${c.currency || 'USD'} ${c.price || 0} | Instructor: ${c.instructor || 'N/A'}` +
                     (c.description ? `\n  Descripción: ${c.description.slice(0, 120)}...` : '')
@@ -724,25 +866,25 @@ export async function chatWithAgent(
             });
         }
 
-        if (fullCatalog.programs?.length) {
+        if (filteredCatalog.programs?.length) {
             sections.push('\n=== PROGRAMAS / DIPLOMADOS ===');
-            fullCatalog.programs.forEach((p: any) => {
+            filteredCatalog.programs.forEach((p: any) => {
                 sections.push(
                     `• [${p.code || ''}] ${p.title} | ${p.totalDuration || ''} | ${p.currency || 'USD'} ${p.price || 0}`
                 );
             });
         }
 
-        if (fullCatalog.webinars?.length) {
+        if (filteredCatalog.webinars?.length) {
             sections.push('\n=== WEBINARS / MASTERCLASSES ===');
-            fullCatalog.webinars.forEach((w: any) => {
+            filteredCatalog.webinars.forEach((w: any) => {
                 sections.push(
                     `• ${w.title} | ${w.speaker || ''} | ${w.date || 'Próximamente'} | ${w.price === 0 ? 'GRATIS' : `${w.currency} ${w.price}`}`
                 );
             });
         }
 
-        return sections.join('\n') || 'Catálogo vacío.';
+        return sections.join('\n') || 'Catálogo vacío (Ningún curso coincide con la búsqueda).';
     })();
 
     // === Focused course being sold (if any) ===
@@ -767,8 +909,8 @@ INFORMACIÓN DE LA INSTITUCIÓN:
 Nombre: ${orgProfile.name}
 Ubicación: ${orgProfile.location || 'No especificado'}
 Correo de contacto: ${orgProfile.contactEmail || 'No especificado'}
-Sedes: ${orgProfile.locations ? orgProfile.locations.map(l => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes registradas'}
-Horarios: ${orgProfile.operatingHours ? orgProfile.operatingHours.map(h => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
+Sedes: ${orgProfile.locations ? orgProfile.locations.map((l: any) => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes registradas'}
+Horarios: ${orgProfile.operatingHours ? orgProfile.operatingHours.map((h: any) => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
     ` : '';
 
     const systemPrompt = `Eres un agente de ventas educativas de élite. Tu identidad:
@@ -781,30 +923,25 @@ TONO: ${agent.tone || 'Cálido y persuasivo'}
 🔴 REGLAS ABSOLUTAS — NUNCA ROMPER ESTAS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. JAMÁS inventes ni menciones un curso, programa o webinar que NO aparezca en el catálogo real proporcionado abajo.
-2. Si alguien pregunta por un tema que no está en el catálogo, dile cuál es el curso MÁS CERCANO que sí tienes.
-3. Todos los precios, fechas, instructores y detalles que menciones DEBEN venir exactamente del catálogo.
-4. Nunca menciones modelos de IA ni digas que eres una IA a menos que el usuario lo pregunte directamente.
-5. Mantén respuestas concisas: máximo 4 párrafos.
+2. SI EL CATÁLOGO DICE "Catálogo vacío (Ningún curso coincide con la búsqueda)", DEBES informar al usuario que no tienes cursos que coincidan con esos criterios específicos y ofrecerle ver el catálogo general o preguntar por otro tema.
+3. Siempre basa tus respuestas en la información de:
+   - "INFORMACIÓN DE LA INSTITUCIÓN"
+   - "CATÁLOGO DE PRODUCTOS DISPONIBLES"
+   - "CURSO PRINCIPAL QUE ESTÁS VENDIENDO HOY" (si aplica)
+4. Si alguien pide hablar con un humano o agendar llamada → di exactamente: "Te paso con el equipo de ventas para coordinar los detalles finales."
+5. Si el usuario quiere comprar/inscribirse → di exactamente: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 REGLAS DE CIERRE (usa estas frases exactas):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Si el usuario quiere comprar/inscribirse → di exactamente: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
-• Si pide hablar con un humano o agendar llamada → di exactamente: "Te paso con el equipo de ventas para coordinar los detalles finales."
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📚 CATÁLOGO REAL DE LA INSTITUCIÓN (FUENTE ÚNICA DE VERDAD):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CATÁLOGO DE PRODUCTOS DISPONIBLES (FILTRADO):
 ${catalogBlock}
 
-${courseInfo}
 ${orgInfo}
+${courseInfo}
 
-INSTRUCCIONES ADICIONALES DEL AGENTE:
-${agent.systemPrompt || 'Sé empático, resuelve objeciones con datos reales del catálogo, y guía hacia el cierre.'}
-`;
+HISTORIAL DE CONVERSACIÓN:
+${history.map(h => `${h.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${h.content}`).join('\n')}
 
-    const context = history.map(m => `${m.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${m.content}`).join('\n');
-    return ask(`HISTORIAL DE CONVERSACIÓN:\n${context}\n\nUSUARIO: ${userMsg}`, systemPrompt);
+INSTRUCCIÓN FINAL: Responde al usuario de forma natural, pero siempre apegado a la verdad del catálogo. Si no encuentras algo, ofrece la alternativa más cercana que SÍ esté en el catálogo.`;
+
+    return ask(userMsg, systemPrompt);
 }
 

@@ -7,6 +7,6 @@ export const profileService = {
     },
 
     async update(data: Partial<OrgProfile>) {
-        return api.patch<OrgProfile>('/profile', data);
+        return api.put<OrgProfile>('/profile', data);
     }
 };

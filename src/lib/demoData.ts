@@ -57,6 +57,7 @@ export const demoProfile: OrgProfile = {
 export const demoCursos: CursoLibre[] = [
     {
         id: 'c1',
+        code: 'CRS-AI-001',
         title: 'Productividad Extrema con IA y ChatGPT',
         description: 'Domina la IA generativa para ahorrar hasta 15 horas a la semana. Aprende prompting avanzado, automatización de correos, análisis de datos rápido y creación de contenido a escala.',
         objectives: ['Dominar estructuras de prompting avanzado', 'Automatizar tareas repetitivas de oficina', 'Crear contenido 10x más rápido', 'Analizar hojas de cálculo con IA'],
@@ -99,6 +100,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c2',
+        code: 'CRS-MKT-001',
         title: 'Growth Marketing Acelerado: Embudos de Venta con IA',
         description: 'Construye embudos de venta que convierten al 15% automatizando la captación, nutrición y cierre de leads utilizando herramientas de inteligencia artificial y automatización sin código.',
         objectives: ['Diseñar embudos de alta conversión', 'Implementar flujos automatizados en n8n', 'Crear copys persuasivos con IA', 'Medir y optimizar campañas de performance'],
@@ -141,6 +143,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c3',
+        code: 'CRS-BUS-001',
         title: 'Finanzas para No Financieros en la Era Digital',
         description: 'Entiende y domina los números de tu negocio usando simuladores financieros e IA. Aprende a leer estados financieros, proyectar flujo de caja y tomar decisiones rentables sin ser contador.',
         objectives: ['Leer y analizar estados de resultados', 'Proyectar flujos de caja a 12 meses', 'Identificar cuellos de botella en la rentabilidad', 'Usar IA para auditar finanzas'],
@@ -184,13 +187,15 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c4',
+        code: 'CRS-MGT-001',
         title: 'Liderazgo Ágil y Gestión de Equipos Remotos',
         description: 'Domina las metodologías ágiles (Scrum, Kanban) y desarrolla habilidades blandas para liderar equipos distribuidos internacionalmente con alta motivación y rendimiento.',
         objectives: ['Implementar ceremonias ágiles efectivas', 'Medir el performance sin micro-management', 'Crear una cultura de confianza a distancia', 'Manejar conflictos transculturales'],
-        targetAudience: 'Scrum Masters, Project Managers, Team Leads y Directores de RRHH.',
+        targetAudience: 'Content Managers, Social Media Specialists y creativos.',
         modality: 'online',
-        startDate: '2024-05-20',
-        duration: '5 semanas',
+        location: 'Virtual',
+        startDate: '2024-05-10',
+        duration: '3 semanas',
         hours: 25,
         price: 149,
         currency: 'USD',
@@ -226,13 +231,15 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c5',
+        code: 'CRS-SAL-001',
         title: 'Ventas B2B High-Ticket: Negociación Avanzada',
         description: 'Multiplica tus cierres de contratos empresariales (>$10k USD). Aprende técnicas de cualificación profunda, superación de objeciones corporativas y mapeo de tomadores de decisión.',
         objectives: ['Acortar el ciclo de venta B2B', 'Mapear cuentas corporativas complejas (ABM)', 'Manejar comités de compra', 'Técnicas de negociación Harvard'],
-        targetAudience: 'Ejecutivos de cuenta, SDRs Senior, Founders B2B y Directores Comerciales.',
+        targetAudience: 'Vendedores y directores comerciales.',
         modality: 'hibrido',
-        startDate: '2024-06-05',
-        duration: '8 semanas',
+        location: 'Sede Miraflores',
+        startDate: '2024-05-05',
+        duration: '4 semanas',
         hours: 40,
         price: 499,
         currency: 'USD',
@@ -269,6 +276,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c6',
+        code: 'CRS-SOFT-001',
         title: 'Data Storytelling: Presentaciones de Impacto',
         description: 'Deja de mostrar dashboards aburridos. Aprende a convertir datos complejos en narrativas visuales que influyan en la toma de decisiones del directorio de tu empresa.',
         objectives: ['Limpiar ruido visual en gráficos', 'Estructurar una narrativa de negocios', 'Diseñar diapositivas tipo McKinsey', 'Hablar en público frente a C-Levels'],
@@ -310,13 +318,15 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c7',
+        code: 'CRS-UIX-001',
         title: 'Diseño de Interfaces (UI/UX) con Inteligencia Artificial',
         description: 'Aprende a diseñar productos digitales de clase mundial utilizando herramientas de IA generativa. Desde la investigación de usuarios hasta prototipos de alta fidelidad, descubre cómo la IA puede acelerar tu flujo creativo y mejorar la conversión.',
         objectives: ['Dominar Figma con plugins de IA', 'Generar assets visuales consistentes con Midjourney', 'Realizar auditorías de usabilidad asistidas por IA', 'Diseñar sistemas de diseño escalables'],
-        targetAudience: 'Diseñadores UI/UX, diseñadores gráficos, Product Designers y emprendedores digitales.',
-        modality: 'online',
-        startDate: '2024-06-15',
-        duration: '6 semanas',
+        targetAudience: 'Dueños de negocio y administradores.',
+        modality: 'presencial',
+        location: 'Sede San Isidro',
+        startDate: '2024-06-01',
+        duration: '2 semanas',
         hours: 30,
         price: 249,
         currency: 'USD',
@@ -345,6 +355,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c8',
+        code: 'CRS-SAL-002',
         title: 'Automatización de Ventas B2B con Agentes de IA',
         description: 'Transforma tu departamento comercial en una máquina de prospección y cierre 24/7. Aprende a clonar a tus mejores vendedores usando agentes inteligentes que califican y agendan llamadas por ti.',
         objectives: ['Implementar agentes de ventas en WhatsApp y Web', 'Automatizar la prospección en LinkedIn', 'Crear flujos de seguimiento hiper-personalizados', 'Integrar IA con tu CRM actual (HubSpot/Salesforce)'],
@@ -380,6 +391,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c9',
+        code: 'CRS-SOFT-002',
         title: 'Liderazgo Persuasivo para Introvertidos en Tecnología',
         description: '¿Eres un experto técnico pero te cuesta influir en las decisiones o liderar equipos? Desarrolla tu carisma desde tu autenticidad. Aprende a comunicar ideas complejas con seguridad y a navegar la política organizacional sin estrés.',
         objectives: ['Comunicar con impacto en reuniones técnicas y de negocio', 'Gestionar equipos de alto rendimiento con empatía', 'Negociar recursos y plazos efectivamente', 'Construir una marca personal como referente técnico'],
@@ -415,6 +427,7 @@ export const demoCursos: CursoLibre[] = [
     },
     {
         id: 'c10',
+        code: 'CRS-MGT-002',
         title: 'Gestión de Proyectos Técnicos para No-Tecnológicos',
         description: '¿Trabajas con programadores y sientes que hablan otro idioma? Cierra la brecha. Aprende a gestionar proyectos de software, entender estimaciones y plazos, y asegurar entregas de calidad sin necesidad de saber programar.',
         objectives: ['Entender el ciclo de vida de desarrollo (SDLC)', 'Hablar el idioma de los desarrolladores (Frontend, Backend, APIs)', 'Gestionar expectativas de stakeholders', 'Usar herramientas ágiles (Jira/Asana) profesionalmente'],
@@ -453,13 +466,15 @@ export const demoCursos: CursoLibre[] = [
 export const demoProgramas: Programa[] = [
     {
         id: 'p1',
+        code: 'PRO-AI-001',
         title: 'Diplomado Ejecutivo en Inteligencia Artificial para Negocios',
         description: 'Conviértete en el líder que guía la transformación de IA en tu empresa. Aprende a identificar oportunidades, mitigar riesgos e implementar agentes y automatizaciones sin escribir código.',
         objectives: ['Diseñar una estrategia de IA corporativa', 'Manejar la ética y regulación de datos', 'Implementar flujos de trabajo con agentes AI', 'Calcular el ROI de proyectos de IA'],
-        targetAudience: 'Directores de Innovación, Gerentes Generales, Consultores Estratégicos y Dueños de Negocios.',
+        targetAudience: 'Directores de Transformación Digital, CTOs, CEOs y Emprendedores.',
         modality: 'hibrido',
-        startDate: '2024-06-01',
-        totalDuration: '4 meses',
+        location: 'Sede Central',
+        startDate: '2024-08-15',
+        totalDuration: '6 meses',
         totalHours: 120,
         courses: [
             { id: 'm1', order: 1, title: 'Estrategia y Liderazgo en la Era de la IA', hours: 20 },
@@ -495,6 +510,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p2',
+        code: 'PRO-DEV-001',
         title: 'Bootcamp Full-Stack Developer con IA',
         description: 'Acelera tu carrera como desarrollador. Construye aplicaciones web completas en tiempo récord utilizando asistentes de código como GitHub Copilot y Cursor. Domina React, Node.js y bases de datos.',
         objectives: ['Construir SPAs con React y TailwindCSS', 'Desarrollar APIs REST con Node.js y Express', 'Desplegar aplicaciones en AWS/Vercel', 'Integrar LLMs en tus aplicaciones vía API'],
@@ -536,6 +552,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p3',
+        code: 'PRO-MGT-001',
         title: 'Máster en Product Management',
         description: 'Lidera la creación de productos digitales que los usuarios amen y que generen rentabilidad. Domina el ciclo de vida completo: desde el descubrimiento (Discovery) hasta el lanzamiento (Go-To-Market) y la iteración basada en métricas.',
         objectives: ['Definir la visión y estrategia del producto', 'Liderar equipos de ingeniería y diseño (sin ser jefe directo)', 'Escribir PRDs efectivos', 'Dominar métricas de retención, engagement y monetización'],
@@ -569,6 +586,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p4',
+        code: 'PRO-SEC-001',
         title: 'Certificación Avanzada en Ciberseguridad Defensiva',
         description: 'Protege la infraestructura crítica de grandes corporaciones. Aprende Blue Teaming, Threat Hunting, Respuesta a Incidentes e implementa arquitecturas Zero Trust en entornos Cloud.',
         objectives: ['Auditar infraestructuras AWS/Azure', 'Implementar SOC/SIEM', 'Desarrollar planes de respuesta a ransomware', 'Threat hunting proactivo'],
@@ -609,6 +627,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p5',
+        code: 'PRO-UIX-001',
         title: 'Especialización en Diseño UX/UI Estratégico',
         description: 'Transforma problemas de negocio en interfaces hermosas, accesibles y de alta conversión. Domina Figma avanzado, sistemas de diseño y procesos de investigación (Research) profunda.',
         objectives: ['Crear Sistemas de Diseño escalables', 'Ejecutar pruebas de usabilidad', 'Mapear Customer Journeys', 'Dominar prototipado avanzado en Figma'],
@@ -648,7 +667,8 @@ export const demoProgramas: Programa[] = [
         bonuses: ['Masterclass de IA para diseñadores (Midjourney + UI Generativa)']
     },
     {
-        id: 'p5',
+        id: 'p11',
+        code: 'PRO-BUS-001',
         title: 'Master en Transformación Digital y Dirección de IA',
         description: 'El programa más completo para liderar la evolución tecnológica de organizaciones enteras. Combina visión estratégica, gestión del cambio y dominio técnico de vanguardia.',
         objectives: ['Liderar procesos de digitalización a escala', 'Gestionar presupuestos de innovación millonarios', 'Estructurar departamentos de IA y Datos', 'Definir el roadmap tecnológico a 5 años'],
@@ -684,6 +704,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p6',
+        code: 'PRO-OPS-001',
         title: 'Especialista en Operaciones No-Code (No-Code Ops)',
         description: 'Aprende a construir el "sistema operativo" de cualquier empresa sin escribir una sola línea de código. Conecta herramientas, automatiza flujos y crea dashboards de control inteligentes.',
         objectives: ['Dominar Make (Integromat) y Zapier a nivel experto', 'Construir intranets y CRMs personalizados con Notion y Airtable', 'Crear flujos de aprobación y portales de cliente No-Code', 'Reducir costes operativos eliminando tareas manuales'],
@@ -718,6 +739,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p7',
+        code: 'PRO-DATA-001',
         title: 'Bootcamp de Análisis de Datos y Visualización Estratégica',
         description: 'Pasa de los datos a las decisiones. Aprende a recolectar, limpiar y analizar información para contar historias que impulsen el crecimiento del negocio.',
         objectives: ['Dominar SQL para extracción de datos', 'Realizar análisis estadístico descriptivo y predictivo', 'Crear visualizaciones impactantes con PowerBI o Tableau', 'Traducir hallazgos técnicos en recomendaciones de negocio'],
@@ -752,6 +774,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p8',
+        code: 'PRO-MKT-001',
         title: 'Especialista en IA Generativa para Marketing',
         description: 'Domina las herramientas que están redefiniendo el marketing digital. Aprende a generar contenido, segmentar audiencias y optimizar campañas usando modelos de lenguaje y visión por computadora.',
         objectives: ['Crear estrategias de contenido 100% asistidas por IA', 'Generar imágenes y videos publicitarios realistas', 'Personalización de emails a escala con LLMs', 'Análisis de sentimiento y tendencias en tiempo real'],
@@ -786,6 +809,7 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p9',
+        code: 'PRO-SOFT-001',
         title: 'Liderazgo Digital y Gestión de Equipos Remotos',
         description: 'Desarrolla las competencias necesarias para dirigir organizaciones en la era de la ubicuidad. Aprende a mantener la cultura, la productividad y el compromiso sin importar la distancia física.',
         objectives: ['Implementar metodologías de trabajo asíncrono', 'Construir confianza y cultura en entornos virtuales', 'Dominar herramientas de colaboración remota', 'Gestionar el rendimiento por resultados (no por horas)'],
@@ -820,13 +844,15 @@ export const demoProgramas: Programa[] = [
     },
     {
         id: 'p10',
+        code: 'PRO-FIN-001',
         title: 'Finanzas para Emprendedores y Líderes No-Financieros',
         description: 'Toma el control de los números de tu negocio. Aprende a leer estados financieros, proyectar flujo de caja y tomar decisiones basadas en rentabilidad real, no solo en ventas.',
         objectives: ['Entender el P&L, Balance General y Cash Flow', 'Realizar proyecciones financieras realistas', 'Determinar el punto de equilibrio y márgenes de ganancia', 'Preparar la empresa para búsqueda de inversión o préstamos'],
-        targetAudience: 'Emprendedores, Founders, Gerentes de Área y Dueños de Pequeñas Empresas.',
+        targetAudience: 'Emprendedores, Gerentes de Marketing y dueños de negocio.',
         modality: 'online',
-        startDate: '2024-10-20',
-        totalDuration: '3 meses',
+        location: 'Virtual',
+        startDate: '2024-04-15',
+        totalDuration: '4 semanas',
         totalHours: 45,
         courses: [
             { id: 'fc1', order: 1, title: 'Fundamentos: El Lenguaje del Dinero', hours: 10 },
@@ -857,6 +883,7 @@ export const demoProgramas: Programa[] = [
 export const demoWebinars: Webinar[] = [
     {
         id: 'w1',
+        code: 'WEB-MKT-001',
         title: 'Masterclass: El Fin de las Páginas Web Tradicionales',
         description: 'Descubre cómo los Agentes de Venta y las interfaces conversacionales están matando el modelo antiguo de e-commerce. Únete en vivo y descubre nuestro playbook de conversión para multiplicar tus leads por 3.',
         type: 'masterclass',
@@ -891,17 +918,19 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w2',
+        code: 'WEB-OPS-001',
         title: 'Taller Práctico: Crea tu Primera Automatización en n8n',
         description: 'Deja de hacer tareas manuales. En solo 2 horas, construiremos juntos un flujo automatizado que conectará tu correo, CRM y WhatsApp usando n8n.',
         type: 'taller',
         speaker: 'Laura Salazar (Ingeniera de Automatización)',
         date: '2024-04-05',
         time: '10:00',
+        location: 'Virtual',
         duration: '2 horas',
-        price: 19,
+        price: 299,
         currency: 'USD',
         targetAudience: 'Marketers, administradores y emprendedores digitales que sienten que pierden el tiempo copiando y pegando datos.',
-        category: 'Tecnología',
+        category: 'Marketing',
         status: 'activo',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -925,6 +954,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w3',
+        code: 'WEB-BUS-001',
         title: 'Panel: El Futuro del Trabajo en LATAM 2025',
         description: 'Mesa redonda con directores de RRHH de las empresas más innovadoras de la región. Discutiremos tendencias de contratación, salarios, trabajo remoto vs volver a la oficina y las habilidades más demandadas (spoiler: IA).',
         type: 'charla',
@@ -958,6 +988,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w4',
+        code: 'WEB-SOFT-001',
         title: 'Workshop: Optimiza tu Perfil de LinkedIn en Vivo',
         description: 'Deja de buscar trabajo, haz que las ofertas te lleguen solas. En este taller súper práctico, re-escribiremos tu perfil utilizando SEO para buscadores de reclutadores y copys magnéticos.',
         type: 'taller',
@@ -991,6 +1022,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w5',
+        code: 'WEB-BUS-002',
         title: 'Masterclass: Cómo Levantar Capital Semilla',
         description: 'La ruta real (y cruda) para conseguir tus primeros $100k - $500k USD para tu startup. Analizaremos pitch decks reales (los que funcionaron y los que fracasaron).',
         type: 'masterclass',
@@ -1025,17 +1057,19 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w6',
+        code: 'WEB-HR-001',
         title: 'LinkedIn Live: IA para Recruiters y Gestión de Talento',
         description: 'Cómo usar la IA para encontrar al candidato ideal en la mitad del tiempo. Screening automático, redacción de ofertas atractivas y mejora de la experiencia del candidato.',
         type: 'charla',
         speaker: 'Marta Soler (Head of Talent)',
         date: '2024-06-25',
         time: '11:00',
+        location: 'Virtual',
         duration: '1 hora',
-        price: 0,
+        price: 450,
         currency: 'USD',
         targetAudience: 'Reclutadores, HR Business Partners y Lead Hunters.',
-        category: 'Recursos Humanos',
+        category: 'IA',
         status: 'activo',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1048,6 +1082,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w7',
+        code: 'WEB-DEV-001',
         title: 'Taller: Lanza tu App No-Code en 48 Horas con FlutterFlow',
         description: 'Taller intensivo para pasar de una idea a una app funcional en las tiendas. Sin programar, solo arrastrando y soltando componentes con lógica avanzada.',
         type: 'taller',
@@ -1071,6 +1106,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w8',
+        code: 'WEB-BUS-003',
         title: 'Masterclass: El Auge del Low-Code en la Empresa',
         description: 'Por qué las grandes corporaciones están abandonando el desarrollo tradicional para adoptar soluciones Low-Code. Velocidad, ahorro y flexibilidad.',
         type: 'masterclass',
@@ -1094,6 +1130,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w9',
+        code: 'WEB-MKT-002',
         title: 'Webinar: Copywriting Magnético asistido por IA',
         description: 'Aprende a escribir textos que venden sin sonar como un robot. La combinación perfecta entre psicología humana e inteligencia artificial.',
         type: 'masterclass',
@@ -1117,6 +1154,7 @@ export const demoWebinars: Webinar[] = [
     },
     {
         id: 'w10',
+        code: 'WEB-SEC-001',
         title: 'Charla: Ciberseguridad Esencial para Negocios Digitales',
         description: 'No esperes a que te hackeen. Aprende las medidas básicas y avanzadas para proteger tus datos, los de tus clientes y tu reputación online.',
         type: 'charla',

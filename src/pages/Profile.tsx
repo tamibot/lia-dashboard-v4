@@ -94,7 +94,9 @@ export default function ProfilePage() {
     async function handleSave() {
         try {
             setBrandAnalyzing(true);
-            await profileService.update(data);
+            // Strip read-only fields that Prisma doesn't like in update
+            const { id, orgId, slug, domain, apiKey, plan, settings, createdAt, updatedAt, ...cleanData } = data as any;
+            await profileService.update(cleanData);
             alert('Perfil guardado correctamente ✅');
         } catch (err) {
             console.error(err);

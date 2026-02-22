@@ -15,7 +15,7 @@ export const courseService = {
     },
 
     async update(id: string, data: any) {
-        return api.patch<any>(`/courses/${id}`, data);
+        return api.put<any>(`/courses/${id}`, data);
     },
 
     async delete(id: string) {

@@ -76,7 +76,9 @@ export default function MyAgents() {
         try {
             setIsLoading(true);
             if (editingId) {
-                const updated = await agentService.update(editingId, agentForm);
+                // Strip read-only fields that Prisma doesn't like in update
+                const { id, orgId, createdAt, updatedAt, ...cleanForm } = agentForm as any;
+                const updated = await agentService.update(editingId, cleanForm);
                 setAgents(prev => prev.map(a => a.id === editingId ? updated : a));
             } else {
                 const newAgent = await agentService.create({

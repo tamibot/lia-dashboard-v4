@@ -14,8 +14,8 @@ export const teamService = {
         return api.post<Team>('/teams', data);
     },
 
-    async update(id: string, data: Partial<Team>) {
-        return api.patch<Team>(`/teams/${id}`, data);
+    async update(id: string, data: any) {
+        return api.put<Team>(`/teams/${id}`, data);
     },
 
     async delete(id: string) {

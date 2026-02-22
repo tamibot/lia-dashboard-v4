@@ -134,12 +134,14 @@ export type AiAgent = {
 // === Curso Libre (standalone course) ===
 export interface CursoLibre {
     id: string;
+    code: string;
     title: string;
     subtitle?: string;
     description: string;
     objectives: string[];
     targetAudience: string;
     modality: 'online' | 'presencial' | 'hibrido';
+    location?: string;
     startDate: string;
     endDate?: string;
     duration: string;
@@ -189,12 +191,14 @@ export interface SyllabusModule {
 // === Programa (set of courses) ===
 export interface Programa {
     id: string;
+    code: string;
     title: string;
     subtitle?: string;
     description: string;
     objectives: string[];
     targetAudience: string;
     modality: 'online' | 'presencial' | 'hibrido';
+    location?: string;
     startDate: string;
     endDate?: string;
     totalDuration: string;
@@ -244,6 +248,7 @@ export interface ProgramaCourse {
 // === Webinar / Taller ===
 export interface Webinar {
     id: string;
+    code: string;
     title: string;
     subtitle?: string;
     description: string;
@@ -255,6 +260,7 @@ export interface Webinar {
     time: string;
     duration: string; // e.g. "2 horas"
     modality?: 'online' | 'presencial' | 'hibrido';
+    location?: string;
     platform?: string; // Zoom, Meet, etc.
     price: number; // 0 = gratuito
     currency: string;
