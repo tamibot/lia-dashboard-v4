@@ -14,34 +14,34 @@ datasource db {
 // ORGANIZATIONS (Multi-tenant root)
 // ==============================
 model Organization {
-  id               String   @id @default(uuid())
-  slug             String   @unique // URL-friendly: "innovation-institute"
-  name             String
-  type             OrgType  @default(infoproductor)
-  description      String   @default("")
-  tagline          String?
-  website          String?
-  contactEmail     String?  @map("contact_email")
-  
+  id           String  @id @default(uuid())
+  slug         String  @unique // URL-friendly: "innovation-institute"
+  name         String
+  type         OrgType @default(infoproductor)
+  description  String  @default("")
+  tagline      String?
+  website      String?
+  contactEmail String? @map("contact_email")
+
   // Extended fields
-  address          String?
-  accreditations   String?
-  specialty        String?
-  certifications   String?
-  personalBrand    String?  @map("personal_brand")
-  niche            String?
-  targetAudience   String?  @map("target_audience")
-  location         String?
-  history          String?
-  
+  address        String?
+  accreditations String?
+  specialty      String?
+  certifications String?
+  personalBrand  String? @map("personal_brand")
+  niche          String?
+  targetAudience String? @map("target_audience")
+  location       String?
+  history        String?
+
   // JSONB fields for complex nested data
-  branding         Json     @default("{}")  // BrandingConfig
-  socialMedia      Json?    @map("social_media")  // { instagram, facebook, ... }
-  operatingHours   Json?    @map("operating_hours")  // [{ days, hours }]
-  courseCategories  String[] @map("course_categories")
-  
+  branding         Json     @default("{}") // BrandingConfig
+  socialMedia      Json?    @map("social_media") // { instagram, facebook, ... }
+  operatingHours   Json?    @map("operating_hours") // [{ days, hours }]
+  courseCategories String[] @map("course_categories")
+
   onboardingComplete Boolean @default(false) @map("onboarding_complete")
-  
+
   // Relations
   users            User[]
   courses          Course[]
@@ -57,10 +57,10 @@ model Organization {
   contacts         Contact[]
   funnels          Funnel[]
   extractionFields ExtractionField[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("organizations")
 }
 
@@ -74,22 +74,22 @@ enum OrgType {
 // USERS (Auth + Roles)
 // ==============================
 model User {
-  id           String   @id @default(uuid())
-  orgId        String   @map("org_id")
-  email        String   @unique
-  passwordHash String   @map("password_hash")
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
   name         String
-  role         UserRole @default(editor)
-  phone        String?  @map("phone")
-  avatarUrl    String?  @map("avatar_url")
-  isActive     Boolean  @default(true) @map("is_active")
+  role         UserRole  @default(editor)
+  phone        String?   @map("phone")
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
   lastLogin    DateTime? @map("last_login")
-  
-  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@map("users")
 }
@@ -104,60 +104,60 @@ enum UserRole {
 // COURSES (Cursos Libres)
 // ==============================
 model Course {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique  // CRS-AI2024-001
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  objectives       String[] @default([])
-  targetAudience   String   @default("") @map("target_audience")
-  modality         Modality @default(online)
-  startDate        DateTime? @map("start_date")
-  endDate          DateTime? @map("end_date")
-  duration         String   @default("")
-  totalHours       Int?     @map("total_hours")
-  schedule         String?
-  instructor       String   @default("")
-  instructorBio    String?  @map("instructor_bio")
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  earlyBirdPrice   Decimal? @map("early_bird_price")
+  id                String    @id @default(uuid())
+  orgId             String    @map("org_id")
+  code              String    @unique // CRS-AI2024-001
+  title             String
+  subtitle          String?
+  description       String    @default("")
+  objectives        String[]  @default([])
+  targetAudience    String    @default("") @map("target_audience")
+  modality          Modality  @default(online)
+  startDate         DateTime? @map("start_date")
+  endDate           DateTime? @map("end_date")
+  duration          String    @default("")
+  totalHours        Int?      @map("total_hours")
+  schedule          String?
+  instructor        String    @default("")
+  instructorBio     String?   @map("instructor_bio")
+  price             Decimal   @default(0)
+  currency          String    @default("USD")
+  earlyBirdPrice    Decimal?  @map("early_bird_price")
   earlyBirdDeadline DateTime? @map("early_bird_deadline")
-  promotions       String?
-  requirements     String[] @default([])
-  contactInfo      Json?    @map("contact_info")  // { name, email, phone }
-  
+  promotions        String?
+  requirements      String[]  @default([])
+  contactInfo       Json?     @map("contact_info") // { name, email, phone }
+
   // Commercial fields
-  benefits         String[] @default([])
-  painPoints       String[] @default([]) @map("pain_points")
-  guarantee        String?
-  socialProof      String[] @default([]) @map("social_proof")
-  bonuses          String[] @default([])
-  maxStudents      Int?     @map("max_students")
-  prerequisites    String?
-  certification    String?
-  location         String?  @default("Virtual")
-  category         String   @default("")
-  tags             String[] @default([])
-  tools            String[] @default([])
-  status           ItemStatus @default(borrador)
-  aiSummary        String?  @map("ai_summary")
-  
+  benefits      String[]   @default([])
+  painPoints    String[]   @default([]) @map("pain_points")
+  guarantee     String?
+  socialProof   String[]   @default([]) @map("social_proof")
+  bonuses       String[]   @default([])
+  maxStudents   Int?       @map("max_students")
+  prerequisites String?
+  certification String?
+  location      String?    @default("Virtual")
+  category      String     @default("")
+  tags          String[]   @default([])
+  tools         String[]   @default([])
+  status        ItemStatus @default(borrador)
+  aiSummary     String?    @map("ai_summary")
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  teamId           String?  @map("team_id")
-  team             Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  org              Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId           String?                @map("team_id")
+  team             Team?                  @relation(fields: [teamId], references: [id], onDelete: SetNull)
   syllabusModules  SyllabusModule[]
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
   agentCourses     AgentCourse[]
   teamAssignments  TeamCourseAssignment[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@index([orgId, status])
   @@index([code])
@@ -173,9 +173,9 @@ model SyllabusModule {
   topics      String[] @default([])
   hours       Int      @default(0)
   sortOrder   Int      @default(0) @map("sort_order")
-  
-  course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
   @@index([courseId])
   @@map("syllabus_modules")
 }
@@ -184,57 +184,57 @@ model SyllabusModule {
 // PROGRAMS (Diplomados, Maestrías)
 // ==============================
 model Program {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique  // PRG-MBA2024-001
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  objectives       String[] @default([])
-  targetAudience   String   @default("") @map("target_audience")
-  modality         Modality @default(online)
-  startDate        DateTime? @map("start_date")
-  endDate          DateTime? @map("end_date")
-  totalDuration    String   @default("") @map("total_duration")
-  totalHours       Int      @default(0) @map("total_hours")
-  coordinator      String?
-  schedule         String?
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  earlyBirdPrice   Decimal? @map("early_bird_price")
-  promotions       String?
-  requirements     String[] @default([])
-  contactInfo      Json?    @map("contact_info")
-  
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  code           String    @unique // PRG-MBA2024-001
+  title          String
+  subtitle       String?
+  description    String    @default("")
+  objectives     String[]  @default([])
+  targetAudience String    @default("") @map("target_audience")
+  modality       Modality  @default(online)
+  startDate      DateTime? @map("start_date")
+  endDate        DateTime? @map("end_date")
+  totalDuration  String    @default("") @map("total_duration")
+  totalHours     Int       @default(0) @map("total_hours")
+  coordinator    String?
+  schedule       String?
+  price          Decimal   @default(0)
+  currency       String    @default("USD")
+  earlyBirdPrice Decimal?  @map("early_bird_price")
+  promotions     String?
+  requirements   String[]  @default([])
+  contactInfo    Json?     @map("contact_info")
+
   // Commercial fields (stored as JSONB for flexibility)
-  benefits         String[] @default([])
-  painPoints       String[] @default([]) @map("pain_points")
+  benefits         String[]   @default([])
+  painPoints       String[]   @default([]) @map("pain_points")
   guarantee        String?
-  socialProof      String[] @default([]) @map("social_proof")
-  bonuses          String[] @default([])
-  maxStudents      Int?     @map("max_students")
+  socialProof      String[]   @default([]) @map("social_proof")
+  bonuses          String[]   @default([])
+  maxStudents      Int?       @map("max_students")
   prerequisites    String?
-  certification    String   @default("")
-  certifyingEntity String?  @map("certifying_entity")
-  location         String?  @default("Virtual")
-  category         String   @default("")
-  tags             String[] @default([])
-  tools            String[] @default([])
+  certification    String     @default("")
+  certifyingEntity String?    @map("certifying_entity")
+  location         String?    @default("Virtual")
+  category         String     @default("")
+  tags             String[]   @default([])
+  tools            String[]   @default([])
   status           ItemStatus @default(borrador)
-  aiSummary        String?  @map("ai_summary")
-  
+  aiSummary        String?    @map("ai_summary")
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  teamId           String?  @map("team_id")
-  team             Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId           String?            @map("team_id")
+  team             Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
   programCourses   ProgramCourse[]
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@index([orgId, status])
   @@map("programs")
@@ -249,9 +249,9 @@ model ProgramCourse {
   hours       Int      @default(0)
   instructor  String?
   topics      String[] @default([])
-  
-  program     Program @relation(fields: [programId], references: [id], onDelete: Cascade)
-  
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
   @@index([programId])
   @@map("program_courses")
 }
@@ -260,57 +260,57 @@ model ProgramCourse {
 // WEBINARS (Webinars, Talleres, Masterclasses)
 // ==============================
 model Webinar {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique  // WBN-MKT2024-001
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  type             WebinarType @default(webinar)
-  speaker          String   @default("")
-  speakerBio       String?  @map("speaker_bio")
-  speakerTitle     String?  @map("speaker_title")
-  eventDate        DateTime? @map("event_date")
-  eventTime        String?  @map("event_time")
-  duration         String   @default("")
-  modality         Modality @default(online)
-  platform         String?
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  maxAttendees     Int?     @map("max_attendees")
-  topics           String[] @default([])
-  keyTopics        String[] @default([]) @map("key_topics")
-  targetAudience   String   @default("") @map("target_audience")
-  callToAction     String?  @map("call_to_action")
-  requirements     String[] @default([])
-  contactInfo      Json?    @map("contact_info")
-  
+  id             String      @id @default(uuid())
+  orgId          String      @map("org_id")
+  code           String      @unique // WBN-MKT2024-001
+  title          String
+  subtitle       String?
+  description    String      @default("")
+  type           WebinarType @default(webinar)
+  speaker        String      @default("")
+  speakerBio     String?     @map("speaker_bio")
+  speakerTitle   String?     @map("speaker_title")
+  eventDate      DateTime?   @map("event_date")
+  eventTime      String?     @map("event_time")
+  duration       String      @default("")
+  modality       Modality    @default(online)
+  platform       String?
+  price          Decimal     @default(0)
+  currency       String      @default("USD")
+  maxAttendees   Int?        @map("max_attendees")
+  topics         String[]    @default([])
+  keyTopics      String[]    @default([]) @map("key_topics")
+  targetAudience String      @default("") @map("target_audience")
+  callToAction   String?     @map("call_to_action")
+  requirements   String[]    @default([])
+  contactInfo    Json?       @map("contact_info")
+
   // Commercial fields
-  benefits         String[] @default([])
-  painPoints       String[] @default([]) @map("pain_points")
+  benefits         String[]   @default([])
+  painPoints       String[]   @default([]) @map("pain_points")
   guarantee        String?
-  socialProof      String[] @default([]) @map("social_proof")
-  bonuses          String[] @default([])
-  registrationLink String?  @map("registration_link")
+  socialProof      String[]   @default([]) @map("social_proof")
+  bonuses          String[]   @default([])
+  registrationLink String?    @map("registration_link")
   promotions       String?
-  location         String?  @default("Virtual")
-  category         String   @default("")
-  tags             String[] @default([])
-  tools            String[] @default([])
+  location         String?    @default("Virtual")
+  category         String     @default("")
+  tags             String[]   @default([])
+  tools            String[]   @default([])
   status           ItemStatus @default(borrador)
-  aiSummary        String?  @map("ai_summary")
-  
+  aiSummary        String?    @map("ai_summary")
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  teamId           String?  @map("team_id")
-  team             Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId           String?            @map("team_id")
+  team             Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@index([orgId, status])
   @@map("webinars")
@@ -327,33 +327,50 @@ enum WebinarType {
 // SOFTWARE
 // ==============================
 model Software {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  version          String?
-  platform         String?  // Windows, Mac, Web, iOS, Android
-  downloadUrl      String?  @map("download_url")
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  status           ItemStatus @default(borrador)
-  category         String   @default("")
-  tags             String[] @default([])
-  
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  code           String   @unique
+  title          String
+  subtitle       String?
+  description    String   @default("")
+  version        String?
+  platform       String? // Windows, Mac, Web, iOS, Android
+  downloadUrl    String?  @map("download_url")
+  licenseType    String?  @map("license_type") // free, freemium, paid, enterprise
+  price          Decimal  @default(0)
+  currency       String   @default("USD")
+  promotions     String?
+  targetAudience String   @default("") @map("target_audience")
+  objectives     String[] @default([])
+  requirements   String[] @default([])
+  contactInfo    Json?    @map("contact_info")
+
+  // Commercial fields
+  benefits    String[]   @default([])
+  painPoints  String[]   @default([]) @map("pain_points")
+  guarantee   String?
+  socialProof String[]   @default([]) @map("social_proof")
+  bonuses     String[]   @default([])
+  features    String[]   @default([])
+  tools       String[]   @default([])
+  location    String?    @default("Virtual")
+  category    String     @default("")
+  tags        String[]   @default([])
+  status      ItemStatus @default(borrador)
+  aiSummary   String?    @map("ai_summary")
+
   // Hierarchy
-  parentId         String?  @map("parent_id")
-  parentType       String?  @map("parent_type") // curso, programa
-  
+  parentId   String? @map("parent_id")
+  parentType String? @map("parent_type") // curso, programa
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
   @@map("software")
@@ -363,32 +380,48 @@ model Software {
 // SUBSCRIPTIONS
 // ==============================
 model Subscription {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  benefits         String[] @default([])
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  period           String   @default("mensual") // mensual, anual, trimestral
-  status           ItemStatus @default(borrador)
-  category         String   @default("")
-  tags             String[] @default([])
-  
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  code           String   @unique
+  title          String
+  subtitle       String?
+  description    String   @default("")
+  benefits       String[] @default([])
+  features       String[] @default([])
+  price          Decimal  @default(0)
+  currency       String   @default("USD")
+  period         String   @default("mensual") // mensual, anual, trimestral
+  maxUsers       Int?     @map("max_users")
+  promotions     String?
+  targetAudience String   @default("") @map("target_audience")
+  objectives     String[] @default([])
+  requirements   String[] @default([])
+  contactInfo    Json?    @map("contact_info")
+
+  // Commercial fields
+  painPoints  String[]   @default([]) @map("pain_points")
+  guarantee   String?
+  socialProof String[]   @default([]) @map("social_proof")
+  bonuses     String[]   @default([])
+  tools       String[]   @default([])
+  location    String?    @default("Virtual")
+  category    String     @default("")
+  tags        String[]   @default([])
+  status      ItemStatus @default(borrador)
+  aiSummary   String?    @map("ai_summary")
+
   // Hierarchy
-  parentId         String?  @map("parent_id")
-  parentType       String?  @map("parent_type") // curso, programa
-  
+  parentId   String? @map("parent_id")
+  parentType String? @map("parent_type") // curso, programa
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
   @@map("subscriptions")
@@ -398,32 +431,50 @@ model Subscription {
 // APPLICATIONS (Postulaciones)
 // ==============================
 model Application {
-  id               String   @id @default(uuid())
-  orgId            String   @map("org_id")
-  code             String   @unique
-  title            String
-  subtitle         String?
-  description      String   @default("")
-  price            Decimal  @default(0)
-  currency         String   @default("USD")
-  requirements     String[] @default([])
-  deadline         DateTime?
-  status           ItemStatus @default(borrador)
-  category         String   @default("")
-  tags             String[] @default([])
-  
+  id             String    @id @default(uuid())
+  orgId          String    @map("org_id")
+  code           String    @unique
+  title          String
+  subtitle       String?
+  description    String    @default("")
+  price          Decimal   @default(0)
+  currency       String    @default("USD")
+  requirements   String[]  @default([])
+  deadline       DateTime?
+  availableSlots Int?      @map("available_slots")
+  modality       Modality  @default(online)
+  startDate      DateTime? @map("start_date")
+  duration       String?
+  promotions     String?
+  targetAudience String    @default("") @map("target_audience")
+  objectives     String[]  @default([])
+  contactInfo    Json?     @map("contact_info")
+
+  // Commercial fields
+  benefits    String[]   @default([])
+  painPoints  String[]   @default([]) @map("pain_points")
+  guarantee   String?
+  socialProof String[]   @default([]) @map("social_proof")
+  bonuses     String[]   @default([])
+  tools       String[]   @default([])
+  location    String?    @default("Virtual")
+  category    String     @default("")
+  tags        String[]   @default([])
+  status      ItemStatus @default(borrador)
+  aiSummary   String?    @map("ai_summary")
+
   // Hierarchy
-  parentId         String?  @map("parent_id")
-  parentType       String?  @map("parent_type") // curso, programa
-  
+  parentId   String? @map("parent_id")
+  parentType String? @map("parent_type") // curso, programa
+
   // Relations
-  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   attachments      Attachment[]
   faqs             Faq[]
   generatedContent GeneratedContent[]
-  
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
   @@map("applications")
@@ -433,37 +484,37 @@ model Application {
 // TEAMS
 // ==============================
 model Team {
-  id          String   @id @default(uuid())
-  orgId       String   @map("org_id")
+  id          String  @id @default(uuid())
+  orgId       String  @map("org_id")
   name        String
   description String?
-  
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members     TeamMember[]
-  courses     Course[]
-  programs    Program[]
-  webinars    Webinar[]
-  agents      AiAgent[]
+
+  org               Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members           TeamMember[]
+  courses           Course[]
+  programs          Program[]
+  webinars          Webinar[]
+  agents            AiAgent[]
   courseAssignments TeamCourseAssignment[]
-  
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@map("teams")
 }
 
 model TeamMember {
-  id           String   @id @default(uuid())
-  teamId       String   @map("team_id")
+  id           String  @id @default(uuid())
+  teamId       String  @map("team_id")
   name         String
   email        String
   phone        String?
   role         String?
   availability String?
-  
-  team         Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
   @@index([teamId])
   @@map("team_members")
 }
@@ -471,11 +522,11 @@ model TeamMember {
 model TeamCourseAssignment {
   id       String @id @default(uuid())
   teamId   String @map("team_id")
-  courseId  String @map("course_id")
-  
-  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+  courseId String @map("course_id")
+
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
   @@unique([teamId, courseId])
   @@map("team_course_assignments")
 }
@@ -484,38 +535,38 @@ model TeamCourseAssignment {
 // AI AGENTS
 // ==============================
 model AiAgent {
-  id            String   @id @default(uuid())
-  orgId         String   @map("org_id")
-  name          String
-  role          String   @default("")
-  personality   AgentPersonality @default(professional)
-  tone          String   @default("")
-  language      String   @default("es")
-  expertise     String[] @default([])
-  systemPrompt  String?  @map("system_prompt")
-  avatar        String?
-  isActive      Boolean  @default(true) @map("is_active")
-  
-  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  teamId        String?  @map("team_id")
-  team          Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  agentCourses  AgentCourse[]
-  
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  
+  id           String           @id @default(uuid())
+  orgId        String           @map("org_id")
+  name         String
+  role         String           @default("")
+  personality  AgentPersonality @default(professional)
+  tone         String           @default("")
+  language     String           @default("es")
+  expertise    String[]         @default([])
+  systemPrompt String?          @map("system_prompt")
+  avatar       String?
+  isActive     Boolean          @default(true) @map("is_active")
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamId       String?       @map("team_id")
+  team         Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  agentCourses AgentCourse[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([orgId])
   @@map("ai_agents")
 }
 
 model AgentCourse {
-  id       String  @id @default(uuid())
-  agentId  String  @map("agent_id")
-  courseId  String  @map("course_id")
-  
-  agent    AiAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(uuid())
+  agentId  String @map("agent_id")
+  courseId String @map("course_id")
+
+  agent  AiAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
   @@unique([agentId, courseId])
   @@map("agent_courses")
 }
@@ -532,28 +583,28 @@ enum AgentPersonality {
 // SHARED: Attachments, FAQs
 // ==============================
 model Attachment {
-  id             String   @id @default(uuid())
+  id             String     @id @default(uuid())
   entityType     EntityType @map("entity_type")
-  courseId       String?  @map("course_id")
-  programId      String?  @map("program_id")
-  webinarId      String?  @map("webinar_id")
-  softwareId     String?  @map("software_id")
-  subscriptionId String?  @map("subscription_id")
-  applicationId  String?  @map("application_id")
+  courseId       String?    @map("course_id")
+  programId      String?    @map("program_id")
+  webinarId      String?    @map("webinar_id")
+  softwareId     String?    @map("software_id")
+  subscriptionId String?    @map("subscription_id")
+  applicationId  String?    @map("application_id")
   name           String
   url            String
-  fileType       FileType @default(pdf) @map("file_type")
-  fileSize       String?  @map("file_size")
-  
-  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
-  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime @default(now()) @map("created_at")
-  
+  fileType       FileType   @default(pdf) @map("file_type")
+  fileSize       String?    @map("file_size")
+
+  course       Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program      Program?      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar      Webinar?      @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software     Software?     @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application  Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
   @@index([courseId])
   @@index([programId])
   @@index([webinarId])
@@ -564,25 +615,25 @@ model Attachment {
 }
 
 model Faq {
-  id             String   @id @default(uuid())
+  id             String     @id @default(uuid())
   entityType     EntityType @map("entity_type")
-  courseId       String?  @map("course_id")
-  programId      String?  @map("program_id")
-  webinarId      String?  @map("webinar_id")
-  softwareId     String?  @map("software_id")
-  subscriptionId String?  @map("subscription_id")
-  applicationId  String?  @map("application_id")
+  courseId       String?    @map("course_id")
+  programId      String?    @map("program_id")
+  webinarId      String?    @map("webinar_id")
+  softwareId     String?    @map("software_id")
+  subscriptionId String?    @map("subscription_id")
+  applicationId  String?    @map("application_id")
   question       String
   answer         String
-  sortOrder      Int      @default(0) @map("sort_order")
-  
-  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
-  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  
+  sortOrder      Int        @default(0) @map("sort_order")
+
+  course       Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program      Program?      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar      Webinar?      @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software     Software?     @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application  Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
   @@index([courseId])
   @@index([programId])
   @@index([webinarId])
@@ -612,16 +663,16 @@ enum FileType {
 // API KEYS (encrypted, per org)
 // ==============================
 model ApiKey {
-  id           String   @id @default(uuid())
-  orgId        String   @map("org_id")
+  id           String     @id @default(uuid())
+  orgId        String     @map("org_id")
   provider     AiProvider
-  encryptedKey String   @map("encrypted_key")
-  
-  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  
+  encryptedKey String     @map("encrypted_key")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@unique([orgId, provider])
   @@map("api_keys")
 }
@@ -635,28 +686,28 @@ enum AiProvider {
 // GENERATED CONTENT
 // ==============================
 model GeneratedContent {
-  id             String   @id @default(uuid())
-  orgId          String   @map("org_id")
+  id             String     @id @default(uuid())
+  orgId          String     @map("org_id")
   sourceType     EntityType @map("source_type")
-  courseId       String?  @map("course_id")
-  programId      String?  @map("program_id")
-  webinarId      String?  @map("webinar_id")
-  softwareId     String?  @map("software_id")
-  subscriptionId String?  @map("subscription_id")
-  applicationId  String?  @map("application_id")
-  toolId         String   @map("tool_id")
+  courseId       String?    @map("course_id")
+  programId      String?    @map("program_id")
+  webinarId      String?    @map("webinar_id")
+  softwareId     String?    @map("software_id")
+  subscriptionId String?    @map("subscription_id")
+  applicationId  String?    @map("application_id")
+  toolId         String     @map("tool_id")
   content        String
-  
-  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
-  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime @default(now()) @map("created_at")
-  
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  course       Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program      Program?      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar      Webinar?      @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software     Software?     @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application  Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
   @@index([orgId])
   @@index([courseId])
   @@map("generated_content")
@@ -681,61 +732,61 @@ enum ItemStatus {
 // CONTACTS (GHL Integration)  
 // ==============================
 model Contact {
-  id              String   @id @default(uuid())
-  orgId           String   @map("org_id")
+  id    String @id @default(uuid())
+  orgId String @map("org_id")
 
   // Identification
-  ghlContactId    String?  @unique @map("ghl_contact_id")
-  name            String
-  email           String?
-  phone           String?
-  phoneCountry    String?  @map("phone_country")
+  ghlContactId String? @unique @map("ghl_contact_id")
+  name         String
+  email        String?
+  phone        String?
+  phoneCountry String? @map("phone_country")
 
   // CRM / Pipeline
-  stage           ContactStage  @default(nuevo)
-  origin          ContactOrigin @default(organico)
-  customOrigin    String?  @map("custom_origin")
+  stage        ContactStage  @default(nuevo)
+  origin       ContactOrigin @default(organico)
+  customOrigin String?       @map("custom_origin")
 
   // Interest
-  courseInterest  String?  @map("course_interest")
-  programInterest String?  @map("program_interest")
-  webinarInterest String?  @map("webinar_interest")
-  softwareInterest String? @map("software_interest")
-  subscriptionInterest String? @map("subscription_interest")
-  applicationInterest String? @map("application_interest")
-  budget          Decimal? @default(0)
-  currency        String   @default("USD")
+  courseInterest       String?  @map("course_interest")
+  programInterest      String?  @map("program_interest")
+  webinarInterest      String?  @map("webinar_interest")
+  softwareInterest     String?  @map("software_interest")
+  subscriptionInterest String?  @map("subscription_interest")
+  applicationInterest  String?  @map("application_interest")
+  budget               Decimal? @default(0)
+  currency             String   @default("USD")
 
   // Location
-  city            String?
-  country         String?
-  timezone        String?
+  city     String?
+  country  String?
+  timezone String?
 
   // Marketing / Tracking
-  utmSource       String?  @map("utm_source")
-  utmMedium       String?  @map("utm_medium")
-  utmCampaign     String?  @map("utm_campaign")
-  adPlatform      String?  @map("ad_platform")
-  landingPage     String?  @map("landing_page")
+  utmSource   String? @map("utm_source")
+  utmMedium   String? @map("utm_medium")
+  utmCampaign String? @map("utm_campaign")
+  adPlatform  String? @map("ad_platform")
+  landingPage String? @map("landing_page")
 
   // Status
-  isActive        Boolean  @default(true) @map("is_active")
+  isActive        Boolean   @default(true) @map("is_active")
   lastContactedAt DateTime? @map("last_contacted_at")
   nextFollowUpAt  DateTime? @map("next_follow_up_at")
 
   // Notes
-  notes           String?
-  tags            String[] @default([])
+  notes String?
+  tags  String[] @default([])
 
   // GHL Sync
-  ghlLastSyncAt   DateTime? @map("ghl_last_sync_at")
-  ghlData         Json?     @map("ghl_data")
+  ghlLastSyncAt DateTime? @map("ghl_last_sync_at")
+  ghlData       Json?     @map("ghl_data")
 
   // Relations
-  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
   @@index([orgId, stage])
@@ -759,35 +810,35 @@ enum ContactStage {
 // CRM CONFIGURATION
 // ==============================
 model Funnel {
-  id          String   @id @default(uuid())
-  orgId       String   @map("org_id")
+  id          String  @id @default(uuid())
+  orgId       String  @map("org_id")
   name        String
   description String?
-  isDefault   Boolean  @default(false) @map("is_default")
-  
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  stages      FunnelStage[]
-  fields      ExtractionField[]
+  isDefault   Boolean @default(false) @map("is_default")
 
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  org    Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stages FunnelStage[]
+  fields ExtractionField[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
   @@map("crm_funnels")
 }
 
 model FunnelStage {
-  id          String   @id @default(uuid())
-  funnelId    String   @map("funnel_id")
+  id          String  @id @default(uuid())
+  funnelId    String  @map("funnel_id")
   name        String
   key         String?
   description String?
   rules       String?
-  isDefault   Boolean  @default(false) @map("is_default")
-  sortOrder   Int      @default(0) @map("sort_order")
+  isDefault   Boolean @default(false) @map("is_default")
+  sortOrder   Int     @default(0) @map("sort_order")
   color       String?
-  
-  funnel      Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  funnel Funnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
 
   @@index([funnelId])
   @@map("crm_funnel_stages")
@@ -798,15 +849,15 @@ model ExtractionField {
   orgId       String   @map("org_id")
   funnelId    String?  @map("funnel_id")
   name        String
-  key         String   
+  key         String
   description String?
   dataType    String   @default("string")
   isRequired  Boolean  @default(false) @map("is_required")
   isDefault   Boolean  @default(false) @map("is_default")
   options     String[] @default([]) // For dropdowns/selects
-  
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  funnel      Funnel?      @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  funnel Funnel?      @relation(fields: [funnelId], references: [id], onDelete: SetNull)
 
   @@index([orgId])
   @@map("crm_extraction_fields")

@@ -26,14 +26,14 @@ Usuario → app.liabotedu.com → Express (SPA) → React Frontend
 
 | Tipo | Modelo Prisma | Prefix Código | Campos Únicos |
 |------|--------------|---------------|---------------|
-| Curso | `Course` | CRS- | `syllabusModules`, `instructor`, `totalHours` |
-| Programa | `Program` | PRG- | `programCourses`, `certification`, `totalDuration` |
-| Webinar | `Webinar` | WBN- | `speaker`, `eventDate`, `eventTime`, `type` (webinar/taller/masterclass/charla) |
-| Software | `Software` | SW- | `version`, `platform`, `downloadUrl`, `licenseType` |
-| Subscripción | `Subscription` | SUB- | `period`, `benefits`, `features`, `maxUsers` |
-| Postulación | `Application` | ADM- | `deadline`, `requirements`, `availableSlots` |
+| Curso | `Course` | CRS- | `syllabusModules`, `instructor`, `instructorBio`, `totalHours`, `schedule`, `earlyBirdPrice`, `maxStudents`, `prerequisites`, `certification` |
+| Programa | `Program` | PRG- | `programCourses`, `certification`, `certifyingEntity`, `totalDuration`, `coordinator`, `earlyBirdPrice`, `maxStudents` |
+| Webinar | `Webinar` | WBN- | `speaker`, `speakerBio`, `speakerTitle`, `eventDate`, `eventTime`, `type` (webinar/taller/masterclass/charla), `maxAttendees`, `registrationLink`, `callToAction` |
+| Software | `Software` | SW- | `version`, `platform`, `downloadUrl`, `licenseType`, `features[]` |
+| Subscripción | `Subscription` | SUB- | `period`, `features[]`, `maxUsers` |
+| Postulación | `Application` | ADM- | `deadline`, `availableSlots`, `modality`, `startDate`, `duration` |
 
-**Campos comunes a todos**: `code`, `title`, `description`, `category`, `price`, `currency`, `status`, `tags`, `targetAudience`, `objectives`, `attachments[]`, `faqs[]`
+**Campos comunes a todos los 6 tipos**: `code`, `title`, `subtitle`, `description`, `category`, `price`, `currency`, `status`, `tags`, `targetAudience`, `objectives[]`, `benefits[]`, `painPoints[]`, `socialProof[]`, `bonuses[]`, `guarantee`, `tools[]`, `requirements[]`, `contactInfo`, `promotions`, `location`, `aiSummary`, `attachments[]`, `faqs[]`
 
 **Flujo de datos:**
 1. Usuario sube información (PDF, texto, temario) en `/courses/upload`
