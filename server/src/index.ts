@@ -70,7 +70,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/crm', crmRoutes);
 
 // ===== 404 Handler for API =====
-app.use('/api/*path', (_req, res) => {
+app.use('/api/{*path}', (_req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
@@ -79,7 +79,7 @@ const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));
 
 // SPA fallback: any non-API route serves index.html
-app.get('*', (_req, res) => {
+app.get('{*path}', (_req, res) => {
     res.sendFile(path.join(publicDir, 'index.html'));
 });
 
