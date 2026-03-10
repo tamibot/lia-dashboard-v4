@@ -77,7 +77,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/courses/:id - Get single item
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const id = req.params.id;
+        const id = req.params.id as string as string;
         const type = req.query.type as string;
         const orgId = req.user!.orgId;
 
@@ -181,7 +181,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const id = req.params.id;
+        const id = req.params.id as string;
         const { type, syllabus, attachments, faqs, courses, ...data } = req.body;
 
         const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', software: 'software', subscripcion: 'subscription', postulacion: 'application' };
@@ -234,7 +234,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const id = req.params.id;
+        const id = req.params.id as string;
         const type = req.query.type as string;
 
         const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', software: 'software', subscripcion: 'subscription', postulacion: 'application' };

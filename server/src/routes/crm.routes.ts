@@ -30,7 +30,7 @@ router.get('/funnels', async (req: Request, res: Response) => {
 // GET /api/crm/funnels/:id - Get single funnel
 router.get('/funnels/:id', async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orgId = req.user!.orgId;
         const funnel = await prisma.funnel.findFirst({
             where: { id, orgId },
@@ -78,7 +78,7 @@ router.post('/funnels', async (req: Request, res: Response) => {
 // PUT /api/crm/funnels/:id - Update funnel
 router.put('/funnels/:id', async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orgId = req.user!.orgId;
         const { name, description, isDefault, stages } = req.body;
 
@@ -114,7 +114,7 @@ router.put('/funnels/:id', async (req: Request, res: Response) => {
 // DELETE /api/crm/funnels/:id
 router.delete('/funnels/:id', async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orgId = req.user!.orgId;
         await prisma.funnel.delete({ where: { id, orgId } });
         res.json({ message: 'Funnel deleted' });
@@ -163,7 +163,7 @@ router.post('/fields', async (req: Request, res: Response) => {
 // PUT /api/crm/fields/:id - Update field
 router.put('/fields/:id', async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orgId = req.user!.orgId;
         const data = req.body;
 
@@ -181,7 +181,7 @@ router.put('/fields/:id', async (req: Request, res: Response) => {
 // DELETE /api/crm/fields/:id
 router.delete('/fields/:id', async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const orgId = req.user!.orgId;
         await prisma.extractionField.delete({ where: { id, orgId } });
         res.json({ message: 'Field deleted' });

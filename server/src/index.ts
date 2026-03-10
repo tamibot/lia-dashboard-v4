@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 
 // Route imports
@@ -16,6 +18,9 @@ import contactsRoutes from './routes/contacts.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import crmRoutes from './routes/crm.routes.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 // ===== Middleware =====
@@ -28,7 +33,7 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, curl, Postman)
+        // Allow requests with no origin (mobile apps, curl, same-origin)
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
         console.warn(`CORS blocked origin: ${origin}`);
@@ -64,9 +69,18 @@ app.use('/api/contacts', contactsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/crm', crmRoutes);
 
-// ===== 404 Handler =====
+// ===== 404 Handler for API =====
 app.use('/api/*path', (_req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// ===== Serve Frontend (production) =====
+const publicDir = path.join(__dirname, '..', 'public');
+app.use(express.static(publicDir));
+
+// SPA fallback: any non-API route serves index.html
+app.get('*', (_req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 // ===== Error Handler =====
@@ -81,10 +95,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 app.listen(env.PORT, () => {
     console.log(`
 ╔════════════════════════════════════════════════╗
-║   🚀 LIA Dashboard API                        ║
+║   LIA Dashboard API + Frontend               ║
 ║   Running on port ${String(env.PORT).padEnd(28)}║
 ║   Environment: ${env.NODE_ENV.padEnd(31)}║
-║   Frontend:    ${env.FRONTEND_URL.padEnd(31)}║
 ╚════════════════════════════════════════════════╝
     `);
 });
