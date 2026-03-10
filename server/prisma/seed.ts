@@ -173,21 +173,28 @@ async function main() {
     });
     console.log(`✅ Webinar: ${webinar.title} (${webinar.code})`);
 
-    // 6. Create sample team
-    const team = await prisma.team.create({
-        data: {
-            orgId: org.id,
-            name: 'Equipo de Ventas IA',
-            description: 'Equipo especializado en vender cursos de inteligencia artificial',
-            members: {
-                create: [
-                    { name: 'Juan Pérez', email: 'juan@innovation-institute.edu', role: 'Closer' },
-                    { name: 'María López', email: 'maria@innovation-institute.edu', role: 'SDR' },
-                ],
-            },
-        },
+    // 6. Create sample team (skip if already exists)
+    const existingTeam = await prisma.team.findFirst({
+        where: { orgId: org.id, name: 'Equipo de Ventas IA' },
     });
-    console.log(`✅ Team: ${team.name}`);
+    if (!existingTeam) {
+        const team = await prisma.team.create({
+            data: {
+                orgId: org.id,
+                name: 'Equipo de Ventas IA',
+                description: 'Equipo especializado en vender cursos de inteligencia artificial',
+                members: {
+                    create: [
+                        { name: 'Juan Pérez', email: 'juan@innovation-institute.edu', role: 'Closer' },
+                        { name: 'María López', email: 'maria@innovation-institute.edu', role: 'SDR' },
+                    ],
+                },
+            },
+        });
+        console.log(`✅ Team: ${team.name}`);
+    } else {
+        console.log(`✅ Team already exists: ${existingTeam.name}`);
+    }
 
     // 7. Create default CRM Funnel and Stages
     const defaultFunnel = await prisma.funnel.upsert({
