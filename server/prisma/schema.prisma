@@ -47,11 +47,16 @@ model Organization {
   courses          Course[]
   programs         Program[]
   webinars         Webinar[]
+  software         Software[]
+  subscriptions    Subscription[]
+  applications     Application[]
   teams            Team[]
   agents           AiAgent[]
   apiKeys          ApiKey[]
   generatedContent GeneratedContent[]
   contacts         Contact[]
+  funnels          Funnel[]
+  extractionFields ExtractionField[]
   
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -75,6 +80,7 @@ model User {
   passwordHash String   @map("password_hash")
   name         String
   role         UserRole @default(editor)
+  phone        String?  @map("phone")
   avatarUrl    String?  @map("avatar_url")
   isActive     Boolean  @default(true) @map("is_active")
   lastLogin    DateTime? @map("last_login")
@@ -318,6 +324,112 @@ enum WebinarType {
 }
 
 // ==============================
+// SOFTWARE
+// ==============================
+model Software {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  code             String   @unique
+  title            String
+  subtitle         String?
+  description      String   @default("")
+  version          String?
+  platform         String?  // Windows, Mac, Web, iOS, Android
+  downloadUrl      String?  @map("download_url")
+  price            Decimal  @default(0)
+  currency         String   @default("USD")
+  status           ItemStatus @default(borrador)
+  category         String   @default("")
+  tags             String[] @default([])
+  
+  // Hierarchy
+  parentId         String?  @map("parent_id")
+  parentType       String?  @map("parent_type") // curso, programa
+  
+  // Relations
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  attachments      Attachment[]
+  faqs             Faq[]
+  generatedContent GeneratedContent[]
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@map("software")
+}
+
+// ==============================
+// SUBSCRIPTIONS
+// ==============================
+model Subscription {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  code             String   @unique
+  title            String
+  subtitle         String?
+  description      String   @default("")
+  benefits         String[] @default([])
+  price            Decimal  @default(0)
+  currency         String   @default("USD")
+  period           String   @default("mensual") // mensual, anual, trimestral
+  status           ItemStatus @default(borrador)
+  category         String   @default("")
+  tags             String[] @default([])
+  
+  // Hierarchy
+  parentId         String?  @map("parent_id")
+  parentType       String?  @map("parent_type") // curso, programa
+  
+  // Relations
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  attachments      Attachment[]
+  faqs             Faq[]
+  generatedContent GeneratedContent[]
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@map("subscriptions")
+}
+
+// ==============================
+// APPLICATIONS (Postulaciones)
+// ==============================
+model Application {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  code             String   @unique
+  title            String
+  subtitle         String?
+  description      String   @default("")
+  price            Decimal  @default(0)
+  currency         String   @default("USD")
+  requirements     String[] @default([])
+  deadline         DateTime?
+  status           ItemStatus @default(borrador)
+  category         String   @default("")
+  tags             String[] @default([])
+  
+  // Hierarchy
+  parentId         String?  @map("parent_id")
+  parentType       String?  @map("parent_type") // curso, programa
+  
+  // Relations
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  attachments      Attachment[]
+  faqs             Faq[]
+  generatedContent GeneratedContent[]
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@map("applications")
+}
+
+// ==============================
 // TEAMS
 // ==============================
 model Team {
@@ -420,45 +532,63 @@ enum AgentPersonality {
 // SHARED: Attachments, FAQs
 // ==============================
 model Attachment {
-  id         String   @id @default(uuid())
-  entityType EntityType @map("entity_type")
-  courseId    String?  @map("course_id")
-  programId  String?  @map("program_id")
-  webinarId  String?  @map("webinar_id")
-  name       String
-  url        String
-  fileType   FileType @default(pdf) @map("file_type")
-  fileSize   String?  @map("file_size")
+  id             String   @id @default(uuid())
+  entityType     EntityType @map("entity_type")
+  courseId       String?  @map("course_id")
+  programId      String?  @map("program_id")
+  webinarId      String?  @map("webinar_id")
+  softwareId     String?  @map("software_id")
+  subscriptionId String?  @map("subscription_id")
+  applicationId  String?  @map("application_id")
+  name           String
+  url            String
+  fileType       FileType @default(pdf) @map("file_type")
+  fileSize       String?  @map("file_size")
   
-  course     Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program    Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar    Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
   
   @@index([courseId])
   @@index([programId])
   @@index([webinarId])
+  @@index([softwareId])
+  @@index([subscriptionId])
+  @@index([applicationId])
   @@map("attachments")
 }
 
 model Faq {
-  id         String   @id @default(uuid())
-  entityType EntityType @map("entity_type")
-  courseId    String?  @map("course_id")
-  programId  String?  @map("program_id")
-  webinarId  String?  @map("webinar_id")
-  question   String
-  answer     String
-  sortOrder  Int      @default(0) @map("sort_order")
+  id             String   @id @default(uuid())
+  entityType     EntityType @map("entity_type")
+  courseId       String?  @map("course_id")
+  programId      String?  @map("program_id")
+  webinarId      String?  @map("webinar_id")
+  softwareId     String?  @map("software_id")
+  subscriptionId String?  @map("subscription_id")
+  applicationId  String?  @map("application_id")
+  question       String
+  answer         String
+  sortOrder      Int      @default(0) @map("sort_order")
   
-  course     Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program    Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar    Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
   @@index([courseId])
   @@index([programId])
   @@index([webinarId])
+  @@index([softwareId])
+  @@index([subscriptionId])
+  @@index([applicationId])
   @@map("faqs")
 }
 
@@ -466,6 +596,9 @@ enum EntityType {
   course
   program
   webinar
+  software
+  subscription
+  application
 }
 
 enum FileType {
@@ -502,21 +635,27 @@ enum AiProvider {
 // GENERATED CONTENT
 // ==============================
 model GeneratedContent {
-  id         String   @id @default(uuid())
-  orgId      String   @map("org_id")
-  sourceType EntityType @map("source_type")
-  courseId    String?  @map("course_id")
-  programId  String?  @map("program_id")
-  webinarId  String?  @map("webinar_id")
-  toolId     String   @map("tool_id")
-  content    String
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  sourceType     EntityType @map("source_type")
+  courseId       String?  @map("course_id")
+  programId      String?  @map("program_id")
+  webinarId      String?  @map("webinar_id")
+  softwareId     String?  @map("software_id")
+  subscriptionId String?  @map("subscription_id")
+  applicationId  String?  @map("application_id")
+  toolId         String   @map("tool_id")
+  content        String
   
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  course     Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  program    Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
-  webinar    Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  course         Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  program        Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
+  webinar        Webinar? @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+  software       Software? @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  application    Application?  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
   
   @@index([orgId])
   @@index([courseId])
@@ -560,6 +699,10 @@ model Contact {
   // Interest
   courseInterest  String?  @map("course_interest")
   programInterest String?  @map("program_interest")
+  webinarInterest String?  @map("webinar_interest")
+  softwareInterest String? @map("software_interest")
+  subscriptionInterest String? @map("subscription_interest")
+  applicationInterest String? @map("application_interest")
   budget          Decimal? @default(0)
   currency        String   @default("USD")
 
@@ -610,6 +753,63 @@ enum ContactStage {
   ganado
   perdido
   inactivo
+}
+
+// ==============================
+// CRM CONFIGURATION
+// ==============================
+model Funnel {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  stages      FunnelStage[]
+  fields      ExtractionField[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@map("crm_funnels")
+}
+
+model FunnelStage {
+  id          String   @id @default(uuid())
+  funnelId    String   @map("funnel_id")
+  name        String
+  key         String?
+  description String?
+  rules       String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  sortOrder   Int      @default(0) @map("sort_order")
+  color       String?
+  
+  funnel      Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  @@index([funnelId])
+  @@map("crm_funnel_stages")
+}
+
+model ExtractionField {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  funnelId    String?  @map("funnel_id")
+  name        String
+  key         String   
+  description String?
+  dataType    String   @default("string")
+  isRequired  Boolean  @default(false) @map("is_required")
+  isDefault   Boolean  @default(false) @map("is_default")
+  options     String[] @default([]) // For dropdowns/selects
+  
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  funnel      Funnel?      @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@map("crm_extraction_fields")
 }
 
 enum ContactOrigin {

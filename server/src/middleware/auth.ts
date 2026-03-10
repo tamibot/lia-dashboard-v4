@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, type JwtPayload } from '../utils/jwt.js';
+import { env } from '../config/env.js';
 
 // Extend Express Request type
 declare global {
@@ -10,16 +11,30 @@ declare global {
     }
 }
 
+// Demo user for development only
+const DEMO_USER: JwtPayload = {
+    userId: '47a09593-6f23-497e-8138-e1e708c3ae3d',
+    orgId: 'a6b7b632-237c-42d0-88b1-94a97f175ede',
+    role: 'admin',
+    email: 'admin@innovation-institute.edu'
+};
+
 /**
  * JWT Authentication middleware.
- * Extracts and verifies JWT from Authorization header.
- * Sets req.user with { userId, orgId, role, email }
+ * In development: falls back to demo user if no valid token.
+ * In production: requires a valid JWT token.
  */
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
+    const isDev = env.NODE_ENV === 'development';
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'No token provided' });
+        if (isDev) {
+            req.user = DEMO_USER;
+            next();
+            return;
+        }
+        res.status(401).json({ error: 'Authentication required' });
         return;
     }
 
@@ -30,6 +45,11 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
         req.user = payload;
         next();
     } catch (err) {
+        if (isDev) {
+            req.user = DEMO_USER;
+            next();
+            return;
+        }
         res.status(401).json({ error: 'Invalid or expired token' });
     }
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { profileService } from '../lib/services/profile.service';
 import { analyzeBrand } from '../lib/gemini';
 import type { OrgProfile, BrandingConfig } from '../lib/types';
-import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle, Image, History, Award, CreditCard, School } from 'lucide-react';
 
 const GOOGLE_FONTS = [
     'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
@@ -26,7 +26,11 @@ const emptyProfile: OrgProfile = {
     socialMedia: {},
     locations: [],
     operatingHours: [],
-    courseCategories: []
+    courseCategories: [],
+    history: '',
+    certificates: [],
+    paymentMethods: [],
+    modalities: []
 };
 
 export default function ProfilePage() {
@@ -272,6 +276,66 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
+                    {/* History & Journey */}
+                    <div className="card fade-in">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <History size={20} className="text-primary" /> Historia y Trayectoria
+                        </h3>
+                        <div className="form-group">
+                            <label>Cuéntanos tu historia</label>
+                            <p className="text-xs text-slate-500 mb-2">Este texto se usará en tu página de venta para generar confianza.</p>
+                            <textarea
+                                className="form-textarea"
+                                rows={6}
+                                value={data.history || ''}
+                                onChange={e => handleChange('history', e.target.value)}
+                                placeholder="Pega aquí la historia de tu institución, misión y visión detallada..."
+                            />
+                        </div>
+                    </div>
+
+                    {/* Certifications & Badges */}
+                    <div className="card fade-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <Award size={20} className="text-primary" /> Certificados y Sellos de Calidad
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => handleChange('certificates', [...(data.certificates || []), ''])}
+                                className="btn btn-outline btn-sm"
+                            >
+                                <Plus size={14} /> Añadir Sello
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            {(data.certificates || []).map((cert, idx) => (
+                                <div key={idx} className="flex gap-3">
+                                    <input
+                                        className="form-input flex-1"
+                                        placeholder="Ej: Certificación ISO 9001, Licenciamiento SUNEDU..."
+                                        value={cert}
+                                        onChange={e => {
+                                            const newCerts = [...(data.certificates || [])];
+                                            newCerts[idx] = e.target.value;
+                                            handleChange('certificates', newCerts);
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleChange('certificates', (data.certificates || []).filter((_, i) => i !== idx))}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                            {(data.certificates || []).length === 0 && (
+                                <p className="text-center py-4 text-slate-400 italic">No has añadido certificados todavía.</p>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Social Media */}
                     <div className="card fade-in">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -297,6 +361,30 @@ export default function ProfilePage() {
                                         placeholder={`URL de ${s.label}`}
                                     />
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Study Modalities */}
+                    <div className="card fade-in">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                            <School size={20} className="text-primary" /> Modalidades de Estudio
+                        </h3>
+                        <div className="flex flex-wrap gap-3">
+                            {['Online', 'Presencial', 'Híbrido', 'Semipresencial'].map(m => (
+                                <label key={m} className={`flex items-center gap-2 px-4 py-2 rounded-full border cursor-pointer transition-all ${data.modalities?.includes(m) ? 'bg-primary/10 border-primary text-primary' : 'bg-white border-slate-200 text-slate-600 hover:border-primary/50'}`}>
+                                    <input
+                                        type="checkbox"
+                                        className="hidden"
+                                        checked={data.modalities?.includes(m)}
+                                        onChange={e => {
+                                            const current = data.modalities || [];
+                                            const next = e.target.checked ? [...current, m] : current.filter(x => x !== m);
+                                            handleChange('modalities', next);
+                                        }}
+                                    />
+                                    <span className="text-sm font-medium">{m}</span>
+                                </label>
                             ))}
                         </div>
                     </div>
@@ -351,6 +439,75 @@ export default function ProfilePage() {
                             ))}
                             {(data.locations || []).length === 0 && (
                                 <p className="text-center py-4 text-slate-400 italic">No tienes sedes registradas todavía.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Payment Methods */}
+                    <div className="card fade-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <CreditCard size={20} className="text-primary" /> Métodos de Pago y Cuentas
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => handleChange('paymentMethods', [...(data.paymentMethods || []), { type: 'bank_transfer', name: '', details: '' }])}
+                                className="btn btn-outline btn-sm"
+                            >
+                                <Plus size={14} /> Añadir Método
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            {(data.paymentMethods || []).map((pm, idx) => (
+                                <div key={idx} className="p-4 border border-slate-100 rounded-lg bg-slate-50/30">
+                                    <div className="flex justify-between mb-3">
+                                        <select
+                                            className="form-select w-auto py-1"
+                                            value={pm.type}
+                                            onChange={e => {
+                                                const next = [...(data.paymentMethods || [])];
+                                                next[idx].type = e.target.value as any;
+                                                handleChange('paymentMethods', next);
+                                            }}
+                                        >
+                                            <option value="bank_transfer">Transferencia Bancaria</option>
+                                            <option value="gateway">Pasarela (PayPal/Stripe)</option>
+                                            <option value="cash">Efectivo / Otros</option>
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('paymentMethods', (data.paymentMethods || []).filter((_, i) => i !== idx))}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-2 gap-4">
+                                        <input
+                                            className="form-input"
+                                            placeholder="Nombre del método (Ej: BCP Soles, PayPal)"
+                                            value={pm.name}
+                                            onChange={e => {
+                                                const next = [...(data.paymentMethods || [])];
+                                                next[idx].name = e.target.value;
+                                                handleChange('paymentMethods', next);
+                                            }}
+                                        />
+                                        <input
+                                            className="form-input"
+                                            placeholder="Detalles (Núm. Cuenta, Correo, etc.)"
+                                            value={pm.details}
+                                            onChange={e => {
+                                                const next = [...(data.paymentMethods || [])];
+                                                next[idx].details = e.target.value;
+                                                handleChange('paymentMethods', next);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                            {(data.paymentMethods || []).length === 0 && (
+                                <p className="text-center py-4 text-slate-400 italic">No tienes métodos de pago registrados.</p>
                             )}
                         </div>
                     </div>
@@ -432,6 +589,27 @@ export default function ProfilePage() {
                             <button className="btn btn-primary" onClick={handleBrandExtraction} disabled={brandAnalyzing}>
                                 {brandAnalyzing ? <><Loader size={16} className="spin" /> Analizando...</> : '✨ Extraer Identidad'}
                             </button>
+                        </div>
+
+                        {/* Logo */}
+                        <div className="card mb-6">
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}><Image size={18} /> Logo de la Organización</h3>
+                            <div className="form-group">
+                                <label>URL del Logo (PNG/SVG recomendado)</label>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    <input
+                                        className="form-input"
+                                        value={data.branding.logo || ''}
+                                        onChange={e => updateBranding('logo' as any, '', e.target.value)}
+                                        placeholder="https://tudominio.com/logo.png"
+                                    />
+                                    {data.branding.logo && (
+                                        <div className="w-12 h-12 bg-slate-50 border rounded-lg p-1 flex items-center justify-center overflow-hidden">
+                                            <img src={data.branding.logo} alt="Preview" className="max-w-full max-h-full object-contain" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Colors */}

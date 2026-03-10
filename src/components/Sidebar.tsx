@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe } from 'lucide-react';
 
 export default function Sidebar() {
     return (
@@ -17,21 +17,13 @@ export default function Sidebar() {
                     Principal
                 </div>
 
-                <NavLink to="/" className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                <NavLink to="/" end className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                     <LayoutDashboard size={18} /> Inicio
                 </NavLink>
 
                 <NavLink to="/agentes" className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                    <Bot size={18} /> Mis Agentes <span className="ml-auto text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Nuevo</span>
+                    <Bot size={18} /> Mis Agentes
                 </NavLink>
-
-                <div className="relative group opacity-50 pointer-events-none">
-                    <NavLink to="/kpi" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600">
-                        <BarChart2 size={18} /> KPIs & Reportes
-                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
-                    </NavLink>
-                </div>
-
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                     Académico
@@ -44,13 +36,47 @@ export default function Sidebar() {
                 </NavLink>
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Próximamente
+                </div>
+                <div className="relative opacity-50 pointer-events-none">
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400">
+                        <Users size={18} /> Mi CRM
+                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
+                    </div>
+                </div>
+                <div className="relative opacity-50 pointer-events-none">
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400">
+                        <Globe size={18} /> Mi Página de Venta
+                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
+                    </div>
+                </div>
+                <div className="relative opacity-50 pointer-events-none">
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400">
+                        <Bot size={18} /> Content IA
+                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
+                    </div>
+                </div>
+                <div className="relative opacity-50 pointer-events-none">
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400">
+                        <BookOpen size={18} /> Educational IA
+                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
+                    </div>
+                </div>
+                <div className="relative opacity-50 pointer-events-none">
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400">
+                        <BarChart2 size={18} /> KPIs & Reportes
+                        <span className="ml-auto text-[9px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded">Soon</span>
+                    </div>
+                </div>
+
+                <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                     Configuración
                 </div>
                 <NavLink to="/team" className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                     <Users size={18} /> Mi Equipo
                 </NavLink>
                 <NavLink to="/profile" className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                    <Building2 size={18} /> Perfil & Bot IA
+                    <Building2 size={18} /> Perfil Institución
                 </NavLink>
                 <NavLink to="/settings" className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                     <Settings size={18} /> API & Sistema
@@ -58,16 +84,16 @@ export default function Sidebar() {
             </nav>
 
             <div className="p-4 border-t border-gray-200 bg-white">
-                <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                <NavLink to="/account" className={({ isActive }) => `flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : ''}`}>
                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                         <Users size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-gray-900 truncate">Mi Cuenta</div>
-                        <div className="text-xs text-gray-500 truncate">Admin</div>
+                        <div className="text-xs text-gray-500 truncate">Configurar perfil</div>
                     </div>
                     <Settings size={16} className="text-gray-400 hover:text-blue-600" />
-                </div>
+                </NavLink>
             </div>
         </aside>
     );

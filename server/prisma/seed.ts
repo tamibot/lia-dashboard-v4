@@ -189,6 +189,76 @@ async function main() {
     });
     console.log(`✅ Team: ${team.name}`);
 
+    // 7. Create default CRM Funnel and Stages
+    const defaultFunnel = await prisma.funnel.upsert({
+        where: { id: 'default-funnel-1' },
+        update: {
+            name: 'Embudo General',
+            description: 'Embudo de ventas estándar para todos los leads.',
+            isDefault: true,
+        },
+        create: {
+            id: 'default-funnel-1',
+            orgId: org.id,
+            name: 'Embudo General',
+            description: 'Embudo de ventas estándar para todos los leads.',
+            isDefault: true,
+        },
+    });
+
+    // Delete existing stages for the default funnel to ensure clean update
+    await prisma.funnelStage.deleteMany({ where: { funnelId: defaultFunnel.id } });
+
+    await prisma.funnel.update({
+        where: { id: defaultFunnel.id },
+        data: {
+            stages: {
+                create: [
+                    { name: 'BBDD', key: 'bbdd', sortOrder: 1, isDefault: true, description: 'Base de datos inicial', rules: 'Entrada inicial de leads.' },
+                    { name: 'Interesado', key: 'interesado', sortOrder: 2, isDefault: true, description: 'Interés detectado (curso, subscripción, programa, etc.)', rules: 'Cuando el bot detecta una intención clara de compra o consulta específica.' },
+                    { name: 'Informado', key: 'informado', sortOrder: 3, isDefault: true, description: 'Se le ha pasado la información pertinente', rules: 'Al entregar el temario, precios o detalles del servicio.' },
+                    { name: 'Filtrado', key: 'filtrado', sortOrder: 4, isDefault: true, description: 'Se aplican las preguntas filtro', rules: 'Después de obtener respuestas a las preguntas de calificación.' },
+                    { name: 'Cualificado a asesor', key: 'cualificado', sortOrder: 5, isDefault: true, description: 'Completó la información y pasa a asesor', rules: 'Cuando el lead cumple con el perfil ideal y solicita profundizar.' },
+                    { name: 'Asesor manual', key: 'asesor_manual', sortOrder: 6, isDefault: true, description: 'Solicita hablar directamente o asignación manual', rules: 'Si el usuario escribe "quiero hablar con un humano" o por intervención administrativa.' },
+                    { name: 'Seguimiento', key: 'seguimiento', sortOrder: 7, isDefault: true, description: 'Secuencia de seguimiento', rules: 'Si después de 15 min no responde, el sistema lo mueve aquí e inicia secuencia.' },
+                    { name: 'Descartado', key: 'descartado', sortOrder: 8, isDefault: true, description: 'No le interesa o no aplica', rules: 'Cuando el lead indica desinterés o no supera los filtros mínimos.' },
+                    { name: 'Caso especial', key: 'caso_especial', sortOrder: 9, isDefault: true, description: 'Contingencia', rules: 'Leads que el bot no puede procesar o que caen en bucle de error.' },
+                ],
+            },
+        },
+    });
+
+    console.log(`✅ Default Funnel: ${defaultFunnel.name}`);
+
+    // 8. Create default Extraction Fields
+    const defaultFields = [
+        { name: 'Nombre', key: 'cliente_nombre', dataType: 'string', isDefault: true, isRequired: true, description: 'Nombre completo del prospecto' },
+        { name: 'Teléfono', key: 'cliente_telefono', dataType: 'string', isDefault: true, isRequired: true, description: 'Número de contacto (whatsapp)' },
+        { name: 'Correo', key: 'cliente_correo', dataType: 'string', isDefault: true, isRequired: true, description: 'Email de contacto' },
+        { name: 'Interés', key: 'interes_tipo', dataType: 'string', isDefault: true, options: ['Curso', 'Suscripción', 'Programa', 'Webinar'], description: 'Producto o servicio de interés' },
+        { name: 'Detalle Interés', key: 'interes_detalle', dataType: 'string', isDefault: true, description: 'Especifique el curso o programa' },
+        { name: 'Caso Especial', key: 'caso_especial_motivo', dataType: 'string', isDefault: true, description: 'Detalle de por qué falló el bot' },
+        { name: 'Resumen Solicitud', key: 'solicitud_resumen', dataType: 'string', isDefault: true, description: 'Breve resumen de lo que busca' },
+        { name: 'Filtrado', key: 'es_filtrado', dataType: 'boolean', isDefault: true, description: 'Si pasó los filtros de calificación' },
+        { name: 'Derivado Asesor', key: 'es_derivado', dataType: 'boolean', isDefault: true, description: 'Si fue enviado a un humano' },
+    ];
+
+    // Delete existing fields to avoid duplicates if re-seeding
+    await prisma.extractionField.deleteMany({
+        where: { funnelId: defaultFunnel.id }
+    });
+
+    for (const fieldData of defaultFields) {
+        await prisma.extractionField.create({
+            data: {
+                orgId: org.id,
+                funnelId: defaultFunnel.id,
+                ...fieldData,
+            },
+        });
+    }
+    console.log(`✅ Default Extraction Fields: ${defaultFields.length} created`);
+
     console.log('\n✨ Seed completed successfully!\n');
     console.log('📋 Login credentials:');
     console.log('   Email: admin@innovation-institute.edu');

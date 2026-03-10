@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
-import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList } from 'lucide-react';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat } from 'lucide-react';
 import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
 import type { FilterState } from '../components/AdvancedCourseFilters';
 
@@ -16,6 +16,9 @@ function titleColor(title: string): string {
 function typeIcon(type: string) {
     if (type === 'programa') return <GraduationCap size={16} />;
     if (type === 'webinar') return <Video size={16} />;
+    if (type === 'software') return <Repeat size={16} />;
+    if (type === 'subscripcion') return <Repeat size={16} />;
+    if (type === 'postulacion') return <UserCheck size={16} />;
     return <BookOpen size={16} />;
 }
 
@@ -29,8 +32,8 @@ function statusColor(status: string) {
 
 export default function CoursesPage() {
     const navigate = useNavigate();
-    const [tab, setTab] = useState<'cursos' | 'programas' | 'webinars'>('cursos');
-    const [view, setView] = useState<'list' | 'grid'>('grid');
+    const [tab, setTab] = useState<'cursos' | 'programas' | 'webinars' | 'postulaciones' | 'subscripciones' | 'software'>('cursos');
+    const [view, setView] = useState<'list' | 'grid'>('list');
     const [filters, setFilters] = useState<FilterState>({
         search: '',
         selectedCategories: [],
@@ -43,6 +46,9 @@ export default function CoursesPage() {
     const [cursos, setCursos] = useState<any[]>([]);
     const [programas, setProgramas] = useState<any[]>([]);
     const [webinars, setWebinars] = useState<any[]>([]);
+    const [postulaciones, setPostulaciones] = useState<any[]>([]);
+    const [subscripciones, setSubscripciones] = useState<any[]>([]);
+    const [softwares, setSoftwares] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -50,14 +56,20 @@ export default function CoursesPage() {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [c, p, w] = await Promise.all([
-                    courseService.getAll('curso'),
-                    courseService.getAll('programa'),
-                    courseService.getAll('webinar')
+                const [c, p, w, po, su, sw] = await Promise.all([
+                    courseService.getAll('curso').catch(err => { console.error('Error fetching cursos:', err); return []; }),
+                    courseService.getAll('programa').catch(err => { console.error('Error fetching programas:', err); return []; }),
+                    courseService.getAll('webinar').catch(err => { console.error('Error fetching webinars:', err); return []; }),
+                    courseService.getAll('postulacion').catch(err => { console.error('Error fetching postulaciones:', err); return []; }),
+                    courseService.getAll('subscripcion').catch(err => { console.error('Error fetching subscripciones:', err); return []; }),
+                    courseService.getAll('software').catch(err => { console.error('Error fetching software:', err); return []; })
                 ]);
                 setCursos(c);
                 setProgramas(p);
                 setWebinars(w);
+                setPostulaciones(po);
+                setSubscripciones(su);
+                setSoftwares(sw);
             } catch (err: any) {
                 console.error("Error fetching courses:", err);
                 setError("No se pudieron cargar los datos. Por favor, intenta de nuevo.");
@@ -72,7 +84,8 @@ export default function CoursesPage() {
     const categories = Array.from(new Set([
         ...cursos.map(c => c.category),
         ...programas.map(p => p.category),
-        ...webinars.map(w => w.category)
+        ...webinars.map(w => w.category),
+        ...softwares.map(s => s.category)
     ].filter(Boolean)));
 
     const locations = Array.from(new Set([
@@ -86,6 +99,9 @@ export default function CoursesPage() {
         if (tab === 'cursos') items = cursos.map(i => ({ ...i, _type: 'curso' }));
         if (tab === 'programas') items = programas.map(i => ({ ...i, _type: 'programa' }));
         if (tab === 'webinars') items = webinars.map(i => ({ ...i, _type: 'webinar' }));
+        if (tab === 'postulaciones') items = postulaciones.map(i => ({ ...i, _type: 'postulacion' }));
+        if (tab === 'subscripciones') items = subscripciones.map(i => ({ ...i, _type: 'subscripcion' }));
+        if (tab === 'software') items = softwares.map(i => ({ ...i, _type: 'software' }));
 
         let filtered = items.filter(i => {
             const matchesSearch = !filters.search ||
@@ -118,7 +134,14 @@ export default function CoursesPage() {
     };
 
     const filteredItems = getFilteredItems();
-    const tabCounts = { cursos: cursos.length, programas: programas.length, webinars: webinars.length };
+    const tabCounts = {
+        cursos: cursos.length,
+        programas: programas.length,
+        webinars: webinars.length,
+        postulaciones: postulaciones.length,
+        subscripciones: subscripciones.length,
+        software: softwares.length
+    };
 
     if (isLoading) {
         return (
@@ -161,6 +184,9 @@ export default function CoursesPage() {
                         { key: 'cursos' as const, icon: '📚', label: 'Cursos', count: tabCounts.cursos },
                         { key: 'programas' as const, icon: '🎓', label: 'Programas', count: tabCounts.programas },
                         { key: 'webinars' as const, icon: '🎥', label: 'Webinars', count: tabCounts.webinars },
+                        { key: 'postulaciones' as const, icon: '✅', label: 'Postulaciones', count: tabCounts.postulaciones },
+                        { key: 'subscripciones' as const, icon: '🔄', label: 'Subscripciones', count: tabCounts.subscripciones },
+                        { key: 'software' as const, icon: '🛠️', label: 'Software', count: tabCounts.software },
                     ] as const).map(t => (
                         <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
                             {t.icon} {t.label}
@@ -198,10 +224,10 @@ export default function CoursesPage() {
                     <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
                     <h3>No hay registros</h3>
                     <p style={{ margin: '8px 0 16px' }}>
-                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${tab === 'cursos' ? 'cursos' : tab === 'programas' ? 'programas' : 'webinars'}.`}
+                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${tab === 'cursos' ? 'cursos' : tab === 'programas' ? 'programas' : tab === 'webinars' ? 'webinars' : tab === 'postulaciones' ? 'procesos de postulación' : tab === 'subscripciones' ? 'servicios de subscripción' : 'licencias de software'}.`}
                     </p>
                     <button className="btn btn-primary" onClick={() => navigate('/courses/upload')}>
-                        <Plus size={16} /> Crear {tab === 'cursos' ? 'Curso' : tab === 'programas' ? 'Programa' : 'Webinar'}
+                        <Plus size={16} /> Crear {tab === 'cursos' ? 'Curso' : tab === 'programas' ? 'Programa' : tab === 'webinars' ? 'Webinar' : tab === 'postulaciones' ? 'Postulación' : tab === 'subscripciones' ? 'Subscripción' : 'Software'}
                     </button>
                 </div>
             ) : view === 'list' ? (
@@ -286,7 +312,7 @@ export default function CoursesPage() {
                                             fontSize: '11px', fontWeight: 600
                                         }}>
                                             {typeIcon(item._type)}
-                                            <span>{item._type === 'curso' ? 'Curso' : item._type === 'programa' ? 'Programa' : 'Webinar'}</span>
+                                            {item._type === 'curso' ? 'Curso' : item._type === 'programa' ? 'Programa' : item._type === 'webinar' ? 'Webinar' : item._type === 'postulacion' ? 'Postulación' : item._type === 'subscripcion' ? 'Subscripción' : 'Software'}
                                         </div>
                                         <span style={{
                                             padding: '2px 8px', borderRadius: '8px', fontSize: '10px',

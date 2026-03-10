@@ -14,6 +14,7 @@ import aiRoutes from './routes/ai.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import contactsRoutes from './routes/contacts.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
+import crmRoutes from './routes/crm.routes.js';
 
 const app = express();
 
@@ -30,7 +31,8 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, curl, Postman)
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(null, true); // Permissive for demo — lock down in prod
+        console.warn(`CORS blocked origin: ${origin}`);
+        return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
 }));
@@ -60,6 +62,7 @@ app.use('/api/agents', agentsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/crm', crmRoutes);
 
 // ===== 404 Handler =====
 app.use('/api/*path', (_req, res) => {

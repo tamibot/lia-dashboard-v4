@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
@@ -9,13 +8,10 @@ import Courses from './pages/Courses';
 import CourseUpload from './pages/CourseUpload';
 import CourseDetail from './pages/CourseDetail';
 import Profile from './pages/Profile';
-import AITools from './pages/AITools';
-import TrendAnalysis from './pages/TrendAnalysis';
-import KPIReports from './pages/KPIReports';
 import Settings from './pages/Settings';
 import TeamManagement from './pages/TeamManagement';
+import Account from './pages/Account';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { settingsService } from './lib/services/settings.service';
 
 // Protected Route Wrapper
 const ProtectedRoute = () => {
@@ -37,10 +33,6 @@ const ProtectedRoute = () => {
 };
 
 export default function App() {
-  useEffect(() => {
-    settingsService.initialize();
-  }, []);
-
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -58,11 +50,9 @@ export default function App() {
             <Route path="/courses/edit/:id" element={<CourseUpload />} />
             <Route path="/courses/detail/:type/:id" element={<CourseDetail />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/ai-tools" element={<AITools />} />
-            <Route path="/tools/trends" element={<TrendAnalysis />} />
-            <Route path="/kpi" element={<KPIReports />} />
             <Route path="/team" element={<TeamManagement />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/account" element={<Account />} />
             {/* Catch-all redirect to Dashboard */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

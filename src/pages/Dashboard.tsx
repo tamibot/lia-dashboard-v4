@@ -7,21 +7,27 @@ import { useAuth } from '../context/AuthContext';
 export default function DashboardPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0 });
+    const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0, software: 0, subscripciones: 0, postulaciones: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [c, p, w] = await Promise.all([
+                const [c, p, w, s, sub, post] = await Promise.all([
                     courseService.getAll('curso'),
                     courseService.getAll('programa'),
-                    courseService.getAll('webinar')
+                    courseService.getAll('webinar'),
+                    courseService.getAll('software' as any),
+                    courseService.getAll('subscription' as any),
+                    courseService.getAll('application' as any)
                 ]);
                 setStats({
                     cursos: c.length,
                     programas: p.length,
-                    webinars: w.length
+                    webinars: w.length,
+                    software: s.length,
+                    subscripciones: sub.length,
+                    postulaciones: post.length
                 });
             } catch (err) {
                 console.error("Error fetching dashboard stats:", err);
@@ -76,6 +82,33 @@ export default function DashboardPage() {
                         <div>
                             <p className="text-xs font-bold text-orange-600 uppercase">Webinars</p>
                             <h4 className="text-2xl font-black text-orange-900">{isLoading ? '...' : stats.webinars}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div className="card bg-emerald-50 border-emerald-100">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">💻</span>
+                        <div>
+                            <p className="text-xs font-bold text-emerald-600 uppercase">Software</p>
+                            <h4 className="text-2xl font-black text-emerald-900">{isLoading ? '...' : stats.software}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div className="card bg-rose-50 border-rose-100">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">🎟️</span>
+                        <div>
+                            <p className="text-xs font-bold text-rose-600 uppercase">Subscripciones</p>
+                            <h4 className="text-2xl font-black text-rose-900">{isLoading ? '...' : stats.subscripciones}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div className="card bg-amber-50 border-amber-100">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">📝</span>
+                        <div>
+                            <p className="text-xs font-bold text-amber-600 uppercase">Postulaciones</p>
+                            <h4 className="text-2xl font-black text-amber-900">{isLoading ? '...' : stats.postulaciones}</h4>
                         </div>
                     </div>
                 </div>
@@ -139,7 +172,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <p className="text-xs text-gray-500 mb-4">Ayuda a tus prospectos a elegir el mejor programa para su perfil.</p>
-                    <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/my-agents')}>Crear Agente</button>
+                    <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/agentes')}>Crear Agente</button>
                 </div>
 
                 <div className="card">
@@ -150,10 +183,10 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <p className="text-xs text-gray-500 mb-4">Acompaña a tus alumnos en toda su ruta de aprendizaje con IA.</p>
-                    <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/my-agents')}>Crear Agente</button>
+                    <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/agentes')}>Crear Agente</button>
                 </div>
 
-                <Link to="/my-agents" className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center p-6 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all cursor-pointer">
+                <Link to="/agentes" className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center p-6 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all cursor-pointer">
                     <Plus size={24} className="mb-2" />
                     <span className="text-xs font-bold">Ver todos los Agentes</span>
                 </Link>

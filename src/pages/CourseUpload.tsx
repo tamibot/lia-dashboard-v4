@@ -10,12 +10,12 @@ import { courseService } from '../lib/services/course.service';
 import type { Attachment, ContactInfo } from '../lib/types';
 
 interface CourseData {
-    type: 'curso' | 'programa' | 'webinar';
+    type: 'curso' | 'programa' | 'webinar' | 'postulacion' | 'subscripcion';
     title: string;
     description: string;
     objectives: string[];
     targetAudience: string;
-    modality: 'online' | 'presencial' | 'hibrido';
+    modality: 'online' | 'presencial' | 'hibrido' | 'remoto';
     duration: string;
     hours: number | null;
     startDate: string | null;
@@ -33,7 +33,7 @@ interface CourseData {
     requirements: string[];
     contactInfo: ContactInfo | null;
     missing: string[];
-    youtubeUrl?: string; // Add youtubeUrl
+    youtubeUrl?: string;
     benefits?: string[];
     urgencyTrigger?: string;
     painPoints?: string[];
@@ -44,6 +44,12 @@ interface CourseData {
     bonuses?: string[];
     attachments: Attachment[];
     registrationLink?: string;
+    // Postulacion fields
+    methods?: string[];
+    modalities?: string[];
+    dates?: { event: string; date: string }[];
+    // Subscripcion fields
+    frequency?: 'mensual' | 'anual' | 'trimestral';
 }
 
 const INITIAL_STATE: CourseData = {
@@ -76,7 +82,11 @@ const INITIAL_STATE: CourseData = {
     faqs: [],
     bonuses: [],
     attachments: [],
-    registrationLink: ''
+    registrationLink: '',
+    methods: [],
+    modalities: [],
+    dates: [],
+    frequency: 'mensual'
 };
 
 type AnalysisStatus = 'idle' | 'analyzing' | 'success' | 'error';
@@ -351,7 +361,7 @@ export default function CourseUpload() {
                         </button>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">
-                                {id ? `Editar ${data.type === 'webinar' ? 'Webinar' : data.type === 'programa' ? 'Programa' : 'Curso'}` : `Crear Nuevo ${data.type === 'webinar' ? 'Webinar' : 'Curso'}`}
+                                {id ? `Editar ${data.type === 'webinar' ? 'Webinar' : data.type === 'programa' ? 'Programa' : data.type === 'postulacion' ? 'Postulación' : data.type === 'subscripcion' ? 'Suscripción' : 'Curso'}` : `Crear Nuevo ${data.type === 'webinar' ? 'Webinar' : data.type === 'postulacion' ? 'Postulación' : data.type === 'subscripcion' ? 'Suscripción' : 'Curso'}`}
                             </h1>
                             <p className="text-sm text-gray-500 flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
@@ -364,7 +374,7 @@ export default function CourseUpload() {
                             <MessageSquare size={18} /> Asistente IA
                         </button>
                         <button onClick={handleSave} className="btn btn-primary gap-2 px-6">
-                            <Check size={18} /> Guardar Curso
+                            <Check size={18} /> Guardar Registro
                         </button>
                     </div>
                 </div>
@@ -478,16 +488,23 @@ export default function CourseUpload() {
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
+                                            <label className="block text-sm font-medium text-gray-700">Tipo de Registro</label>
+                                            <select className="input w-full" value={data.type} onChange={e => setData({ ...data, type: e.target.value as any })}>
+                                                <option value="curso">Curso</option>
+                                                <option value="programa">Programa</option>
+                                                <option value="webinar">Webinar</option>
+                                                <option value="postulacion">Postulación</option>
+                                                <option value="subscripcion">Suscripción</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-medium text-gray-700">Modalidad</label>
                                             <select className="input w-full" value={data.modality} onChange={e => setData({ ...data, modality: e.target.value as any })}>
                                                 <option value="online">Online</option>
                                                 <option value="presencial">Presencial</option>
                                                 <option value="hibrido">Híbrido</option>
+                                                <option value="remoto">Remoto</option>
                                             </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Categoría</label>
-                                            <input className="input w-full" value={data.category} onChange={e => setData({ ...data, category: e.target.value })} />
                                         </div>
                                     </div>
                                 </div>
@@ -523,6 +540,50 @@ export default function CourseUpload() {
                                     <div className="col-span-full">
                                         <label className="block text-sm font-medium text-gray-700">Link de Registro (Zoom, Eventbrite, etc)</label>
                                         <input className="input w-full" placeholder="https://zoom.us/webinar/..." value={data.registrationLink || ''} onChange={e => setData({ ...data, registrationLink: e.target.value })} />
+                                    </div>
+                                )}
+
+                                {data.type === 'postulacion' && (
+                                    <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-blue-50/30 rounded-xl border border-blue-100 mt-4">
+                                        <div className="col-span-full">
+                                            <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4">
+                                                <Layout size={18} /> Detalles de Postulación
+                                            </h4>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Métodos de Ingreso</label>
+                                            <input className="input w-full" placeholder="Ej: Examen, Entrevista, Méritos" value={data.methods?.join(', ') || ''}
+                                                onChange={e => setData({ ...data, methods: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Modalidades Disponibles</label>
+                                            <input className="input w-full" placeholder="Ej: Ordinario, Especial, Beca" value={data.modalities?.join(', ') || ''}
+                                                onChange={e => setData({ ...data, modalities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {data.type === 'subscripcion' && (
+                                    <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-purple-50/30 rounded-xl border border-purple-100 mt-4">
+                                        <div className="col-span-full">
+                                            <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-4">
+                                                <DollarSign size={18} /> Plan de Suscripción
+                                            </h4>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Frecuencia de Pago</label>
+                                            <select className="input w-full" value={data.frequency} onChange={e => setData({ ...data, frequency: e.target.value as any })}>
+                                                <option value="mensual">Mensual</option>
+                                                <option value="trimestral">Trimestral</option>
+                                                <option value="anual">Anual</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Precio per Periodo</label>
+                                            <div className="flex gap-2">
+                                                <input type="number" className="input w-full" placeholder="0.00" value={data.price || ''} onChange={e => setData({ ...data, price: Number(e.target.value) })} />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>

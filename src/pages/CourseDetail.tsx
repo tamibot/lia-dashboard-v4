@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
 import { profileService } from '../lib/services/profile.service';
-import { settingsService } from '../lib/services/settings.service';
 import {
     generateLanding, generateEmailSequence, generateWhatsAppSequence, generateMarketing,
     analyzeCourseData, generateContentIdeas, refineContent,
@@ -79,6 +78,7 @@ export default function CourseDetailPage() {
     const [copied, setCopied] = useState(false);
     const [expandSyllabus, setExpandSyllabus] = useState(false);
     const [showSalesTest, setShowSalesTest] = useState(false);
+    const [activeTab, setActiveTab] = useState<'info' | 'ai'>('info');
 
     // Fetch Data
     useEffect(() => {
@@ -87,7 +87,7 @@ export default function CourseDetailPage() {
             try {
                 setFetchStatus('loading');
                 const [itemData, profileData] = await Promise.all([
-                    courseService.getById(id),
+                    courseService.getById(id, urlType),
                     profileService.get()
                 ]);
 
@@ -108,13 +108,24 @@ export default function CourseDetailPage() {
 
     const itemType = item?.type || urlType;
     const itemTitle = item?.title || '';
-    const typeEmoji = itemType === 'curso' ? '📚' : itemType === 'programa' ? '🎓' : '🎥';
-    const typeLabel = itemType === 'curso' ? 'Curso Libre' : itemType === 'programa' ? 'Programa' : 'Webinar';
+
+    // Mapping for type visualization
+    const getTypeInfo = (type: string) => {
+        switch (type) {
+            case 'software': return { emoji: '💻', label: 'Software' };
+            case 'subscription': return { emoji: '💳', label: 'Suscripción' };
+            case 'application': return { emoji: '📝', label: 'Postulación' };
+            case 'programa': return { emoji: '🎓', label: 'Programa' };
+            case 'webinar': return { emoji: '🎥', label: 'Webinar' };
+            default: return { emoji: '📚', label: 'Curso Libre' };
+        }
+    };
+
+    const { emoji: typeEmoji, label: typeLabel } = getTypeInfo(itemType);
 
     // Run a tool
     async function runTool(toolId: string) {
-        if (!settingsService.getGeminiKeySync()) { alert('Configura tu API Key de Gemini primero'); return; }
-        if (!item || !profile) return;
+        if (!profile) { alert('Completa tu perfil de organización primero'); return; }
         setActiveTool(toolId);
         setLoading(true);
         setContent('');
@@ -249,10 +260,28 @@ export default function CourseDetailPage() {
     const faqs = (item.faqs as { question: string; answer: string }[]) || [];
     const bonuses = (item.bonuses as string[]) || [];
     const guarantee = (item.guarantee as string) || '';
-    const socialProof = (item.socialProof as string[]) || [];
     const promotions = (item.promotions as string) || '';
     const contactInfo = (item.contactInfo as ContactInfo) || null;
     const attachments = (item.attachments as Attachment[]) || [];
+
+    // Model specific fields
+    const softwareInfo = itemType === 'software' ? {
+        version: item.version || '',
+        platform: item.platform || '',
+        downloadUrl: item.downloadUrl || '',
+    } : null;
+
+    const subscriptionInfo = itemType === 'subscription' ? {
+        period: item.period || '',
+    } : null;
+
+    const applicationInfo = itemType === 'application' ? {
+        deadline: item.deadline ? new Date(item.deadline).toLocaleDateString() : '',
+    } : null;
+
+    // Parent Relations (Hierarchy)
+    const parentEntity = item.course || item.program || item.webinar || null;
+    const parentType = item.course ? 'curso' : item.program ? 'programa' : item.webinar ? 'webinar' : null;
 
     const currentTool = ALL_TOOLS.find(t => t.id === activeTool);
     const htmlContent = currentTool?.visual && content ? extractHtml(content) : null;
@@ -297,7 +326,7 @@ export default function CourseDetailPage() {
                     {[
                         { icon: <Tag size={16} />, label: category },
                         { icon: <MapPin size={16} />, label: modality.charAt(0).toUpperCase() + modality.slice(1) },
-                        { icon: <Clock size={16} />, label: itemType === 'webinar' ? `${date} ${time}` : (duration || '—') },
+                        { icon: <Clock size={16} />, label: itemType === 'webinar' ? `${date} ${time}` : itemType === 'application' ? `Límite: ${applicationInfo?.deadline}` : (duration || '—') },
                         { icon: <Users size={16} />, label: maxStudents ? `${maxStudents} cupos` : '—' },
                         { icon: <DollarSign size={16} />, label: price ? `${currency} ${price}` : 'Gratis' },
                     ].map((s, i) => (
@@ -306,10 +335,63 @@ export default function CourseDetailPage() {
                         </div>
                     ))}
                 </div>
+
+                {/* Specific Details / Hierarchy Bar */}
+                {(softwareInfo || subscriptionInfo || applicationInfo || parentEntity) && (
+                    <div className="bg-blue-50/50 border-t border-gray-100 px-8 py-3 flex flex-wrap gap-6 items-center">
+                        {parentEntity && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Vinculado a:</span>
+                                <Link to={`/courses/${parentType}/${parentEntity.id}`} className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                                    {parentType === 'curso' ? '📚' : '🎓'} {parentEntity.title}
+                                </Link>
+                            </div>
+                        )}
+                        {softwareInfo?.version && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Versión:</span>
+                                <span className="text-gray-700 font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{softwareInfo.version}</span>
+                            </div>
+                        )}
+                        {softwareInfo?.platform && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Plataforma:</span>
+                                <span className="text-gray-700 font-semibold">{softwareInfo.platform}</span>
+                            </div>
+                        )}
+                        {subscriptionInfo?.period && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Periodo:</span>
+                                <span className="text-gray-700 font-semibold">{subscriptionInfo.period}</span>
+                            </div>
+                        )}
+                        {softwareInfo?.downloadUrl && (
+                            <a href={softwareInfo.downloadUrl} target="_blank" rel="noreferrer" className="ml-auto flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-xs font-bold shadow-sm">
+                                <Download size={14} /> Descargar Software
+                            </a>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ====== TABS ====== */}
+            <div className="flex border-b border-gray-200 mb-8 overflow-x-auto">
+                <button
+                    onClick={() => setActiveTab('info')}
+                    className={`py-4 px-6 font-semibold text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'info' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    Información Detallada
+                </button>
+                <button
+                    onClick={() => setActiveTab('ai')}
+                    className={`py-4 px-6 font-semibold text-sm border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'ai' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Sparkles size={16} /> Crear Contenido con IA
+                </button>
             </div>
 
             {/* ====== COURSE INFO ====== */}
-            {!activeTool && (
+            {activeTab === 'info' && !activeTool && (
                 <>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                         {/* Description */}
@@ -318,43 +400,43 @@ export default function CourseDetailPage() {
                                 <Book size={16} /> Descripción General
                             </h4>
                             <p className="text-gray-600 leading-relaxed">
-                                {description || <em className="text-gray-400">Sin descripción</em>}
+                                {description || <em className="text-gray-400">Sin descripción proporcionada. Edita el curso para añadir una descripción atractiva.</em>}
                             </p>
                         </div>
 
                         {/* Instructor + cert */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col gap-6">
-                            {instructor && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                        <Users size={16} /> Instructor
-                                    </h4>
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                    <Users size={16} /> Instructor o Expositor
+                                </h4>
+                                {instructor ? (
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 font-bold flex items-center justify-center shrink-0">
                                             {instructor.charAt(0).toUpperCase()}
                                         </div>
                                         <span className="font-semibold text-gray-900">{instructor}</span>
                                     </div>
-                                </div>
-                            )}
-                            {certification && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                        <Award size={16} /> Certificación
-                                    </h4>
-                                    <p className="text-sm text-gray-600">{certification}</p>
-                                </div>
-                            )}
+                                ) : (
+                                    <p className="text-sm text-gray-400 italic">No asignado</p>
+                                )}
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <Award size={16} /> Certificación
+                                </h4>
+                                <p className="text-sm text-gray-600">{certification || <em className="text-gray-400">Sin certificación documentada</em>}</p>
+                            </div>
                         </div>
                     </div>
 
                     {/* Objectives & Tools */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        {objectives.length > 0 && (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                    <Sparkles size={16} /> Objetivos del Aprendizaje
-                                </h4>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <Sparkles size={16} /> Objetivos del Aprendizaje
+                            </h4>
+                            {objectives.length > 0 ? (
                                 <ul className="space-y-3">
                                     {objectives.map((obj, i) => (
                                         <li key={i} className="flex gap-3 text-sm text-gray-600">
@@ -365,172 +447,189 @@ export default function CourseDetailPage() {
                                         </li>
                                     ))}
                                 </ul>
-                            </div>
-                        )}
-                        {(tools.length > 0 || requirements.length > 0) && (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                {tools.length > 0 && (
-                                    <div className="mb-6">
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                                            🛠️ Herramientas
-                                        </h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {tools.map((t, i) => (
-                                                <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
-                                                    {t}
-                                                </span>
-                                            ))}
-                                        </div>
+                            ) : (
+                                <p className="text-sm text-gray-400 italic">Agrega objetivos claros para convencer a tus prospectos.</p>
+                            )}
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <div className="mb-6">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                    🛠️ Herramientas
+                                </h4>
+                                {tools.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {tools.map((t, i) => (
+                                            <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
+                                                {t}
+                                            </span>
+                                        ))}
                                     </div>
+                                ) : (
+                                    <p className="text-sm text-gray-400 italic">No se han listado herramientas.</p>
                                 )}
-                                {requirements.length > 0 && (
-                                    <div>
-                                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                                            📋 Requisitos Previos
-                                        </h4>
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+                                    📋 Requisitos Previos
+                                </h4>
+                                {requirements.length > 0 ? (
+                                    <ul className="space-y-2">
+                                        {requirements.map((req, i) => (
+                                            <li key={i} className="flex gap-2 text-sm text-gray-600 items-start">
+                                                <span className="text-gray-400 mt-0.5">•</span> {req}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-sm text-gray-400 italic">Entrada libre de requisitos.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Marketing specific fields */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-sm border border-indigo-100 p-6 mb-6">
+                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+                            💼 Comercial & Venta
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <div className="mb-6">
+                                    <h5 className="text-sm font-bold text-indigo-900 mb-3">Beneficios Clave</h5>
+                                    {benefits.length > 0 ? (
                                         <ul className="space-y-2">
-                                            {requirements.map((req, i) => (
-                                                <li key={i} className="flex gap-2 text-sm text-gray-600 items-start">
-                                                    <span className="text-gray-400 mt-0.5">•</span> {req}
+                                            {benefits.map((b, i) => (
+                                                <li key={i} className="flex gap-2 text-sm text-indigo-800 items-start">
+                                                    <span className="text-indigo-400 mt-0.5">✨</span> {b}
                                                 </li>
                                             ))}
                                         </ul>
+                                    ) : (
+                                        <p className="text-sm text-indigo-400 italic">Añade beneficios para potenciar el mensaje del Agente IA de Ventas.</p>
+                                    )}
+                                </div>
+                                <div className="mb-6">
+                                    <h5 className="text-sm font-bold text-indigo-900 mb-3">Bonos Extra</h5>
+                                    {bonuses.length > 0 ? (
+                                        <ul className="space-y-2">
+                                            {bonuses.map((b, i) => (
+                                                <li key={i} className="flex gap-2 text-sm text-emerald-700 font-medium items-start">
+                                                    <span className="mt-0.5">🎁</span> {b}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-sm text-indigo-400 italic">Sin bonos configurados.</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="mb-6">
+                                    <h5 className="text-sm font-bold text-indigo-900 mb-2">Promociones Activas</h5>
+                                    {promotions ? (
+                                        <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold">
+                                            <span>🏷️</span> {promotions}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-indigo-400 italic">Ninguna por ahora.</p>
+                                    )}
+                                </div>
+                                <div className="mb-6">
+                                    <h5 className="text-sm font-bold text-indigo-900 mb-2">Garantía</h5>
+                                    {guarantee ? (
+                                        <div className="flex items-center gap-2 text-sm text-indigo-800 bg-white/60 px-3 py-2 rounded-lg border border-indigo-100/50">
+                                            <span>🛡️</span> {guarantee}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-indigo-400 italic">Sin política de garantía visible.</p>
+                                    )}
+                                </div>
+                                {itemType === 'webinar' && (
+                                    <div className="mb-6">
+                                        <h5 className="text-sm font-bold text-indigo-900 mb-2">Link de Registro</h5>
+                                        {registrationLink ? (
+                                            <a href={registrationLink} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline break-all">
+                                                {registrationLink}
+                                            </a>
+                                        ) : (
+                                            <p className="text-sm text-indigo-400 italic">Falta por configurar.</p>
+                                        )}
                                     </div>
+                                )}
+                                <div className="mb-6">
+                                    <h5 className="text-sm font-bold text-indigo-900 mb-3">Preguntas Frecuentes Top</h5>
+                                    {faqs.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {faqs.slice(0, 3).map((f, i) => (
+                                                <div key={i} className="bg-white/60 p-3 rounded-lg border border-indigo-100/50">
+                                                    <div className="text-xs font-bold text-indigo-900 mb-1">Q: {f.question}</div>
+                                                    <div className="text-xs text-indigo-700">A: {f.answer}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-indigo-400 italic">Las FAQs ayudan al Agente a responder mejor.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Syllabus */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                        <button
+                            onClick={() => setExpandSyllabus(!expandSyllabus)}
+                            className="w-full flex items-center justify-between text-left focus:outline-none group"
+                        >
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                📚 Temario {syllabus.length > 0 && (
+                                    <span className="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-[10px]">
+                                        {syllabus.length} {typeof syllabus[0] === 'object' && syllabus[0]?.module ? 'módulos' : 'temas'}
+                                    </span>
+                                )}
+                            </h4>
+                            <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
+                                {expandSyllabus ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                            </div>
+                        </button>
+
+                        {expandSyllabus && (
+                            <div className="mt-6 border-t border-gray-50 pt-4 space-y-4">
+                                {syllabus.length > 0 ? syllabus.map((mod: any, i: number) => (
+                                    <div key={i} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                                        {typeof mod === 'object' && mod.module ? (
+                                            <>
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                                        M{i + 1}
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="text-sm font-bold text-gray-900 mb-2">{mod.module}</h5>
+                                                        {mod.topics && (
+                                                            <ul className="space-y-1.5 pl-2 border-l-2 border-gray-100">
+                                                                {mod.topics.map((t: string, ti: number) => (
+                                                                    <li key={ti} className="text-sm text-gray-600 pl-3 relative before:absolute before:w-1.5 before:h-1.5 before:bg-gray-300 before:rounded-full before:left-[-4px] before:top-2">
+                                                                        {t}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-start gap-3 text-sm">
+                                                <span className="text-blue-500 font-bold shrink-0">{i + 1}.</span>
+                                                <span className="text-gray-700">{typeof mod === 'string' ? mod : mod.title || JSON.stringify(mod)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )) : (
+                                    <p className="text-sm text-gray-400 italic">No se ha cargado el temario aún.</p>
                                 )}
                             </div>
                         )}
                     </div>
-
-                    {/* Marketing specific fields */}
-                    {(benefits.length > 0 || guarantee || socialProof.length > 0 || promotions || faqs.length > 0) && (
-                        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl shadow-sm border border-indigo-100 p-6 mb-6">
-                            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                                💼 Comercial & Venta
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div>
-                                    {benefits.length > 0 && (
-                                        <div className="mb-6">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Beneficios Clave</h5>
-                                            <ul className="space-y-2">
-                                                {benefits.map((b, i) => (
-                                                    <li key={i} className="flex gap-2 text-sm text-indigo-800 items-start">
-                                                        <span className="text-indigo-400 mt-0.5">✨</span> {b}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    {bonuses.length > 0 && (
-                                        <div className="mb-6">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Bonos Extra</h5>
-                                            <ul className="space-y-2">
-                                                {bonuses.map((b, i) => (
-                                                    <li key={i} className="flex gap-2 text-sm text-emerald-700 font-medium items-start">
-                                                        <span className="mt-0.5">🎁</span> {b}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    {promotions && (
-                                        <div className="mb-6">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Promociones Activas</h5>
-                                            <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-sm font-semibold">
-                                                <span>🏷️</span> {promotions}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {guarantee && (
-                                        <div className="mb-6">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Garantía</h5>
-                                            <div className="flex items-center gap-2 text-sm text-indigo-800 bg-white/60 px-3 py-2 rounded-lg border border-indigo-100/50">
-                                                <span>🛡️</span> {guarantee}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {registrationLink && (
-                                        <div className="mb-6">
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-2">Link de Registro</h5>
-                                            <a href={registrationLink} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-800 underline break-all">
-                                                {registrationLink}
-                                            </a>
-                                        </div>
-                                    )}
-                                    {faqs.length > 0 && (
-                                        <div>
-                                            <h5 className="text-sm font-bold text-indigo-900 mb-3">Preguntas Frecuentes Top</h5>
-                                            <div className="space-y-3">
-                                                {faqs.slice(0, 3).map((f, i) => (
-                                                    <div key={i} className="bg-white/60 p-3 rounded-lg border border-indigo-100/50">
-                                                        <div className="text-xs font-bold text-indigo-900 mb-1">Q: {f.question}</div>
-                                                        <div className="text-xs text-indigo-700">A: {f.answer}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Syllabus */}
-                    {syllabus.length > 0 && (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-                            <button
-                                onClick={() => setExpandSyllabus(!expandSyllabus)}
-                                className="w-full flex items-center justify-between text-left focus:outline-none group"
-                            >
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                    📚 Temario
-                                    <span className="bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-[10px]">
-                                        {syllabus.length} {typeof syllabus[0] === 'object' && syllabus[0]?.module ? 'módulos' : 'temas'}
-                                    </span>
-                                </h4>
-                                <div className="text-gray-400 group-hover:text-blue-500 transition-colors">
-                                    {expandSyllabus ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                                </div>
-                            </button>
-
-                            {expandSyllabus && (
-                                <div className="mt-6 border-t border-gray-50 pt-4 space-y-4">
-                                    {syllabus.map((mod: any, i: number) => (
-                                        <div key={i} className="pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                                            {typeof mod === 'object' && mod.module ? (
-                                                <>
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
-                                                            M{i + 1}
-                                                        </div>
-                                                        <div>
-                                                            <h5 className="text-sm font-bold text-gray-900 mb-2">{mod.module}</h5>
-                                                            {mod.topics && (
-                                                                <ul className="space-y-1.5 pl-2 border-l-2 border-gray-100">
-                                                                    {mod.topics.map((t: string, ti: number) => (
-                                                                        <li key={ti} className="text-sm text-gray-600 pl-3 relative before:absolute before:w-1.5 before:h-1.5 before:bg-gray-300 before:rounded-full before:left-[-4px] before:top-2">
-                                                                            {t}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="flex items-start gap-3 text-sm">
-                                                    <span className="text-blue-500 font-bold shrink-0">{i + 1}.</span>
-                                                    <span className="text-gray-700">{typeof mod === 'string' ? mod : mod.title || JSON.stringify(mod)}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Resources & Attachments */}
                     {attachments.length > 0 && (
@@ -575,7 +674,7 @@ export default function CourseDetailPage() {
             )}
 
             {/* ====== TOOL GRID (when no tool is active) ====== */}
-            {!activeTool && (
+            {activeTab === 'ai' && !activeTool && (
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <Sparkles size={18} style={{ color: '#3B82F6' }} />

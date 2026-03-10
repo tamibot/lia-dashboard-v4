@@ -6,6 +6,7 @@ interface User {
   id: string;
   email: string;
   name: string;
+  phone?: string;
   role: string;
   orgId: string;
   orgName: string;
@@ -32,6 +33,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = authService.getUser();
         if (storedUser && authService.isAuthenticated()) {
           setUser(storedUser);
+        } else if (import.meta.env.DEV) {
+          // Auto-login for local development with REAL database IDs
+          const mockUser = {
+            id: '47a09593-6f23-497e-8138-e1e708c3ae3d',
+            email: 'admin@innovation-institute.edu',
+            name: 'Admin Principal',
+            phone: '+51 987 654 321',
+            role: 'admin',
+            orgId: 'a6b7b632-237c-42d0-88b1-94a97f175ede',
+            orgName: 'Innovation Institute'
+          };
+
+          // Mimic login state
+          localStorage.setItem('lia_auth_token', 'dev-mock-token');
+          localStorage.setItem('lia_user', JSON.stringify(mockUser));
+          setUser(mockUser);
         }
       } catch (e) {
         console.error("Failed to initialize auth", e);

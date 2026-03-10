@@ -72,14 +72,15 @@ router.post('/register', async (req: Request, res: Response) => {
                 id: result.user.id,
                 email: result.user.email,
                 name: result.user.name,
+                phone: result.user.phone,
                 role: result.user.role,
                 orgId: result.org.id,
                 orgName: result.org.name,
             },
         });
-    } catch (err) {
+    } catch (err: any) {
         console.error('Register error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error', details: err?.message || err });
     }
 });
 
@@ -128,14 +129,15 @@ router.post('/login', async (req: Request, res: Response) => {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                phone: user.phone,
                 role: user.role,
                 orgId: user.org.id,
                 orgName: user.org.name,
             },
         });
-    } catch (err) {
+    } catch (err: any) {
         console.error('Login error:', err);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error', details: err?.message || err });
     }
 });
 
@@ -156,6 +158,7 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
             id: user.id,
             email: user.email,
             name: user.name,
+            phone: user.phone,
             role: user.role,
             orgId: user.orgId,
             org: {

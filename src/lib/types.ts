@@ -100,6 +100,13 @@ export interface OrgProfile {
     }[];
     courseCategories?: string[]; // Types of courses offered
     history?: string; // Story/About Us
+    certificates?: string[]; // List of certificates/awards
+    paymentMethods?: {
+        type: 'bank_transfer' | 'gateway' | 'cash';
+        name: string; // e.g. "PayPal", "BCP Soles"
+        details: string; // e.g. Account number, email, or instructions
+    }[];
+    modalities?: string[]; // e.g. ["Online", "Presencial", "Híbrido"]
 }
 
 // === Teams ===
@@ -298,7 +305,7 @@ export interface AITool {
     description: string;
     icon: string;
     status: 'available' | 'coming_soon';
-    category: 'onboarding' | 'content' | 'marketing' | 'analytics';
+    category: 'onboarding' | 'content' | 'marketing' | 'analytics' | 'content-ia' | 'educational-ia';
     path: string;
 }
 

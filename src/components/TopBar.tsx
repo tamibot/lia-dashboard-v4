@@ -7,12 +7,15 @@ export default function TopBar() {
     const getPageTitle = () => {
         const path = location.pathname;
         if (path === '/') return 'Dashboard';
-        if (path.startsWith('/kpi')) return 'KPIs & Reportes';
-        if (path.startsWith('/courses/upload')) return 'Subir Información';
+        if (path.startsWith('/agentes')) return 'Mis Agentes';
+        if (path.startsWith('/courses/upload') || path.startsWith('/courses/new')) return 'Subir Información';
+        if (path.startsWith('/courses/edit')) return 'Editar Registro';
         if (path.startsWith('/courses/detail')) return 'Detalle Académico';
         if (path.startsWith('/courses')) return 'Catálogo Académico';
-        if (path.startsWith('/profile')) return 'Perfil de Organización';
-        if (path.startsWith('/settings')) return 'Configuración';
+        if (path.startsWith('/profile')) return 'Perfil Institución';
+        if (path.startsWith('/team')) return 'Mi Equipo';
+        if (path.startsWith('/settings')) return 'API & Sistema';
+        if (path.startsWith('/account')) return 'Mi Cuenta';
         return 'LIA Dashboard';
     };
 
@@ -52,7 +55,11 @@ export default function TopBar() {
 
                 <div style={{ height: '24px', width: '1px', background: 'var(--border)' }}></div>
 
-                <div className="dropdown" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <div
+                    className="dropdown"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                    onClick={() => window.location.href = '/account'}
+                >
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '13px', fontWeight: 600 }}>Mi Cuenta</div>
                         <div style={{ fontSize: '10px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>

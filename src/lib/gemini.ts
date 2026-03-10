@@ -309,6 +309,40 @@ const PROMPTS = {
     }
     REGLA DE ORO: NO INCLUYAS SYLLABUS. EL WEBINAR ES CORTO, ENFÓCATE EN EL ENLACE DE REGISTRO, SI ES VIRTUAL/PRESENCIAL Y QUÉ SECRETO VAN A DESCUBRIR.`,
 
+    RAW_EXTRACT_POSTULACION: `Eres un experto en Admisiones Universitarias y Reclutamiento.
+    TU TAREA: extraer información sobre procesos de POSTULACIÓN, ADMISIÓN o INGRESO.
+
+    FORMATO DE RESPUESTA (JSON PURO):
+    {
+      "type": "postulacion",
+      "title": "NOMBRE DEL PROCESO (Ej: 'Admisión 2026-I')",
+      "description": "Explicación del proceso y a qué programas aplica.",
+      "methods": ["Examen de admisión", "Ingreso directo", "Traslado"],
+      "modalities": ["Ordinario", "Extraordinario", "Beca"],
+      "dates": [ { "event": "Cierre de inscripciones", "date": "YYYY-MM-DD" } ],
+      "requirements": ["DNI", "Certificado de estudios"],
+      "contactInfo": { "phone": "string", "email": "string", "office": "string" },
+      "price": número,
+      "currency": "USD" | "PEN",
+      "missing": ["Campos faltantes"]
+    }`,
+
+    RAW_EXTRACT_SUBSCRIPCION: `Eres un experto en Modelos de Negocio Recurrentes (SaaS/Memberhsips).
+    TU TAREA: extraer información sobre un servicio de SUSCRIPCIÓN (asesoría, acompañamiento, etc).
+
+    FORMATO DE RESPUESTA (JSON PURO):
+    {
+      "type": "subscripcion",
+      "title": "NOMBRE DE LA SUSCRIPCIÓN (Ej: 'Asesoría Premium')",
+      "description": "Valor recurrente que aporta el servicio.",
+      "price": número,
+      "currency": "USD" | "PEN",
+      "frequency": "mensual" | "anual" | "trimestral",
+      "benefits": ["Acceso a portal", "1 sesión semanal"],
+      "bonuses": ["Guía gratuita"],
+      "missing": ["Campos faltantes"]
+    }`,
+
     REVIEW_CONTENT: `Eres un editor senior de contenido educativo.
     TU TAREA: Revisar el borrador del curso generado y sugerir 3 mejoras CRÍTICAS para vender más.
     
@@ -342,7 +376,7 @@ const PROMPTS = {
     
     REGLAS:
     - "updates" contiene SOLO los campos que el usuario pidió completar o mejorar.
-    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses.
+    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses, methods, modalities, dates, frequency.
     - Si el usuario pide objetivos, devuelve "objectives": ["Obj1", "Obj2", ...].
     - Si el usuario pide descripción, devuelve "description": "texto".
     - Si el usuario pide precio, devuelve "price": número.
