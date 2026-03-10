@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import TeamManagement from './pages/TeamManagement';
 import Account from './pages/Account';
+import CRM from './pages/CRM';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected Route Wrapper
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/courses/new" element={<CourseUpload />} />
             <Route path="/courses/edit/:id" element={<CourseUpload />} />
             <Route path="/courses/detail/:type/:id" element={<CourseDetail />} />
+            <Route path="/crm" element={<CRM />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/team" element={<TeamManagement />} />
             <Route path="/settings" element={<Settings />} />

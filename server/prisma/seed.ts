@@ -173,6 +173,117 @@ async function main() {
     });
     console.log(`✅ Webinar: ${webinar.title} (${webinar.code})`);
 
+    // 5b. Create sample software items
+    const softwareItems = [
+        {
+            code: 'SW-CHATBOT2024-001',
+            title: 'LIA Chatbot Builder',
+            description: 'Platform for creating educational chatbots. Permite a instituciones diseñar, entrenar y desplegar asistentes conversacionales sin necesidad de código.',
+            price: 99,
+            currency: 'USD',
+            category: 'Software Educativo',
+            platform: 'Web',
+            version: '2.1.0',
+            status: 'activo' as const,
+            tags: ['Chatbot', 'IA', 'Educación', 'No-Code'],
+        },
+        {
+            code: 'SW-ANALYTICS2024-002',
+            title: 'EduMetrics Pro',
+            description: 'Analytics dashboard for student engagement. Monitorea métricas de participación, retención y satisfacción estudiantil en tiempo real.',
+            price: 149,
+            currency: 'USD',
+            category: 'Analytics',
+            platform: 'Web',
+            version: '1.5.0',
+            status: 'activo' as const,
+            tags: ['Analytics', 'Dashboard', 'Engagement', 'Métricas'],
+        },
+    ];
+
+    for (const swData of softwareItems) {
+        const sw = await prisma.software.upsert({
+            where: { code: swData.code },
+            update: {},
+            create: { orgId: org.id, ...swData },
+        });
+        console.log(`✅ Software: ${sw.title} (${sw.code})`);
+    }
+
+    // 5c. Create sample subscriptions
+    const subscriptionItems = [
+        {
+            code: 'SUB-PREMIUM2024-001',
+            title: 'Membresía Premium Educador',
+            description: 'Access to all courses + monthly masterclasses. Incluye contenido exclusivo, comunidad privada y sesiones de mentoría grupales.',
+            benefits: ['Acceso ilimitado a cursos', 'Masterclass mensual en vivo', 'Comunidad privada', 'Certificados incluidos', 'Mentoría grupal'],
+            price: 49,
+            currency: 'USD',
+            period: 'mensual',
+            category: 'Membresía',
+            status: 'activo' as const,
+            tags: ['Premium', 'Membresía', 'All-Access'],
+        },
+        {
+            code: 'SUB-ENTERPRISE2024-002',
+            title: 'Plan Enterprise Institucional',
+            description: 'Full platform access for institutions. Licencia institucional con acceso completo a la plataforma, reportes avanzados y soporte dedicado.',
+            benefits: ['Usuarios ilimitados', 'Panel administrativo', 'Reportes avanzados', 'Soporte prioritario 24/7', 'Personalización de marca', 'API access'],
+            price: 299,
+            currency: 'USD',
+            period: 'mensual',
+            category: 'Institucional',
+            status: 'activo' as const,
+            tags: ['Enterprise', 'Institucional', 'B2B'],
+        },
+    ];
+
+    for (const subData of subscriptionItems) {
+        const sub = await prisma.subscription.upsert({
+            where: { code: subData.code },
+            update: {},
+            create: { orgId: org.id, ...subData },
+        });
+        console.log(`✅ Subscription: ${sub.title} (${sub.code})`);
+    }
+
+    // 5d. Create sample applications (postulaciones)
+    const applicationItems = [
+        {
+            code: 'ADM-BECA2024-001',
+            title: 'Beca de Innovación en IA',
+            description: 'Scholarship for AI innovation program. Beca completa para profesionales destacados que deseen especializarse en inteligencia artificial aplicada.',
+            price: 0,
+            currency: 'USD',
+            category: 'Becas',
+            requirements: ['CV actualizado', 'Carta de motivación', 'Portfolio de proyectos', 'Mínimo 2 años de experiencia profesional'],
+            deadline: new Date('2026-06-30'),
+            status: 'activo' as const,
+            tags: ['Beca', 'IA', 'Innovación', 'Gratuito'],
+        },
+        {
+            code: 'ADM-MBA2024-002',
+            title: 'Admisión MBA Digital',
+            description: 'MBA admission process. Proceso de admisión para el programa de MBA en Transformación Digital y Gestión de la Innovación.',
+            price: 50,
+            currency: 'USD',
+            category: 'Admisiones',
+            requirements: ['Título universitario', 'Mínimo 3 años de experiencia laboral', 'Ensayo de admisión', 'Entrevista personal'],
+            deadline: new Date('2026-08-15'),
+            status: 'activo' as const,
+            tags: ['MBA', 'Admisión', 'Digital'],
+        },
+    ];
+
+    for (const appData of applicationItems) {
+        const app = await prisma.application.upsert({
+            where: { code: appData.code },
+            update: {},
+            create: { orgId: org.id, ...appData },
+        });
+        console.log(`✅ Application: ${app.title} (${app.code})`);
+    }
+
     // 6. Create sample team (skip if already exists)
     const existingTeam = await prisma.team.findFirst({
         where: { orgId: org.id, name: 'Equipo de Ventas IA' },
@@ -194,6 +305,54 @@ async function main() {
         console.log(`✅ Team: ${team.name}`);
     } else {
         console.log(`✅ Team already exists: ${existingTeam.name}`);
+    }
+
+    // 6b. Create AI Agents (skip if already exists)
+    const agentDefinitions = [
+        {
+            name: 'Asistente de Ventas',
+            role: 'Sales Closer',
+            personality: 'professional' as const,
+            avatar: '💼',
+            tone: 'Profesional, consultivo y orientado a resolver dudas de forma empática',
+            systemPrompt: 'Eres un asesor educativo experto. Tu objetivo es ayudar a los prospectos a encontrar el programa educativo ideal para sus necesidades. Usa los datos reales del catálogo para hacer recomendaciones personalizadas. Maneja objeciones con empatía y ofrece soluciones concretas. Siempre verifica la información contra el catálogo antes de responder.',
+            expertise: ['ventas consultivas', 'educación', 'manejo de objeciones'],
+            isActive: true,
+        },
+        {
+            name: 'Recolector de Información',
+            role: 'BDR Agent',
+            personality: 'friendly' as const,
+            avatar: '📋',
+            tone: 'Amigable, curioso y eficiente en recopilar datos del prospecto',
+            systemPrompt: 'Eres un asistente amigable que ayuda a recopilar información de prospectos interesados en programas educativos. Tu objetivo es obtener: nombre completo, teléfono/WhatsApp, correo electrónico, programa de interés y nivel de urgencia. Hazlo de forma conversacional y natural, sin que parezca un formulario.',
+            expertise: ['recopilación de datos', 'clasificación de leads', 'cualificación'],
+            isActive: true,
+        },
+        {
+            name: 'Asistente de Catálogo',
+            role: 'Catalog Expert',
+            personality: 'enthusiastic' as const,
+            avatar: '🎓',
+            tone: 'Entusiasta, conocedor y detallado al presentar la oferta educativa',
+            systemPrompt: 'Eres un experto en la oferta educativa de la institución. Conoces cada curso, programa, webinar y servicio en detalle. Ayudas a los usuarios a explorar el catálogo, comparar opciones y encontrar exactamente lo que necesitan. Siempre fundamenta tus respuestas en datos reales del catálogo.',
+            expertise: ['catálogo educativo', 'asesoría académica', 'comparación de programas'],
+            isActive: true,
+        },
+    ];
+
+    for (const agentData of agentDefinitions) {
+        const existingAgent = await prisma.aiAgent.findFirst({
+            where: { orgId: org.id, name: agentData.name },
+        });
+        if (!existingAgent) {
+            const agent = await prisma.aiAgent.create({
+                data: { orgId: org.id, ...agentData },
+            });
+            console.log(`✅ AI Agent: ${agent.name} (${agent.role})`);
+        } else {
+            console.log(`✅ AI Agent already exists: ${existingAgent.name}`);
+        }
     }
 
     // 7. Create default CRM Funnel and Stages

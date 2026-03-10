@@ -15,6 +15,7 @@ export default function TopBar() {
         if (path.startsWith('/profile')) return 'Perfil Institución';
         if (path.startsWith('/team')) return 'Mi Equipo';
         if (path.startsWith('/settings')) return 'API & Sistema';
+        if (path.startsWith('/crm')) return 'Embudo & Campos de Extracción';
         if (path.startsWith('/account')) return 'Mi Cuenta';
         return 'LIA Dashboard';
     };
