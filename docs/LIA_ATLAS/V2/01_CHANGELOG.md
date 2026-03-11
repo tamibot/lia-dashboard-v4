@@ -4,6 +4,56 @@
 
 ---
 
+## [2026-03-11] — V2.1: Reestructuración de Catálogo (7 Tipos)
+
+### Catálogo: Software → Taller + Asesoría
+- **Eliminado**: Modelo `Software` y enum `WebinarType`
+- **Nuevo**: Modelo `Taller` (Workshop) con campos: `venue`, `venueAddress`, `venueCapacity`, `maxParticipants`, `availableSpots`, `waitlistEnabled`, `materials[]`, `deliverables[]`, `certification`, `earlyBirdPrice`, `earlyBirdDeadline`
+- **Nuevo**: Modelo `Asesoria` (Consulting) con campos: `pricePerHour`, `minimumHours`, `packageHours`, `packagePrice`, `advisor`, `advisorBio`, `advisorTitle`, `specialties[]`, `bookingLink`, `minAdvanceBooking`, `availableSchedule`, `sessionDuration`, `topicsCovered[]`, `deliverables[]`, `needsDescription`
+- **Modificado**: `Webinar` — `type: WebinarType` reemplazado por `webinarFormat: String @default("webinar")`
+- **Modificado**: `Course`, `Program` — Nuevos campos: `registrationLink`, `paymentMethods[]`
+- **Modificado**: `Program` — Nuevos campos: `whatsappGroup`, `includesProject`
+- **Modificado**: `Subscription` — Nuevos campos: `advisoryHours`, `whatsappGroup`, `communityAccess`, `registrationLink`, `paymentMethods[]`
+- **Modificado**: `Application` — Nuevos campos: `examRequired`, `examDescription`, `applicationFee`, `steps[]`, `documentsNeeded[]`, `selectionCriteria[]`, `registrationLink`, `paymentMethods[]`
+- **Modificado**: `EntityType` enum — Ahora: `course | program | webinar | taller | subscription | asesoria | application`
+- **Modificado**: `Contact` — Reemplazado `softwareInterest` con `tallerInterest` + `asesoriaInterest`
+- **Modificado**: Prefijos de código: `CRS`, `PRG`, `WBN`, `TLR` (nuevo), `ASE` (nuevo), `SUB`, `ADM`
+
+### Frontend
+- **Modificado**: `Dashboard.tsx` — 7 stat cards (antes 6), grid `grid-cols-2 md:grid-cols-4`
+- **Modificado**: `Courses.tsx` — 7 tabs con iconos (Wrench para taller, MessageCircle para asesoría), manejo de `pricePerHour`, `maxParticipants`
+- **Modificado**: `CourseDetail.tsx` — Secciones para taller (venue, spots) y asesoría (advisor, booking)
+- **Modificado**: `CourseUpload.tsx` — Dropdown incluye `taller` y `asesoría`
+- **Modificado**: `types.ts` — Interfaces `Taller` y `Asesoria`, actualizado `CourseData` union type
+
+### Backend
+- **Modificado**: `courses.routes.ts` — Nuevos cases para `taller` (prefix `TLR`) y `asesoria` (prefix `ASE`), manejo de `pricePerHour`
+- **Modificado**: `course.service.ts` — Union type actualizado a 7 tipos
+
+### Deploy
+- **Nuevo**: `server/prisma/pre-migrate.ts` — Script de limpieza idempotente que ejecuta SQL raw para eliminar datos del modelo Software, columnas software_id, enum WebinarType
+- **Nuevo**: `server/prisma/migrate-v2.sql` — Referencia SQL de la migración
+- **Modificado**: `Dockerfile` CMD — Ejecuta `pre-migrate.ts` → `prisma db push --accept-data-loss` → `seed.ts` → `node dist/index.js`
+
+### Seed Data (Tema: Arquitectura + IA)
+- Organización: "Instituto de Innovación para Arquitectos"
+- 2 cursos: IA para Arquitectos, Renderizado con IA Generativa (PEN)
+- 1 programa: IA y Programación para Arquitectos (3 módulos, whatsappGroup, includesProject)
+- 1 webinar: Tendencias de IA para Arquitectos (webinarFormat: 'webinar')
+- 2 talleres: Aprende a usar IA, BIM + IA (venue, maxParticipants, materials, deliverables)
+- 2 suscripciones: Asesor IA, Plan Estudio (advisoryHours, whatsappGroup)
+- 2 asesorías: Consulta individual, Asesoría para Estudios (pricePerHour, bookingLink, specialties)
+- 1 postulación: Programa de Becas (examRequired, steps, documentsNeeded)
+- Campos de extracción actualizados con opciones: Curso, Programa, Webinar, Taller, Suscripción, Asesoría, Postulación
+
+### Commits
+| Hash | Mensaje |
+|------|---------|
+| `b5233fb` | feat: restructure catalog from 6 to 7 types — replace Software with Taller + Asesoría |
+| `0acf323` | fix(deploy): add pre-migration script to clean up Software model before db push |
+
+---
+
 ## [2026-03-10] — Lanzamiento V2
 
 ### Deploy Unificado

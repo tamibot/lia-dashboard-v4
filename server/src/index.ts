@@ -76,10 +76,24 @@ app.use('/api/{*path}', (_req, res) => {
 
 // ===== Serve Frontend (production) =====
 const publicDir = path.join(__dirname, '..', 'public');
-app.use(express.static(publicDir));
 
-// SPA fallback: any non-API route serves index.html
+// Hashed assets get aggressive cache (filenames change on each build)
+app.use('/assets', express.static(path.join(publicDir, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
+}));
+
+// Other static files (favicon, etc) with short cache
+app.use(express.static(publicDir, {
+    maxAge: '1h',
+    index: false,
+}));
+
+// SPA fallback: no-cache on index.html to prevent stale CDN/browser cache
 app.get('{*path}', (_req, res) => {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.sendFile(path.join(publicDir, 'index.html'));
 });
 

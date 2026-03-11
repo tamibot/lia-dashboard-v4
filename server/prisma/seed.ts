@@ -546,6 +546,8 @@ async function main() {
         { name: 'Correo', key: 'cliente_correo', dataType: 'string', isDefault: true, isRequired: true, description: 'Email de contacto' },
         { name: 'Interés', key: 'interes_tipo', dataType: 'string', isDefault: true, options: ['Curso', 'Programa', 'Webinar', 'Taller', 'Suscripción', 'Asesoría', 'Postulación'], description: 'Producto o servicio de interés' },
         { name: 'Detalle Interés', key: 'interes_detalle', dataType: 'string', isDefault: true, description: 'Especifique el curso o programa' },
+        { name: 'Preguntas Filtro', key: 'preguntas_filtro', dataType: 'array', isDefault: true, options: ['¿Cuál es tu presupuesto aproximado?', '¿Cuándo te gustaría empezar?', '¿Tienes experiencia previa en el tema?', '¿Cuál es tu disponibilidad horaria?', '¿Buscas certificación?'], description: 'Preguntas de calificación que el agente hace al prospecto para determinar si es un lead cualificado' },
+        { name: 'Respuestas Filtro', key: 'respuestas_filtro', dataType: 'array', isDefault: true, description: 'Respuestas del prospecto a las preguntas filtro' },
         { name: 'Caso Especial', key: 'caso_especial_motivo', dataType: 'string', isDefault: true, description: 'Detalle de por qué falló el bot' },
         { name: 'Resumen Solicitud', key: 'solicitud_resumen', dataType: 'string', isDefault: true, description: 'Breve resumen de lo que busca' },
         { name: 'Filtrado', key: 'es_filtrado', dataType: 'boolean', isDefault: true, description: 'Si pasó los filtros de calificación' },
