@@ -112,9 +112,12 @@ export default function CourseDetailPage() {
     // Mapping for type visualization
     const getTypeInfo = (type: string) => {
         switch (type) {
-            case 'software': return { emoji: '💻', label: 'Software' };
-            case 'subscription': return { emoji: '💳', label: 'Suscripción' };
-            case 'application': return { emoji: '📝', label: 'Postulación' };
+            case 'taller': return { emoji: '🔧', label: 'Taller' };
+            case 'subscription':
+            case 'subscripcion': return { emoji: '🔄', label: 'Suscripción' };
+            case 'asesoria': return { emoji: '💬', label: 'Asesoría' };
+            case 'application':
+            case 'postulacion': return { emoji: '📝', label: 'Postulación' };
             case 'programa': return { emoji: '🎓', label: 'Programa' };
             case 'webinar': return { emoji: '🎥', label: 'Webinar' };
             default: return { emoji: '📚', label: 'Curso Libre' };
@@ -265,23 +268,30 @@ export default function CourseDetailPage() {
     const attachments = (item.attachments as Attachment[]) || [];
 
     // Model specific fields
-    const softwareInfo = itemType === 'software' ? {
-        version: item.version || '',
-        platform: item.platform || '',
-        downloadUrl: item.downloadUrl || '',
+    const tallerInfo = itemType === 'taller' ? {
+        venue: item.venue || '',
+        venueAddress: item.venueAddress || '',
+        maxParticipants: item.maxParticipants || null,
+        availableSpots: item.availableSpots || null,
     } : null;
 
-    const subscriptionInfo = itemType === 'subscription' ? {
+    const asesoriaInfo = itemType === 'asesoria' ? {
+        pricePerHour: item.pricePerHour || 0,
+        advisor: item.advisor || '',
+        advisorTitle: item.advisorTitle || '',
+        bookingLink: item.bookingLink || '',
+        sessionDuration: item.sessionDuration || '',
+    } : null;
+
+    const subscriptionInfo = (itemType === 'subscription' || itemType === 'subscripcion') ? {
         period: item.period || '',
+        advisoryHours: item.advisoryHours || null,
     } : null;
 
-    const applicationInfo = itemType === 'application' ? {
+    const applicationInfo = (itemType === 'application' || itemType === 'postulacion') ? {
         deadline: item.deadline ? new Date(item.deadline).toLocaleDateString() : '',
+        examRequired: item.examRequired || false,
     } : null;
-
-    // Parent Relations (Hierarchy)
-    const parentEntity = item.course || item.program || item.webinar || null;
-    const parentType = item.course ? 'curso' : item.program ? 'programa' : item.webinar ? 'webinar' : null;
 
     const currentTool = ALL_TOOLS.find(t => t.id === activeTool);
     const htmlContent = currentTool?.visual && content ? extractHtml(content) : null;
@@ -337,27 +347,30 @@ export default function CourseDetailPage() {
                 </div>
 
                 {/* Specific Details / Hierarchy Bar */}
-                {(softwareInfo || subscriptionInfo || applicationInfo || parentEntity) && (
+                {(tallerInfo || asesoriaInfo || subscriptionInfo || applicationInfo) && (
                     <div className="bg-blue-50/50 border-t border-gray-100 px-8 py-3 flex flex-wrap gap-6 items-center">
-                        {parentEntity && (
+                        {tallerInfo?.venue && (
                             <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Vinculado a:</span>
-                                <Link to={`/courses/${parentType}/${parentEntity.id}`} className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
-                                    {parentType === 'curso' ? '📚' : '🎓'} {parentEntity.title}
-                                </Link>
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Sede:</span>
+                                <span className="text-gray-700 font-semibold">{tallerInfo.venue}</span>
                             </div>
                         )}
-                        {softwareInfo?.version && (
+                        {tallerInfo?.availableSpots != null && (
                             <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Versión:</span>
-                                <span className="text-gray-700 font-mono bg-white px-2 py-0.5 rounded border border-gray-200">{softwareInfo.version}</span>
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Cupos disponibles:</span>
+                                <span className="text-gray-700 font-semibold">{tallerInfo.availableSpots}</span>
                             </div>
                         )}
-                        {softwareInfo?.platform && (
+                        {asesoriaInfo?.advisor && (
                             <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Plataforma:</span>
-                                <span className="text-gray-700 font-semibold">{softwareInfo.platform}</span>
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Asesor:</span>
+                                <span className="text-gray-700 font-semibold">{asesoriaInfo.advisor} {asesoriaInfo.advisorTitle ? `(${asesoriaInfo.advisorTitle})` : ''}</span>
                             </div>
+                        )}
+                        {asesoriaInfo?.bookingLink && (
+                            <a href={asesoriaInfo.bookingLink} target="_blank" rel="noreferrer" className="ml-auto flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-xs font-bold shadow-sm">
+                                Agendar Cita
+                            </a>
                         )}
                         {subscriptionInfo?.period && (
                             <div className="flex items-center gap-2 text-sm">
@@ -365,10 +378,11 @@ export default function CourseDetailPage() {
                                 <span className="text-gray-700 font-semibold">{subscriptionInfo.period}</span>
                             </div>
                         )}
-                        {softwareInfo?.downloadUrl && (
-                            <a href={softwareInfo.downloadUrl} target="_blank" rel="noreferrer" className="ml-auto flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-xs font-bold shadow-sm">
-                                <Download size={14} /> Descargar Software
-                            </a>
+                        {applicationInfo?.deadline && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px] tracking-tight">Fecha límite:</span>
+                                <span className="text-gray-700 font-semibold">{applicationInfo.deadline}</span>
+                            </div>
                         )}
                     </div>
                 )}

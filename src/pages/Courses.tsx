@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
-import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat } from 'lucide-react';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle } from 'lucide-react';
 import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
 import type { FilterState } from '../components/AdvancedCourseFilters';
 
@@ -16,10 +16,19 @@ function titleColor(title: string): string {
 function typeIcon(type: string) {
     if (type === 'programa') return <GraduationCap size={16} />;
     if (type === 'webinar') return <Video size={16} />;
-    if (type === 'software') return <Repeat size={16} />;
+    if (type === 'taller') return <Wrench size={16} />;
     if (type === 'subscripcion') return <Repeat size={16} />;
+    if (type === 'asesoria') return <MessageCircle size={16} />;
     if (type === 'postulacion') return <UserCheck size={16} />;
     return <BookOpen size={16} />;
+}
+
+function typeLabel(type: string) {
+    const labels: Record<string, string> = {
+        curso: 'Curso', programa: 'Programa', webinar: 'Webinar',
+        taller: 'Taller', subscripcion: 'Suscripción', asesoria: 'Asesoría', postulacion: 'Postulación'
+    };
+    return labels[type] || type;
 }
 
 function statusColor(status: string) {
@@ -30,9 +39,11 @@ function statusColor(status: string) {
     return { bg: '#DBEAFE', color: '#2563EB', label: status || 'Borrador' };
 }
 
+type TabKey = 'cursos' | 'programas' | 'webinars' | 'talleres' | 'subscripciones' | 'asesorias' | 'postulaciones';
+
 export default function CoursesPage() {
     const navigate = useNavigate();
-    const [tab, setTab] = useState<'cursos' | 'programas' | 'webinars' | 'postulaciones' | 'subscripciones' | 'software'>('cursos');
+    const [tab, setTab] = useState<TabKey>('cursos');
     const [view, setView] = useState<'list' | 'grid'>('list');
     const [filters, setFilters] = useState<FilterState>({
         search: '',
@@ -46,9 +57,10 @@ export default function CoursesPage() {
     const [cursos, setCursos] = useState<any[]>([]);
     const [programas, setProgramas] = useState<any[]>([]);
     const [webinars, setWebinars] = useState<any[]>([]);
-    const [postulaciones, setPostulaciones] = useState<any[]>([]);
+    const [talleres, setTalleres] = useState<any[]>([]);
     const [subscripciones, setSubscripciones] = useState<any[]>([]);
-    const [softwares, setSoftwares] = useState<any[]>([]);
+    const [asesorias, setAsesorias] = useState<any[]>([]);
+    const [postulaciones, setPostulaciones] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -56,20 +68,22 @@ export default function CoursesPage() {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [c, p, w, po, su, sw] = await Promise.all([
+                const [c, p, w, t, su, as_, po] = await Promise.all([
                     courseService.getAll('curso').catch(err => { console.error('Error fetching cursos:', err); return []; }),
                     courseService.getAll('programa').catch(err => { console.error('Error fetching programas:', err); return []; }),
                     courseService.getAll('webinar').catch(err => { console.error('Error fetching webinars:', err); return []; }),
-                    courseService.getAll('postulacion').catch(err => { console.error('Error fetching postulaciones:', err); return []; }),
+                    courseService.getAll('taller').catch(err => { console.error('Error fetching talleres:', err); return []; }),
                     courseService.getAll('subscripcion').catch(err => { console.error('Error fetching subscripciones:', err); return []; }),
-                    courseService.getAll('software').catch(err => { console.error('Error fetching software:', err); return []; })
+                    courseService.getAll('asesoria').catch(err => { console.error('Error fetching asesorias:', err); return []; }),
+                    courseService.getAll('postulacion').catch(err => { console.error('Error fetching postulaciones:', err); return []; })
                 ]);
                 setCursos(c);
                 setProgramas(p);
                 setWebinars(w);
-                setPostulaciones(po);
+                setTalleres(t);
                 setSubscripciones(su);
-                setSoftwares(sw);
+                setAsesorias(as_);
+                setPostulaciones(po);
             } catch (err: any) {
                 console.error("Error fetching courses:", err);
                 setError("No se pudieron cargar los datos. Por favor, intenta de nuevo.");
@@ -85,13 +99,15 @@ export default function CoursesPage() {
         ...cursos.map(c => c.category),
         ...programas.map(p => p.category),
         ...webinars.map(w => w.category),
-        ...softwares.map(s => s.category)
+        ...talleres.map(t => t.category),
+        ...asesorias.map(a => a.category)
     ].filter(Boolean)));
 
     const locations = Array.from(new Set([
         ...cursos.map(c => c.location),
         ...programas.map(p => p.location),
-        ...webinars.map(w => w.location)
+        ...webinars.map(w => w.location),
+        ...talleres.map(t => t.location)
     ].filter(Boolean)));
 
     const getFilteredItems = () => {
@@ -99,9 +115,10 @@ export default function CoursesPage() {
         if (tab === 'cursos') items = cursos.map(i => ({ ...i, _type: 'curso' }));
         if (tab === 'programas') items = programas.map(i => ({ ...i, _type: 'programa' }));
         if (tab === 'webinars') items = webinars.map(i => ({ ...i, _type: 'webinar' }));
-        if (tab === 'postulaciones') items = postulaciones.map(i => ({ ...i, _type: 'postulacion' }));
+        if (tab === 'talleres') items = talleres.map(i => ({ ...i, _type: 'taller' }));
         if (tab === 'subscripciones') items = subscripciones.map(i => ({ ...i, _type: 'subscripcion' }));
-        if (tab === 'software') items = softwares.map(i => ({ ...i, _type: 'software' }));
+        if (tab === 'asesorias') items = asesorias.map(i => ({ ...i, _type: 'asesoria' }));
+        if (tab === 'postulaciones') items = postulaciones.map(i => ({ ...i, _type: 'postulacion' }));
 
         let filtered = items.filter(i => {
             const matchesSearch = !filters.search ||
@@ -125,8 +142,10 @@ export default function CoursesPage() {
 
         if (filters.priceSort) {
             filtered.sort((a, b) => {
-                if (filters.priceSort === 'asc') return a.price - b.price;
-                return b.price - a.price;
+                const priceA = a.price || a.pricePerHour || 0;
+                const priceB = b.price || b.pricePerHour || 0;
+                if (filters.priceSort === 'asc') return priceA - priceB;
+                return priceB - priceA;
             });
         }
 
@@ -138,9 +157,19 @@ export default function CoursesPage() {
         cursos: cursos.length,
         programas: programas.length,
         webinars: webinars.length,
-        postulaciones: postulaciones.length,
+        talleres: talleres.length,
         subscripciones: subscripciones.length,
-        software: softwares.length
+        asesorias: asesorias.length,
+        postulaciones: postulaciones.length
+    };
+
+    const emptyLabel: Record<TabKey, string> = {
+        cursos: 'cursos', programas: 'programas', webinars: 'webinars',
+        talleres: 'talleres', subscripciones: 'suscripciones', asesorias: 'asesorías', postulaciones: 'postulaciones'
+    };
+    const createLabel: Record<TabKey, string> = {
+        cursos: 'Curso', programas: 'Programa', webinars: 'Webinar',
+        talleres: 'Taller', subscripciones: 'Suscripción', asesorias: 'Asesoría', postulaciones: 'Postulación'
     };
 
     if (isLoading) {
@@ -179,14 +208,15 @@ export default function CoursesPage() {
             />
 
             <div className="tabs mb-6" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {([
                         { key: 'cursos' as const, icon: '📚', label: 'Cursos', count: tabCounts.cursos },
                         { key: 'programas' as const, icon: '🎓', label: 'Programas', count: tabCounts.programas },
                         { key: 'webinars' as const, icon: '🎥', label: 'Webinars', count: tabCounts.webinars },
+                        { key: 'talleres' as const, icon: '🔧', label: 'Talleres', count: tabCounts.talleres },
+                        { key: 'subscripciones' as const, icon: '🔄', label: 'Suscripciones', count: tabCounts.subscripciones },
+                        { key: 'asesorias' as const, icon: '💬', label: 'Asesorías', count: tabCounts.asesorias },
                         { key: 'postulaciones' as const, icon: '✅', label: 'Postulaciones', count: tabCounts.postulaciones },
-                        { key: 'subscripciones' as const, icon: '🔄', label: 'Subscripciones', count: tabCounts.subscripciones },
-                        { key: 'software' as const, icon: '🛠️', label: 'Software', count: tabCounts.software },
                     ] as const).map(t => (
                         <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
                             {t.icon} {t.label}
@@ -224,10 +254,10 @@ export default function CoursesPage() {
                     <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
                     <h3>No hay registros</h3>
                     <p style={{ margin: '8px 0 16px' }}>
-                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${tab === 'cursos' ? 'cursos' : tab === 'programas' ? 'programas' : tab === 'webinars' ? 'webinars' : tab === 'postulaciones' ? 'procesos de postulación' : tab === 'subscripciones' ? 'servicios de subscripción' : 'licencias de software'}.`}
+                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${emptyLabel[tab]}.`}
                     </p>
                     <button className="btn btn-primary" onClick={() => navigate('/courses/upload')}>
-                        <Plus size={16} /> Crear {tab === 'cursos' ? 'Curso' : tab === 'programas' ? 'Programa' : tab === 'webinars' ? 'Webinar' : tab === 'postulaciones' ? 'Postulación' : tab === 'subscripciones' ? 'Subscripción' : 'Software'}
+                        <Plus size={16} /> Crear {createLabel[tab]}
                     </button>
                 </div>
             ) : view === 'list' ? (
@@ -262,15 +292,17 @@ export default function CoursesPage() {
                                                 <div>
                                                     <div style={{ fontWeight: 600, fontSize: '13px' }}>{item.title}</div>
                                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                                        {item._type === 'webinar' ? `${item.date || item.startDate || ''} ${item.time || item.schedule || ''}` : (item.duration || item.totalDuration || '—')}
+                                                        {item._type === 'webinar' ? `${item.eventDate || ''} ${item.eventTime || ''}` : (item.duration || item.totalDuration || item.sessionDuration || '—')}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td><span className="badge badge-gray">{item.category || 'General'}</span></td>
                                         <td style={{ textTransform: 'capitalize', fontSize: '13px' }}>{item.modality || 'Online'}</td>
-                                        <td style={{ fontWeight: 600, fontSize: '13px' }}>{item.price ? `${item.currency || 'USD'} ${item.price}` : 'Gratis'}</td>
-                                        <td style={{ fontSize: '13px' }}>{item.maxStudents || item.maxAttendees || '—'}</td>
+                                        <td style={{ fontWeight: 600, fontSize: '13px' }}>
+                                            {item.pricePerHour ? `${item.currency || 'USD'} ${item.pricePerHour}/hr` : item.price ? `${item.currency || 'USD'} ${item.price}` : 'Gratis'}
+                                        </td>
+                                        <td style={{ fontSize: '13px' }}>{item.maxStudents || item.maxAttendees || item.maxParticipants || item.availableSlots || '—'}</td>
                                         <td>
                                             <span style={{ padding: '2px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
                                         </td>
@@ -312,7 +344,7 @@ export default function CoursesPage() {
                                             fontSize: '11px', fontWeight: 600
                                         }}>
                                             {typeIcon(item._type)}
-                                            {item._type === 'curso' ? 'Curso' : item._type === 'programa' ? 'Programa' : item._type === 'webinar' ? 'Webinar' : item._type === 'postulacion' ? 'Postulación' : item._type === 'subscripcion' ? 'Subscripción' : 'Software'}
+                                            {typeLabel(item._type)}
                                         </div>
                                         <span style={{
                                             padding: '2px 8px', borderRadius: '8px', fontSize: '10px',
@@ -359,12 +391,12 @@ export default function CoursesPage() {
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                                             <Clock size={11} />
                                             {item._type === 'webinar' ?
-                                                `${item.date || item.startDate || ''} ${item.time || item.schedule || ''}`
-                                                : (item.duration || item.totalDuration || '—')}
+                                                `${item.eventDate || ''} ${item.eventTime || ''}`
+                                                : (item.duration || item.totalDuration || item.sessionDuration || '—')}
                                         </span>
-                                        {(item.maxStudents || item.maxAttendees) && (
+                                        {(item.maxStudents || item.maxAttendees || item.maxParticipants) && (
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                <Users size={11} />{item.maxStudents || item.maxAttendees}
+                                                <Users size={11} />{item.maxStudents || item.maxAttendees || item.maxParticipants}
                                             </span>
                                         )}
                                         {syllabusCount > 0 && (
@@ -376,8 +408,8 @@ export default function CoursesPage() {
 
                                     {/* Divider + Footer */}
                                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '15px', color: item.price ? 'var(--text)' : '#16A34A' }}>
-                                            {item.price ? `${item.currency || 'USD'} ${item.price}` : 'Gratis'}
+                                        <span style={{ fontWeight: 700, fontSize: '15px', color: (item.price || item.pricePerHour) ? 'var(--text)' : '#16A34A' }}>
+                                            {item.pricePerHour ? `${item.currency || 'USD'} ${item.pricePerHour}/hr` : item.price ? `${item.currency || 'USD'} ${item.price}` : 'Gratis'}
                                         </span>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: accent }}>
                                             Ver detalle →
@@ -407,4 +439,3 @@ export default function CoursesPage() {
         </div>
     );
 }
-

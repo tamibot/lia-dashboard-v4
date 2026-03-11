@@ -78,8 +78,8 @@ export interface OrgProfile {
     onboardingComplete: boolean;
     botConfig?: BotConfig; // Legacy, moving to Agents
     // New Expanded Fields
-    location?: string; // e.g. "Av. Javier Prado Este 123, San Isidro, Lima"
-    contactEmail?: string; // General contact email
+    location?: string;
+    contactEmail?: string;
     socialMedia?: {
         instagram?: string;
         facebook?: string;
@@ -89,7 +89,7 @@ export interface OrgProfile {
         website?: string;
     };
     locations?: {
-        id: string; // Added ID for management
+        id: string;
         name: string;
         address: string;
         mapUrl?: string;
@@ -98,15 +98,15 @@ export interface OrgProfile {
         days: string;
         hours: string;
     }[];
-    courseCategories?: string[]; // Types of courses offered
-    history?: string; // Story/About Us
-    certificates?: string[]; // List of certificates/awards
+    courseCategories?: string[];
+    history?: string;
+    certificates?: string[];
     paymentMethods?: {
         type: 'bank_transfer' | 'gateway' | 'cash';
-        name: string; // e.g. "PayPal", "BCP Soles"
-        details: string; // e.g. Account number, email, or instructions
+        name: string;
+        details: string;
     }[];
-    modalities?: string[]; // e.g. ["Online", "Presencial", "Híbrido"]
+    modalities?: string[];
 }
 
 // === Teams ===
@@ -114,8 +114,8 @@ export interface Team {
     id: string;
     name: string;
     description?: string;
-    members: ContactInfo[]; // Users in this team
-    assignedCourses: string[]; // IDs of courses this team sells
+    members: ContactInfo[];
+    assignedCourses: string[];
     createdAt: string;
 }
 
@@ -125,16 +125,16 @@ export interface Team {
 export type AiAgent = {
     id: string;
     name: string;
-    role: string; // e.g., "Sales Representative", "Academic Advisor"
+    role: string;
     personality: 'professional' | 'friendly' | 'empathetic' | 'strict' | 'enthusiastic';
-    tone: string; // precise description
+    tone: string;
     language: string;
-    expertise: string[]; // e.g. ["Sales", "Tech"]
-    specificCourses?: string[]; // IDs of courses this agent focuses on. Empty = All.
+    expertise: string[];
+    specificCourses?: string[];
     systemPrompt?: string;
     avatar?: string;
     isActive: boolean;
-    teamId?: string; // Linked team
+    teamId?: string;
     createdAt: string;
 };
 
@@ -153,7 +153,7 @@ export interface CursoLibre {
     endDate?: string;
     duration: string;
     totalHours?: number;
-    hours?: number; // Alias for compatibility
+    hours?: number;
     schedule?: string;
     syllabus: SyllabusModule[] | string[];
     instructor: string;
@@ -176,6 +176,8 @@ export interface CursoLibre {
     maxStudents?: number;
     prerequisites?: string;
     certification?: string;
+    registrationLink?: string;
+    paymentMethods?: string[];
     category: string;
     tags?: string[];
     tools?: string[];
@@ -210,9 +212,8 @@ export interface Programa {
     endDate?: string;
     totalDuration: string;
     totalHours: number;
-
     courses: ProgramaCourse[];
-    coordinator?: string; // Added for demo data
+    coordinator?: string;
     schedule?: string;
     price: number;
     currency: string;
@@ -232,6 +233,10 @@ export interface Programa {
     prerequisites?: string;
     certification: string;
     certifyingEntity?: string;
+    registrationLink?: string;
+    paymentMethods?: string[];
+    whatsappGroup?: string;
+    includesProject?: boolean;
     category: string;
     tags?: string[];
     tools?: string[];
@@ -252,24 +257,24 @@ export interface ProgramaCourse {
     topics?: string[];
 }
 
-// === Webinar / Taller ===
+// === Webinar ===
 export interface Webinar {
     id: string;
     code: string;
     title: string;
     subtitle?: string;
     description: string;
-    type?: 'webinar' | 'taller' | 'masterclass' | 'charla';
+    webinarFormat?: string;
     speaker: string;
     speakerBio?: string;
     speakerTitle?: string;
     date: string;
     time: string;
-    duration: string; // e.g. "2 horas"
+    duration: string;
     modality?: 'online' | 'presencial' | 'hibrido';
     location?: string;
-    platform?: string; // Zoom, Meet, etc.
-    price: number; // 0 = gratuito
+    platform?: string;
+    price: number;
     currency: string;
     maxAttendees?: number;
     topics?: string[];
@@ -287,10 +292,115 @@ export interface Webinar {
     bonuses?: string[];
     attachments?: Attachment[];
     registrationLink?: string;
+    paymentMethods?: string[];
     promotions?: string;
     category: string;
     tags?: string[];
     tools?: string[];
+    status: 'borrador' | 'activo' | 'archivado';
+    createdAt: string;
+    updatedAt: string;
+    aiSummary?: string;
+    teamId?: string;
+}
+
+// === Taller (Workshop) ===
+export interface Taller {
+    id: string;
+    code: string;
+    title: string;
+    subtitle?: string;
+    description: string;
+    objectives: string[];
+    targetAudience: string;
+    modality: 'online' | 'presencial' | 'hibrido';
+    eventDate?: string;
+    eventTime?: string;
+    duration: string;
+    totalHours?: number;
+    schedule?: string;
+    instructor: string;
+    instructorBio?: string;
+    venue?: string;
+    venueAddress?: string;
+    venueCapacity?: number;
+    location?: string;
+    price: number;
+    currency: string;
+    earlyBirdPrice?: number;
+    earlyBirdDeadline?: string;
+    promotions?: string;
+    registrationLink?: string;
+    paymentMethods?: string[];
+    maxParticipants?: number;
+    availableSpots?: number;
+    waitlistEnabled?: boolean;
+    materials?: string[];
+    deliverables?: string[];
+    certification?: string;
+    requirements?: string[];
+    contactInfo?: ContactInfo;
+    // Commercial Fields
+    benefits?: string[];
+    painPoints?: string[];
+    guarantee?: string;
+    socialProof?: string[];
+    faqs?: { question: string; answer: string }[];
+    bonuses?: string[];
+    attachments?: Attachment[];
+    tools?: string[];
+    category: string;
+    tags?: string[];
+    status: 'borrador' | 'activo' | 'archivado';
+    createdAt: string;
+    updatedAt: string;
+    aiSummary?: string;
+    teamId?: string;
+}
+
+// === Asesoría (Consulting) ===
+export interface Asesoria {
+    id: string;
+    code: string;
+    title: string;
+    subtitle?: string;
+    description: string;
+    objectives: string[];
+    targetAudience: string;
+    modality: 'online' | 'presencial' | 'hibrido';
+    pricePerHour: number;
+    currency: string;
+    minimumHours: number;
+    packageHours?: number;
+    packagePrice?: number;
+    promotions?: string;
+    paymentMethods?: string[];
+    advisor: string;
+    advisorBio?: string;
+    advisorTitle?: string;
+    specialties?: string[];
+    bookingLink?: string;
+    registrationLink?: string;
+    minAdvanceBooking?: string;
+    availableSchedule?: string;
+    sessionDuration?: string;
+    topicsCovered?: string[];
+    deliverables?: string[];
+    requirements?: string[];
+    contactInfo?: ContactInfo;
+    needsDescription?: boolean;
+    // Commercial Fields
+    benefits?: string[];
+    painPoints?: string[];
+    guarantee?: string;
+    socialProof?: string[];
+    faqs?: { question: string; answer: string }[];
+    bonuses?: string[];
+    attachments?: Attachment[];
+    tools?: string[];
+    location?: string;
+    category: string;
+    tags?: string[];
     status: 'borrador' | 'activo' | 'archivado';
     createdAt: string;
     updatedAt: string;
@@ -312,11 +422,11 @@ export interface AITool {
 // === Generated Content ===
 export interface GeneratedContent {
     id: string;
-    sourceId: string; // ID of the course/program/webinar
-    sourceType: 'curso' | 'programa' | 'webinar';
+    sourceId: string;
+    sourceType: 'curso' | 'programa' | 'webinar' | 'taller' | 'subscripcion' | 'asesoria' | 'postulacion';
     toolId: string;
     content: string;
     createdAt: string;
 }
 
-export type CourseData = CursoLibre | Programa | Webinar;
+export type CourseData = CursoLibre | Programa | Webinar | Taller | Asesoria;

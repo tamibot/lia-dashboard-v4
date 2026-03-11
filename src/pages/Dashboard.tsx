@@ -7,26 +7,28 @@ import { useAuth } from '../context/AuthContext';
 export default function DashboardPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0, software: 0, subscripciones: 0, postulaciones: 0 });
+    const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0, talleres: 0, subscripciones: 0, asesorias: 0, postulaciones: 0 });
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [c, p, w, s, sub, post] = await Promise.all([
+                const [c, p, w, t, sub, ase, post] = await Promise.all([
                     courseService.getAll('curso'),
                     courseService.getAll('programa'),
                     courseService.getAll('webinar'),
-                    courseService.getAll('software' as any),
-                    courseService.getAll('subscription' as any),
-                    courseService.getAll('application' as any)
+                    courseService.getAll('taller'),
+                    courseService.getAll('subscripcion'),
+                    courseService.getAll('asesoria'),
+                    courseService.getAll('postulacion')
                 ]);
                 setStats({
                     cursos: c.length,
                     programas: p.length,
                     webinars: w.length,
-                    software: s.length,
+                    talleres: t.length,
                     subscripciones: sub.length,
+                    asesorias: ase.length,
                     postulaciones: post.length
                 });
             } catch (err) {
@@ -57,7 +59,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="card bg-blue-50 border-blue-100">
                     <div className="flex items-center gap-3">
                         <BookOpen className="text-blue-600" size={20} />
@@ -85,21 +87,30 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
-                <div className="card bg-emerald-50 border-emerald-100">
+                <div className="card bg-teal-50 border-teal-100">
                     <div className="flex items-center gap-3">
-                        <span className="text-xl">💻</span>
+                        <span className="text-xl">🔧</span>
                         <div>
-                            <p className="text-xs font-bold text-emerald-600 uppercase">Software</p>
-                            <h4 className="text-2xl font-black text-emerald-900">{isLoading ? '...' : stats.software}</h4>
+                            <p className="text-xs font-bold text-teal-600 uppercase">Talleres</p>
+                            <h4 className="text-2xl font-black text-teal-900">{isLoading ? '...' : stats.talleres}</h4>
                         </div>
                     </div>
                 </div>
                 <div className="card bg-rose-50 border-rose-100">
                     <div className="flex items-center gap-3">
-                        <span className="text-xl">🎟️</span>
+                        <span className="text-xl">🔄</span>
                         <div>
-                            <p className="text-xs font-bold text-rose-600 uppercase">Subscripciones</p>
+                            <p className="text-xs font-bold text-rose-600 uppercase">Suscripciones</p>
                             <h4 className="text-2xl font-black text-rose-900">{isLoading ? '...' : stats.subscripciones}</h4>
+                        </div>
+                    </div>
+                </div>
+                <div className="card bg-emerald-50 border-emerald-100">
+                    <div className="flex items-center gap-3">
+                        <span className="text-xl">💬</span>
+                        <div>
+                            <p className="text-xs font-bold text-emerald-600 uppercase">Asesorías</p>
+                            <h4 className="text-2xl font-black text-emerald-900">{isLoading ? '...' : stats.asesorias}</h4>
                         </div>
                     </div>
                 </div>
@@ -194,4 +205,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-

@@ -1,7 +1,7 @@
 import { api } from '../api';
 
 export const courseService = {
-    async getAll(type?: 'curso' | 'programa' | 'webinar' | 'postulacion' | 'subscripcion' | 'software') {
+    async getAll(type?: 'curso' | 'programa' | 'webinar' | 'taller' | 'subscripcion' | 'asesoria' | 'postulacion') {
         const url = type ? `/courses?type=${type}` : '/courses';
         return api.get<any[]>(url);
     },

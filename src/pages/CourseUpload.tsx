@@ -10,7 +10,7 @@ import { courseService } from '../lib/services/course.service';
 import type { Attachment, ContactInfo } from '../lib/types';
 
 interface CourseData {
-    type: 'curso' | 'programa' | 'webinar' | 'postulacion' | 'subscripcion';
+    type: 'curso' | 'programa' | 'webinar' | 'taller' | 'subscripcion' | 'asesoria' | 'postulacion';
     title: string;
     description: string;
     objectives: string[];
@@ -493,8 +493,10 @@ export default function CourseUpload() {
                                                 <option value="curso">Curso</option>
                                                 <option value="programa">Programa</option>
                                                 <option value="webinar">Webinar</option>
-                                                <option value="postulacion">Postulación</option>
+                                                <option value="taller">Taller</option>
                                                 <option value="subscripcion">Suscripción</option>
+                                                <option value="asesoria">Asesoría</option>
+                                                <option value="postulacion">Postulación</option>
                                             </select>
                                         </div>
                                         <div>

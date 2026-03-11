@@ -42,14 +42,20 @@ router.get('/', async (req: Request, res: Response) => {
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
-            case 'software':
-                return res.json(await prisma.software.findMany({
+            case 'taller':
+                return res.json(await prisma.taller.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'subscripcion':
                 return res.json(await prisma.subscription.findMany({
+                    where,
+                    include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
+                    orderBy: { updatedAt: 'desc' },
+                }));
+            case 'asesoria':
+                return res.json(await prisma.asesoria.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
@@ -90,12 +96,15 @@ router.get('/:id', async (req: Request, res: Response) => {
             case 'webinar':
                 const webinar = await prisma.webinar.findFirst({ where: { id, orgId }, include });
                 return webinar ? res.json({ ...webinar, type: 'webinar' }) : res.status(404).json({ error: 'Webinar not found' });
-            case 'software':
-                const software = await prisma.software.findFirst({ where: { id, orgId }, include });
-                return software ? res.json({ ...software, type: 'software' }) : res.status(404).json({ error: 'Software not found' });
+            case 'taller':
+                const taller = await prisma.taller.findFirst({ where: { id, orgId }, include });
+                return taller ? res.json({ ...taller, type: 'taller' }) : res.status(404).json({ error: 'Taller not found' });
             case 'subscripcion':
                 const subscription = await prisma.subscription.findFirst({ where: { id, orgId }, include });
                 return subscription ? res.json({ ...subscription, type: 'subscripcion' }) : res.status(404).json({ error: 'Subscription not found' });
+            case 'asesoria':
+                const asesoria = await prisma.asesoria.findFirst({ where: { id, orgId }, include });
+                return asesoria ? res.json({ ...asesoria, type: 'asesoria' }) : res.status(404).json({ error: 'Asesoria not found' });
             case 'postulacion':
                 const application = await prisma.application.findFirst({ where: { id, orgId }, include });
                 return application ? res.json({ ...application, type: 'postulacion' }) : res.status(404).json({ error: 'Application not found' });
@@ -117,9 +126,9 @@ router.post('/', async (req: Request, res: Response) => {
         const { type, syllabus, attachments, faqs, courses, ...data } = req.body;
 
         // Code Generation
-        const prefixMap: any = { curso: 'CRS', programa: 'PRG', webinar: 'WBN', software: 'SW', subscripcion: 'SUB', postulacion: 'ADM' };
+        const prefixMap: any = { curso: 'CRS', programa: 'PRG', webinar: 'WBN', taller: 'TLR', subscripcion: 'SUB', asesoria: 'ASE', postulacion: 'ADM' };
         const prefix = prefixMap[type] || 'ITEM';
-        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', software: 'software', subscripcion: 'subscription', postulacion: 'application' };
+        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
 
         const count = await (prisma[modelName as keyof PrismaClient] as any).count({ where: { orgId } });
@@ -129,7 +138,8 @@ router.post('/', async (req: Request, res: Response) => {
             ...data,
             orgId,
             code,
-            price: Number(data.price) || 0,
+            price: data.price !== undefined ? Number(data.price) || 0 : undefined,
+            pricePerHour: data.pricePerHour !== undefined ? Number(data.pricePerHour) || 0 : undefined,
             attachments: attachments?.length ? {
                 create: attachments.map((att: any) => ({
                     entityType: modelName,
@@ -157,10 +167,12 @@ router.post('/', async (req: Request, res: Response) => {
             });
         } else if (type === 'webinar') {
             result = await prisma.webinar.create({ data: commonData, include: { attachments: true, faqs: true } });
-        } else if (type === 'software') {
-            result = await prisma.software.create({ data: commonData, include: { attachments: true, faqs: true } });
+        } else if (type === 'taller') {
+            result = await prisma.taller.create({ data: commonData, include: { attachments: true, faqs: true } });
         } else if (type === 'subscripcion') {
             result = await prisma.subscription.create({ data: commonData, include: { attachments: true, faqs: true } });
+        } else if (type === 'asesoria') {
+            result = await prisma.asesoria.create({ data: commonData, include: { attachments: true, faqs: true } });
         } else if (type === 'postulacion') {
             result = await prisma.application.create({ data: commonData, include: { attachments: true, faqs: true } });
         } else {
@@ -184,7 +196,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         const id = req.params.id as string;
         const { type, syllabus, attachments, faqs, courses, ...data } = req.body;
 
-        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', software: 'software', subscripcion: 'subscription', postulacion: 'application' };
+        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
         const prismaModel = prisma[modelName as keyof PrismaClient] as any;
 
@@ -237,7 +249,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         const id = req.params.id as string;
         const type = req.query.type as string;
 
-        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', software: 'software', subscripcion: 'subscription', postulacion: 'application' };
+        const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
         const prismaModel = prisma[modelName as keyof PrismaClient] as any;
 

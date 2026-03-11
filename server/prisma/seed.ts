@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 /**
- * Seed the database with a demo organization, admin user, and sample courses.
+ * Seed the database with a demo organization, admin user, and sample catalog items.
  */
 async function main() {
     console.log('🌱 Seeding database...\n');
@@ -15,16 +15,16 @@ async function main() {
         update: {},
         create: {
             slug: 'innovation-institute',
-            name: 'Innovation Institute',
+            name: 'Instituto de Innovación para Arquitectos',
             type: 'instituto',
-            description: 'Leading educational technology institute focused on AI, business strategy, and digital transformation.',
-            tagline: 'Transformando el futuro a través de la educación',
+            description: 'Instituto líder en formación de arquitectos con inteligencia artificial y tecnología.',
+            tagline: 'Transformando la arquitectura con IA',
             website: 'https://innovation-institute.edu',
             contactEmail: 'info@innovation-institute.edu',
             branding: {
                 colors: { primary: '#2563EB', secondary: '#3B82F6', accent: '#F59E0B', neutral: '#6B7280' },
                 typography: { headings: 'Inter', body: 'Inter' },
-                voice: { tone: 'profesional', style: 'Experto, claro y cercano', keywords: ['innovación', 'IA', 'transformación digital'] },
+                voice: { tone: 'profesional', style: 'Experto, claro y cercano', keywords: ['innovación', 'IA', 'arquitectura'] },
                 visualIdentity: { mood: 'Moderno y tecnológico', shapes: 'rounded' },
             },
             socialMedia: {
@@ -32,7 +32,7 @@ async function main() {
                 linkedin: 'innovation-institute',
                 youtube: '@innovationinstitute',
             },
-            courseCategories: ['Inteligencia Artificial', 'Marketing Digital', 'Liderazgo', 'Data Science', 'UX/UI Design'],
+            courseCategories: ['Inteligencia Artificial', 'Arquitectura', 'Programación', 'Diseño', 'Consultoría'],
             onboardingComplete: true,
         },
     });
@@ -53,64 +53,51 @@ async function main() {
     });
     console.log(`✅ Admin user: ${admin.email} (password: admin123)`);
 
-    // 3. Create sample courses
+    // 3. Create sample courses (Cursos)
     const courses = [
         {
-            code: 'CRS-AI2024-001',
-            title: 'Inteligencia Artificial Aplicada a los Negocios',
-            description: 'Domina las herramientas de IA que están transformando las empresas.',
+            code: 'CRS-IA2024-001',
+            title: 'IA para Arquitectos',
+            description: 'Domina las mejores herramientas de inteligencia artificial aplicadas a la arquitectura. Aprenderás a usar IA para diseño, renderizado, presentaciones y optimización de proyectos.',
             category: 'Inteligencia Artificial',
-            instructor: 'Dr. Carlos Méndez',
-            price: 497,
-            currency: 'USD',
-            modality: 'online' as const,
-            duration: '8 semanas',
-            totalHours: 40,
-            objectives: ['Implementar soluciones de IA en procesos empresariales', 'Evaluar herramientas de IA', 'Diseñar estrategias de transformación'],
-            targetAudience: 'Directivos y gerentes que buscan liderar la transformación digital de su organización',
-            status: 'activo' as const,
-            tags: ['IA', 'Negocios', 'Transformación Digital'],
-            tools: ['ChatGPT', 'Gemini', 'Midjourney', 'Make'],
-            benefits: ['Certificado avalado', 'Acceso a comunidad exclusiva', 'Mentoría personalizada'],
-            requirements: ['Laptop con internet', 'Conocimientos básicos de ofimática'],
-        },
-        {
-            code: 'CRS-MKT2024-002',
-            title: 'Marketing Digital con IA Generativa',
-            description: 'Revoluciona tu marketing usando inteligencia artificial para crear contenido.',
-            category: 'Marketing Digital',
-            instructor: 'Ana Rodríguez',
-            price: 397,
-            currency: 'USD',
+            instructor: 'Arq. Carlos Méndez',
+            instructorBio: 'Arquitecto con 15 años de experiencia y especialista en IA aplicada al diseño.',
+            price: 1500,
+            currency: 'PEN',
             modality: 'online' as const,
             duration: '6 semanas',
-            totalHours: 30,
-            objectives: ['Crear campañas con IA', 'Automatizar contenido', 'Analizar métricas con herramientas de IA'],
-            targetAudience: 'Profesionales de marketing y emprendedores',
+            totalHours: 36,
+            objectives: ['Dominar herramientas de IA para arquitectura', 'Crear renders con IA', 'Optimizar presentaciones con herramientas inteligentes'],
+            targetAudience: 'Arquitectos y estudiantes de arquitectura que buscan integrar IA en su práctica profesional',
             status: 'activo' as const,
-            tags: ['Marketing', 'IA', 'Contenido'],
-            tools: ['ChatGPT', 'Canva AI', 'Meta Ads'],
-            benefits: ['Portfolio de campañas reales', 'Playbooks descargables'],
-            requirements: ['Cuenta de redes sociales activa'],
+            tags: ['IA', 'Arquitectura', 'Herramientas'],
+            tools: ['Midjourney', 'Stable Diffusion', 'ChatGPT', 'SketchUp AI'],
+            benefits: ['Certificado virtual', 'Acceso a comunidad exclusiva', 'Plantillas y recursos descargables'],
+            requirements: ['Laptop con internet', 'Conocimientos básicos de arquitectura'],
+            certification: 'Certificado en IA para Arquitectura',
+            registrationLink: 'https://innovation-institute.edu/cursos/ia-arquitectos',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Yape/Plin'],
         },
         {
-            code: 'CRS-LID2024-003',
-            title: 'Liderazgo Estratégico en la Era Digital',
-            description: 'Desarrolla habilidades de liderazgo para equipos remotos y entornos tecnológicos.',
-            category: 'Liderazgo',
-            instructor: 'Roberto Sánchez',
-            price: 350,
-            currency: 'USD',
-            modality: 'hibrido' as const,
-            duration: '5 semanas',
-            totalHours: 25,
-            objectives: ['Liderar equipos remotos', 'Gestionar cambio organizacional', 'Tomar decisiones data-driven'],
-            targetAudience: 'Líderes de equipo, gerentes y directores',
+            code: 'CRS-RENDER2024-002',
+            title: 'Renderizado con IA Generativa',
+            description: 'Aprende a crear renders fotorrealistas usando inteligencia artificial generativa.',
+            category: 'Diseño',
+            instructor: 'Arq. Ana Torres',
+            price: 1200,
+            currency: 'PEN',
+            modality: 'online' as const,
+            duration: '4 semanas',
+            totalHours: 24,
+            objectives: ['Generar renders con IA', 'Post-producción inteligente', 'Integración con flujos de trabajo existentes'],
+            targetAudience: 'Arquitectos y diseñadores de interiores',
             status: 'activo' as const,
-            tags: ['Liderazgo', 'Management', 'Soft Skills'],
-            tools: ['Notion', 'Slack', 'Miro'],
-            benefits: ['Evaluación 360° gratuita', 'Sesiones de coaching grupal'],
-            requirements: ['Experiencia mínima de 2 años en gestión'],
+            tags: ['Renders', 'IA Generativa', 'Diseño'],
+            tools: ['Midjourney', 'DALL-E', 'Photoshop AI'],
+            benefits: ['Portfolio de renders con IA', 'Acceso de por vida al material'],
+            requirements: ['Conocimientos básicos de diseño'],
+            certification: 'Certificado en Renderizado IA',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria'],
         },
     ];
 
@@ -123,146 +110,196 @@ async function main() {
         console.log(`✅ Course: ${course.title} (${course.code})`);
     }
 
-    // 4. Create sample program
+    // 4. Create sample program (Programa)
     const program = await prisma.program.upsert({
-        where: { code: 'PRG-MBA2024-001' },
+        where: { code: 'PRG-IAPROG2024-001' },
         update: {},
         create: {
             orgId: org.id,
-            code: 'PRG-MBA2024-001',
-            title: 'Diplomado Ejecutivo en Inteligencia Artificial para Negocios',
-            description: 'Programa integral de 6 meses para líderes que quieren dominar la IA empresarial.',
+            code: 'PRG-IAPROG2024-001',
+            title: 'IA y Programación para Arquitectos',
+            description: 'Programa completo de 3 meses donde aprenderás a integrar IA y programación en tu práctica arquitectónica. Incluye proyecto final práctico.',
             category: 'Inteligencia Artificial',
             modality: 'online',
-            totalDuration: '6 meses',
+            totalDuration: '3 meses',
             totalHours: 120,
-            price: 2497,
-            currency: 'USD',
-            certification: 'Diplomado en IA para Negocios',
-            objectives: ['Visión estratégica de IA', 'Implementación práctica', 'Liderazgo en transformación digital'],
-            targetAudience: 'C-Level y directores funcionales',
+            price: 4500,
+            currency: 'PEN',
+            certification: 'Diplomado en IA y Programación para Arquitectura',
+            certifyingEntity: 'Instituto de Innovación para Arquitectos',
+            objectives: ['Dominar IA aplicada a arquitectura', 'Aprender programación visual', 'Desarrollar un proyecto integrador'],
+            targetAudience: 'Arquitectos profesionales que buscan especializarse en tecnología',
             status: 'activo',
-            tags: ['IA', 'Diplomado', 'Ejecutivo'],
-            tools: ['ChatGPT', 'Python', 'Power BI'],
+            tags: ['IA', 'Programación', 'Diplomado'],
+            tools: ['Python', 'Grasshopper', 'ChatGPT', 'Midjourney'],
+            benefits: ['Certificado de diplomado', 'Grupo de WhatsApp 24/7', 'Proyecto práctico terminado', 'Acceso a comunidad de egresados'],
+            whatsappGroup: 'https://chat.whatsapp.com/example-program',
+            includesProject: true,
+            registrationLink: 'https://innovation-institute.edu/programas/ia-programacion',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Cuotas sin interés'],
+            requirements: ['Título de arquitecto o estudiante avanzado'],
         },
     });
     console.log(`✅ Program: ${program.title} (${program.code})`);
 
+    // Create program modules
+    await prisma.programCourse.deleteMany({ where: { programId: program.id } });
+    await prisma.programCourse.createMany({
+        data: [
+            { programId: program.id, sortOrder: 0, title: 'Módulo 1: Fundamentos de IA', description: 'Introducción a IA, machine learning y herramientas generativas', hours: 40, instructor: 'Dr. Carlos Méndez', topics: ['Machine Learning', 'IA Generativa', 'Prompt Engineering'] },
+            { programId: program.id, sortOrder: 1, title: 'Módulo 2: Programación Visual', description: 'Grasshopper, Python para diseño paramétrico', hours: 40, instructor: 'Arq. Luis García', topics: ['Grasshopper', 'Python', 'Diseño Paramétrico'] },
+            { programId: program.id, sortOrder: 2, title: 'Módulo 3: Proyecto Integrador', description: 'Desarrollo de proyecto real integrando IA y programación', hours: 40, instructor: 'Arq. Ana Torres', topics: ['Proyecto Real', 'Integración', 'Presentación Final'] },
+        ],
+    });
+
     // 5. Create sample webinar
     const webinar = await prisma.webinar.upsert({
-        where: { code: 'WBN-AI2024-001' },
+        where: { code: 'WBN-TEND2024-001' },
         update: {},
         create: {
             orgId: org.id,
-            code: 'WBN-AI2024-001',
-            title: 'Masterclass: El Fin de las Páginas Web Tradicionales',
-            description: 'Descubre cómo los Agentes de Venta y las interfaces conversacionales están cambiando el juego.',
-            type: 'masterclass',
-            speaker: 'Ing. Miguel Torres',
-            eventDate: new Date('2025-03-15'),
+            code: 'WBN-TEND2024-001',
+            title: 'Tendencias de IA para Arquitectos',
+            description: 'Webinar gratuito con ponentes internacionales sobre las últimas tendencias en inteligencia artificial aplicada a la arquitectura.',
+            webinarFormat: 'webinar',
+            speaker: 'Panel Internacional',
+            speakerBio: 'Expertos internacionales en IA y arquitectura de España, México y Perú.',
+            eventDate: new Date('2026-04-15'),
             eventTime: '19:00',
-            duration: '90 minutos',
+            duration: '2 horas',
             price: 0,
-            currency: 'USD',
-            category: 'Tecnología',
-            targetAudience: 'Emprendedores digitales y marketers',
+            currency: 'PEN',
+            category: 'Inteligencia Artificial',
+            targetAudience: 'Arquitectos, estudiantes y profesionales interesados en IA',
             status: 'activo',
-            topics: ['Agentes IA', 'Chatbots', 'Conversional Commerce'],
-            tags: ['Webinar', 'IA', 'Gratis'],
+            topics: ['IA Generativa', 'Diseño Computacional', 'Futuro de la Arquitectura'],
+            keyTopics: ['Midjourney para arquitectura', 'Diseño paramétrico con IA', 'BIM + IA'],
+            tags: ['Webinar', 'IA', 'Gratis', 'Internacional'],
+            registrationLink: 'https://innovation-institute.edu/webinars/tendencias-ia',
+            benefits: ['Acceso gratuito', 'Grabación disponible', 'Certificado de asistencia'],
+            maxAttendees: 500,
         },
     });
     console.log(`✅ Webinar: ${webinar.title} (${webinar.code})`);
 
-    // 5b. Create sample software items
-    const softwareItems = [
+    // 6. Create sample talleres (Workshops)
+    const tallerItems = [
         {
-            code: 'SW-CHATBOT2024-001',
-            title: 'LIA Chatbot Builder',
-            description: 'Plataforma para crear chatbots educativos. Permite a instituciones diseñar, entrenar y desplegar asistentes conversacionales sin necesidad de código.',
-            price: 99,
-            currency: 'USD',
-            category: 'Software Educativo',
-            platform: 'Web',
-            version: '2.1.0',
-            licenseType: 'freemium',
-            targetAudience: 'Instituciones educativas y emprendedores digitales que buscan automatizar la atención al estudiante',
-            objectives: ['Crear chatbots educativos sin código', 'Automatizar respuestas frecuentes', 'Integrar con plataformas de aprendizaje'],
-            benefits: ['Reducción de 80% en consultas repetitivas', 'Atención 24/7 a estudiantes', 'Setup en menos de 1 hora', 'Integración con WhatsApp y web'],
-            painPoints: ['Atención manual saturada', 'Estudiantes sin respuesta fuera de horario', 'Costos altos de soporte'],
-            features: ['Editor visual drag & drop', 'Plantillas educativas pre-diseñadas', 'Analíticas de conversación', 'Multi-idioma'],
-            tools: ['WhatsApp API', 'Web Widget', 'Zapier'],
-            requirements: ['Navegador moderno', 'Cuenta de correo electrónico'],
+            code: 'TLR-IAUSO2024-001',
+            title: 'Aprende a usar IA para Arquitectura',
+            description: 'Taller presencial intensivo donde aprenderás a usar las principales herramientas de IA aplicadas a la arquitectura. Saldrás con un proyecto terminado y certificado.',
+            modality: 'presencial' as const,
+            duration: '3 horas',
+            totalHours: 3,
+            instructor: 'Arq. Carlos Méndez',
+            instructorBio: 'Arquitecto con 15 años de experiencia, especialista en IA.',
+            venue: 'Sala de Innovación - Miraflores',
+            venueAddress: 'Av. Larco 1250, Miraflores, Lima',
+            venueCapacity: 30,
+            location: 'Lima, Perú',
+            price: 150,
+            currency: 'PEN',
+            maxParticipants: 25,
+            availableSpots: 15,
+            waitlistEnabled: true,
+            category: 'Inteligencia Artificial',
+            targetAudience: 'Arquitectos que quieren una introducción práctica a las herramientas de IA',
+            objectives: ['Usar Midjourney para renders', 'Crear presentaciones con IA', 'Automatizar tareas repetitivas'],
+            materials: ['Laptop personal', 'Cuenta de Midjourney (se proporcionará trial)'],
+            deliverables: ['Proyecto de render con IA terminado', 'Guía de herramientas en PDF'],
+            certification: 'Certificado de Taller en IA para Arquitectura',
+            registrationLink: 'https://innovation-institute.edu/talleres/ia-arquitectura',
+            paymentMethods: ['Yape/Plin', 'Transferencia', 'Efectivo en sede'],
+            benefits: ['Práctica hands-on', 'Certificado incluido', 'Material descargable', 'Networking con otros arquitectos'],
+            requirements: ['Laptop con internet', 'Ganas de aprender'],
+            tools: ['Midjourney', 'ChatGPT', 'Canva AI'],
+            tags: ['Taller', 'Presencial', 'IA', 'Práctico'],
             status: 'activo' as const,
-            tags: ['Chatbot', 'IA', 'Educación', 'No-Code'],
         },
         {
-            code: 'SW-ANALYTICS2024-002',
-            title: 'EduMetrics Pro',
-            description: 'Dashboard de analíticas para engagement estudiantil. Monitorea métricas de participación, retención y satisfacción estudiantil en tiempo real.',
-            price: 149,
-            currency: 'USD',
-            category: 'Analytics',
-            platform: 'Web',
-            version: '1.5.0',
-            licenseType: 'paid',
-            targetAudience: 'Directores académicos y coordinadores de programas educativos',
-            objectives: ['Monitorear engagement estudiantil en tiempo real', 'Identificar alumnos en riesgo de deserción', 'Optimizar contenido educativo con datos'],
-            benefits: ['Dashboards en tiempo real', 'Alertas automáticas de deserción', 'Reportes exportables', 'Comparativas entre cohortes'],
-            painPoints: ['Deserción estudiantil sin detección temprana', 'Falta de métricas para decisiones académicas', 'Reportes manuales que toman días'],
-            features: ['Dashboard interactivo', 'Alertas personalizables', 'Exportación a PDF/Excel', 'API REST'],
-            tools: ['Google Sheets', 'LMS Integration', 'Slack'],
-            requirements: ['Navegador moderno', 'Base de datos de estudiantes'],
+            code: 'TLR-BIM2024-002',
+            title: 'BIM + IA: Taller Práctico',
+            description: 'Taller presencial para integrar inteligencia artificial en flujos de trabajo BIM.',
+            modality: 'presencial' as const,
+            duration: '4 horas',
+            totalHours: 4,
+            instructor: 'Arq. Luis García',
+            venue: 'Centro de Convenciones Lima',
+            venueAddress: 'Jirón de la Unión 800, Lima',
+            location: 'Lima, Perú',
+            price: 200,
+            currency: 'PEN',
+            maxParticipants: 20,
+            availableSpots: 8,
+            category: 'Arquitectura',
+            targetAudience: 'Arquitectos con experiencia en BIM',
+            objectives: ['Integrar IA en Revit', 'Automatizar documentación', 'Generar renders desde BIM'],
+            materials: ['Laptop con Revit instalado'],
+            deliverables: ['Flujo de trabajo BIM+IA configurado'],
+            certification: 'Certificado de Taller BIM+IA',
+            registrationLink: 'https://innovation-institute.edu/talleres/bim-ia',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia'],
+            benefits: ['Práctica en Revit+IA', 'Template de automatización'],
+            requirements: ['Experiencia previa en BIM/Revit'],
+            tools: ['Revit', 'Dynamo', 'ChatGPT'],
+            tags: ['Taller', 'BIM', 'IA'],
             status: 'activo' as const,
-            tags: ['Analytics', 'Dashboard', 'Engagement', 'Métricas'],
         },
     ];
 
-    for (const swData of softwareItems) {
-        const sw = await prisma.software.upsert({
-            where: { code: swData.code },
+    for (const tallerData of tallerItems) {
+        const taller = await prisma.taller.upsert({
+            where: { code: tallerData.code },
             update: {},
-            create: { orgId: org.id, ...swData },
+            create: { orgId: org.id, ...tallerData },
         });
-        console.log(`✅ Software: ${sw.title} (${sw.code})`);
+        console.log(`✅ Taller: ${taller.title} (${taller.code})`);
     }
 
-    // 5c. Create sample subscriptions
+    // 7. Create sample subscriptions
     const subscriptionItems = [
         {
-            code: 'SUB-PREMIUM2024-001',
-            title: 'Membresía Premium Educador',
-            description: 'Acceso ilimitado a todos los cursos y masterclasses mensuales. Incluye contenido exclusivo, comunidad privada y sesiones de mentoría grupales.',
-            benefits: ['Acceso ilimitado a cursos', 'Masterclass mensual en vivo', 'Comunidad privada', 'Certificados incluidos', 'Mentoría grupal'],
-            features: ['Acceso a +50 cursos', 'Descargas ilimitadas', 'Soporte por chat', 'Certificados digitales'],
-            price: 49,
-            currency: 'USD',
+            code: 'SUB-ASESOR2024-001',
+            title: 'Asesor IA para Arquitectura',
+            description: 'Suscripción mensual que incluye horas de asesoría personalizada en IA para arquitectura y acceso a grupo de WhatsApp exclusivo para consultas.',
+            benefits: ['2 horas de asesoría personalizada al mes', 'Acceso a grupo de WhatsApp 24/7', 'Material exclusivo mensual', 'Descuentos en cursos y talleres'],
+            features: ['Sesiones 1:1 con experto', 'Grupo WhatsApp exclusivo', 'Recursos actualizados', 'Prioridad en eventos'],
+            price: 500,
+            currency: 'PEN',
             period: 'mensual',
             maxUsers: 1,
-            targetAudience: 'Educadores independientes y profesionales en formación continua',
-            objectives: ['Mantenerse actualizado en tendencias educativas', 'Acceder a formación continua de calidad', 'Obtener certificaciones profesionales'],
-            painPoints: ['Cursos individuales demasiado caros', 'Contenido desactualizado', 'Falta de comunidad profesional'],
-            socialProof: ['Más de 500 educadores suscritos', '4.8/5 satisfacción promedio'],
-            category: 'Membresía',
+            advisoryHours: 2,
+            whatsappGroup: 'https://chat.whatsapp.com/example-sub',
+            communityAccess: 'Grupo privado de WhatsApp con expertos y otros suscriptores',
+            registrationLink: 'https://innovation-institute.edu/suscripciones/asesor-ia',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'PayPal'],
+            targetAudience: 'Arquitectos que necesitan acompañamiento continuo en IA',
+            objectives: ['Recibir asesoría personalizada', 'Mantenerse actualizado en IA', 'Resolver dudas en tiempo real'],
+            painPoints: ['No tener a quién consultar sobre IA', 'Información desactualizada', 'Falta de guía personalizada'],
+            socialProof: ['Más de 50 arquitectos suscritos', '4.9/5 satisfacción promedio'],
+            category: 'Asesoría',
             status: 'activo' as const,
-            tags: ['Premium', 'Membresía', 'All-Access'],
+            tags: ['Suscripción', 'Asesoría', 'IA', 'Mensual'],
         },
         {
             code: 'SUB-ENTERPRISE2024-002',
-            title: 'Plan Enterprise Institucional',
-            description: 'Licencia institucional con acceso completo a la plataforma, reportes avanzados y soporte dedicado para toda tu organización.',
-            benefits: ['Usuarios ilimitados', 'Panel administrativo', 'Reportes avanzados', 'Soporte prioritario 24/7', 'Personalización de marca', 'API access'],
-            features: ['Dashboard administrativo', 'Gestión de usuarios', 'Reportes personalizados', 'SSO / SAML', 'API REST', 'White-label'],
-            price: 299,
-            currency: 'USD',
+            title: 'Plan Estudio de Arquitectura',
+            description: 'Plan para estudios de arquitectura que incluye acceso para todo el equipo, asesorías grupales y soporte prioritario.',
+            benefits: ['Hasta 10 usuarios', 'Asesoría grupal mensual', 'Soporte prioritario', 'Reportes de uso'],
+            features: ['Multi-usuario', 'Panel administrativo', 'Asesoría grupal', 'Soporte 24/7'],
+            price: 2000,
+            currency: 'PEN',
             period: 'mensual',
-            maxUsers: 100,
-            targetAudience: 'Instituciones educativas, universidades corporativas y empresas de capacitación',
-            objectives: ['Centralizar la capacitación organizacional', 'Monitorear progreso de colaboradores', 'Reducir costos de formación'],
-            painPoints: ['Licencias individuales costosas a escala', 'Sin visibilidad del progreso formativo', 'Plataformas dispersas'],
-            socialProof: ['Usado por 15+ instituciones en LATAM', 'Reducción promedio de 40% en costos de capacitación'],
+            maxUsers: 10,
+            advisoryHours: 4,
+            whatsappGroup: 'https://chat.whatsapp.com/example-enterprise',
+            registrationLink: 'https://innovation-institute.edu/suscripciones/enterprise',
+            paymentMethods: ['Transferencia bancaria', 'Facturación mensual'],
+            targetAudience: 'Estudios de arquitectura que buscan capacitar a su equipo en IA',
+            objectives: ['Capacitar al equipo en IA', 'Implementar IA en procesos del estudio'],
             category: 'Institucional',
             status: 'activo' as const,
-            tags: ['Enterprise', 'Institucional', 'B2B'],
+            tags: ['Enterprise', 'Estudio', 'B2B'],
         },
     ];
 
@@ -275,45 +312,110 @@ async function main() {
         console.log(`✅ Subscription: ${sub.title} (${sub.code})`);
     }
 
-    // 5d. Create sample applications (postulaciones)
+    // 8. Create sample asesorías (Consulting)
+    const asesoriaItems = [
+        {
+            code: 'ASE-CONSUL2024-001',
+            title: 'Consulta sobre IA para Arquitectura',
+            description: 'Sesión de asesoría personalizada donde resolverás tus dudas sobre cómo implementar IA en tu práctica arquitectónica. Debes programar tu cita con mínimo 1 hora de anticipación y describir lo que necesitas.',
+            pricePerHour: 150,
+            currency: 'PEN',
+            minimumHours: 1,
+            packageHours: 5,
+            packagePrice: 600,
+            advisor: 'Arq. Carlos Méndez',
+            advisorBio: 'Arquitecto con 15 años de experiencia, pionero en IA aplicada a arquitectura en Perú.',
+            advisorTitle: 'Director de Innovación',
+            specialties: ['IA Generativa', 'Renders con IA', 'Automatización de procesos', 'Diseño paramétrico'],
+            bookingLink: 'https://calendly.com/innovation-institute/asesoria-ia',
+            registrationLink: 'https://innovation-institute.edu/asesorias/consulta-ia',
+            minAdvanceBooking: '1 hora',
+            availableSchedule: 'Lunes a viernes 9:00 - 18:00',
+            sessionDuration: '1 hora',
+            topicsCovered: ['Selección de herramientas IA', 'Implementación en proyectos', 'Renders y visualización', 'Automatización'],
+            deliverables: ['Informe de recomendaciones', 'Plan de implementación personalizado'],
+            needsDescription: true,
+            modality: 'online' as const,
+            category: 'Consultoría',
+            targetAudience: 'Arquitectos que necesitan orientación específica sobre IA',
+            objectives: ['Resolver dudas puntuales', 'Recibir recomendaciones personalizadas', 'Obtener un plan de acción'],
+            benefits: ['Atención personalizada', 'Recomendaciones específicas para tu caso', 'Plan de acción concreto'],
+            painPoints: ['No saber por dónde empezar con IA', 'Necesitar orientación específica', 'Invertir tiempo en herramientas equivocadas'],
+            socialProof: ['Más de 200 consultas realizadas', '4.9/5 satisfacción'],
+            paymentMethods: ['Yape/Plin', 'Transferencia', 'Tarjeta de crédito'],
+            tools: ['Zoom', 'Google Meet'],
+            tags: ['Asesoría', 'IA', 'Personalizada', '1:1'],
+            status: 'activo' as const,
+        },
+        {
+            code: 'ASE-ESTUDIO2024-002',
+            title: 'Asesoría para Estudios de Arquitectura',
+            description: 'Consultoría especializada para estudios de arquitectura que desean integrar IA en sus procesos de diseño, renderizado y gestión.',
+            pricePerHour: 300,
+            currency: 'PEN',
+            minimumHours: 2,
+            packageHours: 10,
+            packagePrice: 2500,
+            advisor: 'Arq. Carlos Méndez',
+            advisorTitle: 'Director de Innovación',
+            specialties: ['Transformación digital de estudios', 'BIM + IA', 'Automatización de procesos'],
+            bookingLink: 'https://calendly.com/innovation-institute/asesoria-estudio',
+            minAdvanceBooking: '24 horas',
+            availableSchedule: 'Lunes a viernes 9:00 - 17:00',
+            sessionDuration: '2 horas',
+            topicsCovered: ['Diagnóstico tecnológico', 'Roadmap de implementación', 'Capacitación del equipo'],
+            deliverables: ['Diagnóstico del estudio', 'Roadmap de implementación', 'Guía de herramientas recomendadas'],
+            needsDescription: true,
+            modality: 'hibrido' as const,
+            category: 'Consultoría',
+            targetAudience: 'Directores y socios de estudios de arquitectura',
+            objectives: ['Diagnosticar madurez tecnológica', 'Definir estrategia de adopción de IA', 'Capacitar al equipo'],
+            benefits: ['Diagnóstico completo', 'Roadmap personalizado', 'Acompañamiento post-consulta'],
+            paymentMethods: ['Transferencia bancaria', 'Facturación'],
+            tools: ['Zoom', 'Miro', 'Notion'],
+            tags: ['Asesoría', 'Estudio', 'B2B', 'Transformación Digital'],
+            status: 'activo' as const,
+        },
+    ];
+
+    for (const aseData of asesoriaItems) {
+        const ase = await prisma.asesoria.upsert({
+            where: { code: aseData.code },
+            update: {},
+            create: { orgId: org.id, ...aseData },
+        });
+        console.log(`✅ Asesoría: ${ase.title} (${ase.code})`);
+    }
+
+    // 9. Create sample applications (Postulaciones)
     const applicationItems = [
         {
             code: 'ADM-BECA2024-001',
-            title: 'Beca de Innovación en IA',
-            description: 'Beca completa para profesionales destacados que deseen especializarse en inteligencia artificial aplicada a los negocios.',
-            price: 0,
-            currency: 'USD',
+            title: 'Programa de Becas para Asesorías IA',
+            description: 'Programa de becas para arquitectos que deseen recibir asesorías especializadas en IA. Los candidatos deben pasar un examen de aptitudes y cumplir con los requisitos.',
+            price: 150,
+            currency: 'PEN',
             category: 'Becas',
             modality: 'online' as const,
-            duration: '6 meses',
+            duration: '3 meses',
             availableSlots: 10,
-            targetAudience: 'Profesionales con 2+ años de experiencia que demuestren potencial de innovación',
-            objectives: ['Formar líderes en IA aplicada', 'Impulsar proyectos de innovación en LATAM', 'Crear una red de profesionales en IA'],
-            benefits: ['Beca 100% del programa', 'Mentoría 1:1 con expertos', 'Acceso a red de alumni', 'Certificación internacional'],
-            painPoints: ['Alto costo de programas de IA', 'Falta de oportunidades de especialización', 'Brechas de talento en IA en la región'],
-            requirements: ['CV actualizado', 'Carta de motivación', 'Portfolio de proyectos', 'Mínimo 2 años de experiencia profesional'],
+            targetAudience: 'Arquitectos con menos de 5 años de experiencia que demuestren interés en IA',
+            objectives: ['Democratizar el acceso a asesorías de IA', 'Formar la próxima generación de arquitectos tech'],
+            benefits: ['Beca del 80% en asesorías', 'Mentoría personalizada', 'Acceso a comunidad de becarios', 'Certificación al completar'],
+            painPoints: ['Alto costo de asesorías especializadas', 'Falta de oportunidades para jóvenes arquitectos'],
+            requirements: ['Título de arquitecto o estudiante de último año', 'CV actualizado', 'Carta de motivación', 'Portfolio de proyectos'],
+            examRequired: true,
+            examDescription: 'Examen de aptitudes que evalúa conocimientos básicos de tecnología y capacidad de aprendizaje',
+            applicationFee: 150,
+            steps: ['1. Registrarse en el enlace', '2. Completar el formulario de datos', '3. Pagar la cuota de postulación (S/150)', '4. Rendir el examen de aptitudes online', '5. Enviar documentación requerida', '6. Esperar resultados (máximo 2 semanas)'],
+            documentsNeeded: ['CV actualizado', 'Carta de motivación', 'Portfolio digital', 'Copia de título o constancia de estudios'],
+            selectionCriteria: ['Potencial de innovación', 'Necesidad económica', 'Calidad del portfolio', 'Resultado del examen'],
+            registrationLink: 'https://innovation-institute.edu/becas/asesorias-ia',
+            paymentMethods: ['Yape/Plin', 'Transferencia bancaria'],
             deadline: new Date('2026-06-30'),
+            socialProof: ['15 becarios en la primera edición', '100% de satisfacción'],
             status: 'activo' as const,
-            tags: ['Beca', 'IA', 'Innovación', 'Gratuito'],
-        },
-        {
-            code: 'ADM-MBA2024-002',
-            title: 'Admisión MBA Digital',
-            description: 'Proceso de admisión para el programa de MBA en Transformación Digital y Gestión de la Innovación.',
-            price: 50,
-            currency: 'USD',
-            category: 'Admisiones',
-            modality: 'hibrido' as const,
-            duration: '18 meses',
-            availableSlots: 30,
-            targetAudience: 'Profesionales con título universitario y experiencia laboral que buscan posiciones de liderazgo',
-            objectives: ['Evaluar candidatos para el MBA Digital', 'Seleccionar perfiles de alto potencial', 'Conformar una cohorte diversa y complementaria'],
-            benefits: ['Acceso al MBA más innovador de la región', 'Red de contactos C-Level', 'Doble titulación disponible', 'Prácticas en empresas partner'],
-            painPoints: ['Incertidumbre sobre el proceso de admisión', 'Competencia por plazas limitadas', 'Falta de orientación vocacional ejecutiva'],
-            requirements: ['Título universitario', 'Mínimo 3 años de experiencia laboral', 'Ensayo de admisión', 'Entrevista personal'],
-            deadline: new Date('2026-08-15'),
-            status: 'activo' as const,
-            tags: ['MBA', 'Admisión', 'Digital'],
+            tags: ['Beca', 'IA', 'Postulación', 'Arquitectos'],
         },
     ];
 
@@ -326,7 +428,7 @@ async function main() {
         console.log(`✅ Application: ${app.title} (${app.code})`);
     }
 
-    // 6. Create sample team (skip if already exists)
+    // 10. Create sample team
     const existingTeam = await prisma.team.findFirst({
         where: { orgId: org.id, name: 'Equipo de Ventas IA' },
     });
@@ -335,7 +437,7 @@ async function main() {
             data: {
                 orgId: org.id,
                 name: 'Equipo de Ventas IA',
-                description: 'Equipo especializado en vender cursos de inteligencia artificial',
+                description: 'Equipo especializado en vender cursos y asesorías de inteligencia artificial',
                 members: {
                     create: [
                         { name: 'Juan Pérez', email: 'juan@innovation-institute.edu', role: 'Closer' },
@@ -349,7 +451,7 @@ async function main() {
         console.log(`✅ Team already exists: ${existingTeam.name}`);
     }
 
-    // 6b. Create AI Agents (skip if already exists)
+    // 11. Create AI Agents
     const agentDefinitions = [
         {
             name: 'Asistente de Ventas',
@@ -357,7 +459,7 @@ async function main() {
             personality: 'professional' as const,
             avatar: '💼',
             tone: 'Profesional, consultivo y orientado a resolver dudas de forma empática',
-            systemPrompt: 'Eres un asesor educativo experto. Tu objetivo es ayudar a los prospectos a encontrar el programa educativo ideal para sus necesidades. Usa los datos reales del catálogo para hacer recomendaciones personalizadas. Maneja objeciones con empatía y ofrece soluciones concretas. Siempre verifica la información contra el catálogo antes de responder.',
+            systemPrompt: 'Eres un asesor educativo experto del Instituto de Innovación para Arquitectos. Tu objetivo es ayudar a los prospectos a encontrar el curso, programa, taller, asesoría o suscripción ideal para sus necesidades. Usa los datos reales del catálogo para hacer recomendaciones personalizadas.',
             expertise: ['ventas consultivas', 'educación', 'manejo de objeciones'],
             isActive: true,
         },
@@ -367,7 +469,7 @@ async function main() {
             personality: 'friendly' as const,
             avatar: '📋',
             tone: 'Amigable, curioso y eficiente en recopilar datos del prospecto',
-            systemPrompt: 'Eres un asistente amigable que ayuda a recopilar información de prospectos interesados en programas educativos. Tu objetivo es obtener: nombre completo, teléfono/WhatsApp, correo electrónico, programa de interés y nivel de urgencia. Hazlo de forma conversacional y natural, sin que parezca un formulario.',
+            systemPrompt: 'Eres un asistente amigable que ayuda a recopilar información de prospectos interesados en cursos, talleres, asesorías y programas de arquitectura con IA.',
             expertise: ['recopilación de datos', 'clasificación de leads', 'cualificación'],
             isActive: true,
         },
@@ -377,7 +479,7 @@ async function main() {
             personality: 'enthusiastic' as const,
             avatar: '🎓',
             tone: 'Entusiasta, conocedor y detallado al presentar la oferta educativa',
-            systemPrompt: 'Eres un experto en la oferta educativa de la institución. Conoces cada curso, programa, webinar y servicio en detalle. Ayudas a los usuarios a explorar el catálogo, comparar opciones y encontrar exactamente lo que necesitan. Siempre fundamenta tus respuestas en datos reales del catálogo.',
+            systemPrompt: 'Eres un experto en la oferta educativa del Instituto de Innovación para Arquitectos. Conoces cada curso, programa, webinar, taller, suscripción y asesoría en detalle.',
             expertise: ['catálogo educativo', 'asesoría académica', 'comparación de programas'],
             isActive: true,
         },
@@ -397,7 +499,7 @@ async function main() {
         }
     }
 
-    // 7. Create default CRM Funnel and Stages
+    // 12. Create default CRM Funnel and Stages
     const defaultFunnel = await prisma.funnel.upsert({
         where: { id: 'default-funnel-1' },
         update: {
@@ -414,7 +516,6 @@ async function main() {
         },
     });
 
-    // Delete existing stages for the default funnel to ensure clean update
     await prisma.funnelStage.deleteMany({ where: { funnelId: defaultFunnel.id } });
 
     await prisma.funnel.update({
@@ -423,14 +524,14 @@ async function main() {
             stages: {
                 create: [
                     { name: 'BBDD', key: 'bbdd', sortOrder: 1, isDefault: true, description: 'Base de datos inicial', rules: 'Entrada inicial de leads.' },
-                    { name: 'Interesado', key: 'interesado', sortOrder: 2, isDefault: true, description: 'Interés detectado (curso, subscripción, programa, etc.)', rules: 'Cuando el bot detecta una intención clara de compra o consulta específica.' },
+                    { name: 'Interesado', key: 'interesado', sortOrder: 2, isDefault: true, description: 'Interés detectado', rules: 'Cuando el bot detecta una intención clara de compra o consulta específica.' },
                     { name: 'Informado', key: 'informado', sortOrder: 3, isDefault: true, description: 'Se le ha pasado la información pertinente', rules: 'Al entregar el temario, precios o detalles del servicio.' },
                     { name: 'Filtrado', key: 'filtrado', sortOrder: 4, isDefault: true, description: 'Se aplican las preguntas filtro', rules: 'Después de obtener respuestas a las preguntas de calificación.' },
-                    { name: 'Cualificado a asesor', key: 'cualificado', sortOrder: 5, isDefault: true, description: 'Completó la información y pasa a asesor', rules: 'Cuando el lead cumple con el perfil ideal y solicita profundizar.' },
-                    { name: 'Asesor manual', key: 'asesor_manual', sortOrder: 6, isDefault: true, description: 'Solicita hablar directamente o asignación manual', rules: 'Si el usuario escribe "quiero hablar con un humano" o por intervención administrativa.' },
-                    { name: 'Seguimiento', key: 'seguimiento', sortOrder: 7, isDefault: true, description: 'Secuencia de seguimiento', rules: 'Si después de 15 min no responde, el sistema lo mueve aquí e inicia secuencia.' },
-                    { name: 'Descartado', key: 'descartado', sortOrder: 8, isDefault: true, description: 'No le interesa o no aplica', rules: 'Cuando el lead indica desinterés o no supera los filtros mínimos.' },
-                    { name: 'Caso especial', key: 'caso_especial', sortOrder: 9, isDefault: true, description: 'Contingencia', rules: 'Leads que el bot no puede procesar o que caen en bucle de error.' },
+                    { name: 'Cualificado a asesor', key: 'cualificado', sortOrder: 5, isDefault: true, description: 'Completó la información y pasa a asesor', rules: 'Cuando el lead cumple con el perfil ideal.' },
+                    { name: 'Asesor manual', key: 'asesor_manual', sortOrder: 6, isDefault: true, description: 'Solicita hablar directamente', rules: 'Si el usuario escribe "quiero hablar con un humano".' },
+                    { name: 'Seguimiento', key: 'seguimiento', sortOrder: 7, isDefault: true, description: 'Secuencia de seguimiento', rules: 'Si después de 15 min no responde.' },
+                    { name: 'Descartado', key: 'descartado', sortOrder: 8, isDefault: true, description: 'No le interesa o no aplica', rules: 'Cuando el lead indica desinterés.' },
+                    { name: 'Caso especial', key: 'caso_especial', sortOrder: 9, isDefault: true, description: 'Contingencia', rules: 'Leads que el bot no puede procesar.' },
                 ],
             },
         },
@@ -438,12 +539,12 @@ async function main() {
 
     console.log(`✅ Default Funnel: ${defaultFunnel.name}`);
 
-    // 8. Create default Extraction Fields
+    // 13. Create default Extraction Fields
     const defaultFields = [
         { name: 'Nombre', key: 'cliente_nombre', dataType: 'string', isDefault: true, isRequired: true, description: 'Nombre completo del prospecto' },
         { name: 'Teléfono', key: 'cliente_telefono', dataType: 'string', isDefault: true, isRequired: true, description: 'Número de contacto (whatsapp)' },
         { name: 'Correo', key: 'cliente_correo', dataType: 'string', isDefault: true, isRequired: true, description: 'Email de contacto' },
-        { name: 'Interés', key: 'interes_tipo', dataType: 'string', isDefault: true, options: ['Curso', 'Suscripción', 'Programa', 'Webinar'], description: 'Producto o servicio de interés' },
+        { name: 'Interés', key: 'interes_tipo', dataType: 'string', isDefault: true, options: ['Curso', 'Programa', 'Webinar', 'Taller', 'Suscripción', 'Asesoría', 'Postulación'], description: 'Producto o servicio de interés' },
         { name: 'Detalle Interés', key: 'interes_detalle', dataType: 'string', isDefault: true, description: 'Especifique el curso o programa' },
         { name: 'Caso Especial', key: 'caso_especial_motivo', dataType: 'string', isDefault: true, description: 'Detalle de por qué falló el bot' },
         { name: 'Resumen Solicitud', key: 'solicitud_resumen', dataType: 'string', isDefault: true, description: 'Breve resumen de lo que busca' },
@@ -451,7 +552,6 @@ async function main() {
         { name: 'Derivado Asesor', key: 'es_derivado', dataType: 'boolean', isDefault: true, description: 'Si fue enviado a un humano' },
     ];
 
-    // Delete existing fields to avoid duplicates if re-seeding
     await prisma.extractionField.deleteMany({
         where: { funnelId: defaultFunnel.id }
     });
