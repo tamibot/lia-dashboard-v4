@@ -8,6 +8,22 @@ const prisma = new PrismaClient();
 const router = Router();
 router.use(authenticate);
 
+// Fields to persist for each team member
+const memberFields = (m: any) => ({
+    name: m.name || '',
+    email: m.email || '',
+    phone: m.phone || null,
+    whatsapp: m.whatsapp || null,
+    role: m.role || null,
+    availability: m.availability || null,
+    vacationStart: m.vacationStart ? new Date(m.vacationStart) : null,
+    vacationEnd: m.vacationEnd ? new Date(m.vacationEnd) : null,
+    isAvailable: m.isAvailable ?? true,
+    specialties: m.specialties || [],
+    maxLeads: m.maxLeads || null,
+    userId: m.userId || null,
+});
+
 // GET /api/teams
 router.get('/', async (req: Request, res: Response) => {
     try {
@@ -15,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
             where: { orgId: req.user!.orgId },
             include: {
                 members: true,
-                courseAssignments: { include: { course: { select: { id: true, title: true, code: true } } } },
+                productAssignments: true,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -30,21 +46,24 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const { members, assignedCourses, ...data } = req.body;
+        const { members, productAssignments, ...data } = req.body;
 
         const team = await prisma.team.create({
             data: {
-                ...data, orgId,
+                name: data.name,
+                description: data.description || null,
+                orgId,
                 members: members?.length ? {
-                    create: members.map((m: any) => ({
-                        name: m.name, email: m.email, phone: m.phone, role: m.role,
+                    create: members.map((m: any) => memberFields(m)),
+                } : undefined,
+                productAssignments: productAssignments?.length ? {
+                    create: productAssignments.map((pa: any) => ({
+                        entityType: pa.entityType,
+                        entityId: pa.entityId,
                     })),
                 } : undefined,
-                courseAssignments: assignedCourses?.length ? {
-                    create: assignedCourses.map((courseId: string) => ({ courseId })),
-                } : undefined,
             },
-            include: { members: true, courseAssignments: true },
+            include: { members: true, productAssignments: true },
         });
         res.status(201).json(team);
     } catch (err) {
@@ -60,26 +79,38 @@ router.put('/:id', async (req: Request, res: Response) => {
         const existing = await prisma.team.findFirst({ where: { id, orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Team not found' }); return; }
 
-        const { members, assignedCourses, ...data } = req.body;
+        const { members, productAssignments, ...data } = req.body;
 
         const team = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            // Replace members
             if (members) {
                 await tx.teamMember.deleteMany({ where: { teamId: id } });
-                await tx.teamMember.createMany({
-                    data: members.map((m: any) => ({
-                        teamId: id, name: m.name, email: m.email, phone: m.phone, role: m.role,
-                    })),
-                });
+                if (members.length > 0) {
+                    await tx.teamMember.createMany({
+                        data: members.map((m: any) => ({
+                            teamId: id,
+                            ...memberFields(m),
+                        })),
+                    });
+                }
             }
-            if (assignedCourses) {
-                await tx.teamCourseAssignment.deleteMany({ where: { teamId: id } });
-                await tx.teamCourseAssignment.createMany({
-                    data: assignedCourses.map((courseId: string) => ({ teamId: id, courseId })),
-                });
+            // Replace product assignments
+            if (productAssignments) {
+                await tx.teamProductAssignment.deleteMany({ where: { teamId: id } });
+                if (productAssignments.length > 0) {
+                    await tx.teamProductAssignment.createMany({
+                        data: productAssignments.map((pa: any) => ({
+                            teamId: id,
+                            entityType: pa.entityType,
+                            entityId: pa.entityId,
+                        })),
+                    });
+                }
             }
             return tx.team.update({
-                where: { id }, data,
-                include: { members: true, courseAssignments: true },
+                where: { id },
+                data: { name: data.name, description: data.description || null },
+                include: { members: true, productAssignments: true },
             });
         });
         res.json(team);

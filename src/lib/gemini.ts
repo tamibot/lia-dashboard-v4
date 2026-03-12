@@ -255,9 +255,15 @@ const PROMPTS = {
       "socialProof": ["Testimonio breve 1"],
       "faqs": [{ "question": "Pregunta", "answer": "Respuesta" }],
       "bonuses": ["Bonus 1"],
+      "callToAction": "Frase de acción persuasiva (ej: Inscríbete ahora y transforma tu carrera)",
+      "idealStudentProfile": "Descripción del alumno ideal (ej: Profesionales de 25-40 años en transición de carrera)",
+      "competitiveAdvantage": "Qué hace este curso diferente a la competencia",
+      "urgencyTriggers": ["Solo 10 cupos", "Precio sube en 48 horas"],
+      "objectionHandlers": [{ "objection": "Es muy caro", "response": "Respuesta persuasiva..." }],
+      "successStories": [{ "name": "Juan Pérez", "quote": "Testimonio real...", "result": "Ascendió a gerente" }],
       "missing": ["Campos faltantes"]
     }
-    REGLA: EL SYLLABUS DEBE SER MUY DETALLADO INDICANDO QUÉ SE VA A APRENDER. SIEMPRE INCLUYE EL TEMA DEL CERTIFICADO.`,
+    REGLA: EL SYLLABUS DEBE SER MUY DETALLADO INDICANDO QUÉ SE VA A APRENDER. SIEMPRE INCLUYE EL TEMA DEL CERTIFICADO. GENERA OBJECTION HANDLERS Y SUCCESS STORIES REALISTAS.`,
 
     RAW_EXTRACT_PROGRAMA: `Eres un experto en Formación Ejecutiva.
     TU TAREA: Transformar contenido crudo de un PROGRAMA (diplomado, especialización) en una propuesta premium.
@@ -281,9 +287,15 @@ const PROMPTS = {
       "guarantee": "Garantía",
       "faqs": [{ "question": "Pregunta", "answer": "Respuesta" }],
       "bonuses": ["Bonus 1"],
+      "callToAction": "Frase de acción para programas premium",
+      "idealStudentProfile": "Perfil del candidato ideal",
+      "competitiveAdvantage": "Diferenciador clave del programa",
+      "urgencyTriggers": ["Próximo inicio en X fecha", "Solo X vacantes"],
+      "objectionHandlers": [{ "objection": "Objeción común", "response": "Respuesta persuasiva" }],
+      "successStories": [{ "name": "Egresado", "quote": "Testimonio", "result": "Resultado" }],
       "missing": ["Campos faltantes"]
     }
-    REGLA: ENFATIZA LOS REQUISITOS (EXPERIENCIA PREVIA) Y DETALLA LA PLANA DOCENTE SI APARECE EN EL TEXTO.`,
+    REGLA: ENFATIZA LOS REQUISITOS (EXPERIENCIA PREVIA) Y DETALLA LA PLANA DOCENTE SI APARECE EN EL TEXTO. GENERA OBJECTION HANDLERS Y SUCCESS STORIES REALISTAS PARA PROGRAMAS PREMIUM.`,
 
     RAW_EXTRACT_WEBINAR: `Eres un experto en Lanzamientos y Generación de Leads.
     TU TAREA: Transformar contenido crudo de un WEBINAR/MASTERCLASS en un gancho hiper-persuasivo.
@@ -305,6 +317,10 @@ const PROMPTS = {
       "benefits": ["Plantilla gratis en vivo", "Q&A"],
       "painPoints": ["Problema muy urgente"],
       "socialProof": ["Más de X registrados"],
+      "callToAction": "Regístrate gratis ahora",
+      "idealStudentProfile": "A quién está dirigido específicamente",
+      "competitiveAdvantage": "Qué hace este webinar diferente",
+      "urgencyTriggers": ["Cupos limitados", "Solo en vivo"],
       "missing": ["Campos faltantes"]
     }
     REGLA DE ORO: NO INCLUYAS SYLLABUS. EL WEBINAR ES CORTO, ENFÓCATE EN EL ENLACE DE REGISTRO, SI ES VIRTUAL/PRESENCIAL Y QUÉ SECRETO VAN A DESCUBRIR.`,
@@ -376,7 +392,7 @@ const PROMPTS = {
     
     REGLAS:
     - "updates" contiene SOLO los campos que el usuario pidió completar o mejorar.
-    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses, methods, modalities, dates, frequency.
+    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses, callToAction, idealStudentProfile, competitiveAdvantage, urgencyTriggers, objectionHandlers, successStories, methods, modalities, dates, frequency.
     - Si el usuario pide objetivos, devuelve "objectives": ["Obj1", "Obj2", ...].
     - Si el usuario pide descripción, devuelve "description": "texto".
     - Si el usuario pide precio, devuelve "price": número.
@@ -935,16 +951,30 @@ Objetivos: ${(courseContext.objectives || []).join(', ')}
 Beneficios: ${(courseContext.benefits || []).join(', ')}
 Bonos: ${(courseContext.bonuses || []).join(', ')}
 Garantía: ${courseContext.guarantee || 'N/A'}
+Call to Action: ${courseContext.callToAction || 'N/A'}
+Perfil del estudiante ideal: ${courseContext.idealStudentProfile || 'N/A'}
+Ventaja competitiva: ${courseContext.competitiveAdvantage || 'N/A'}
+Gatillos de urgencia: ${(courseContext.urgencyTriggers || []).join(', ') || 'N/A'}
+${courseContext.objectionHandlers?.length ? `
+MANEJO DE OBJECIONES (usa estas respuestas cuando el prospecto tenga dudas):
+${courseContext.objectionHandlers.map((oh: any) => `  Objeción: "${oh.objection}" → Respuesta: "${oh.response}"`).join('\n')}` : ''}
+${courseContext.successStories?.length ? `
+CASOS DE ÉXITO (menciona estos para generar confianza):
+${courseContext.successStories.map((ss: any) => `  ${ss.name}: "${ss.quote}" ${ss.result ? `(Resultado: ${ss.result})` : ''}`).join('\n')}` : ''}
     ` : '';
 
     // === Org info ===
     const orgInfo = orgProfile ? `
 INFORMACIÓN DE LA INSTITUCIÓN:
 Nombre: ${orgProfile.name}
-Ubicación: ${orgProfile.location || 'No especificado'}
+Tipo: ${orgProfile.type || 'No especificado'}
 Correo de contacto: ${orgProfile.contactEmail || 'No especificado'}
-Sedes: ${orgProfile.locations ? orgProfile.locations.map((l: any) => `${l.name} (${l.address})`).join(' | ') : 'No hay sedes registradas'}
+Teléfono: ${orgProfile.contactPhone || 'No especificado'}
+WhatsApp: ${orgProfile.whatsapp || 'No especificado'}
+Website: ${orgProfile.website || 'No especificado'}
+Sedes: ${orgProfile.locations ? orgProfile.locations.map((l: any) => `${l.name} (${l.address})${l.phone ? ` Tel: ${l.phone}` : ''}${l.schedule ? ` Horario: ${l.schedule}` : ''}`).join(' | ') : 'No hay sedes registradas'}
 Horarios: ${orgProfile.operatingHours ? orgProfile.operatingHours.map((h: any) => `${h.days}: ${h.hours}`).join(' | ') : 'No especificado'}
+Métodos de pago: ${orgProfile.paymentMethods ? orgProfile.paymentMethods.map((pm: any) => `${pm.name} (${pm.type})`).join(', ') : 'No especificado'}
     ` : '';
 
     const systemPrompt = `Eres un agente de ventas educativas de élite. Tu identidad:
@@ -964,6 +994,8 @@ TONO: ${agent.tone || 'Cálido y persuasivo'}
    - "CURSO PRINCIPAL QUE ESTÁS VENDIENDO HOY" (si aplica)
 4. Si alguien pide hablar con un humano o agendar llamada → di exactamente: "Te paso con el equipo de ventas para coordinar los detalles finales."
 5. Si el usuario quiere comprar/inscribirse → di exactamente: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
+6. ESTRATEGIA DE VENTAS: Cuando detectes objeciones del prospecto, usa las respuestas del MANEJO DE OBJECIONES. Menciona CASOS DE ÉXITO para generar confianza. Usa los GATILLOS DE URGENCIA para motivar la acción. Destaca la VENTAJA COMPETITIVA cuando comparen con otras opciones.
+7. Si preguntan por métodos de pago, usa la información de la institución. Si preguntan por sedes u horarios, responde con datos reales de la institución.
 
 CATÁLOGO DE PRODUCTOS DISPONIBLES (FILTRADO):
 ${catalogBlock}

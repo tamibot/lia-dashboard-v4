@@ -35,13 +35,18 @@ interface CourseData {
     missing: string[];
     youtubeUrl?: string;
     benefits?: string[];
-    urgencyTrigger?: string;
+    urgencyTriggers?: string[];
     painPoints?: string[];
     guarantee?: string;
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     tools?: string[];
     bonuses?: string[];
+    callToAction?: string;
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments: Attachment[];
     registrationLink?: string;
     // Postulacion fields
@@ -81,6 +86,12 @@ const INITIAL_STATE: CourseData = {
     socialProof: [],
     faqs: [],
     bonuses: [],
+    callToAction: '',
+    idealStudentProfile: '',
+    competitiveAdvantage: '',
+    urgencyTriggers: [],
+    objectionHandlers: [],
+    successStories: [],
     attachments: [],
     registrationLink: '',
     methods: [],
@@ -91,6 +102,33 @@ const INITIAL_STATE: CourseData = {
 
 type AnalysisStatus = 'idle' | 'analyzing' | 'success' | 'error';
 type Tab = 'upload' | 'details' | 'content' | 'marketing';
+
+// Completeness calculation — fields that matter for sales readiness
+function calcCompleteness(d: CourseData): { percent: number; missing: string[] } {
+    const checks: [boolean, string][] = [
+        [!!d.title, 'Título'],
+        [!!d.description && d.description.length > 20, 'Descripción detallada'],
+        [d.objectives.length > 0, 'Objetivos'],
+        [!!d.targetAudience, 'Público objetivo'],
+        [!!d.instructor, 'Instructor / Speaker'],
+        [d.price !== null && d.price > 0, 'Precio'],
+        [d.syllabus.length > 0, 'Temario / Malla curricular'],
+        // Commercial fields
+        [(d.benefits?.length || 0) > 0, 'Beneficios / Transformación'],
+        [(d.painPoints?.length || 0) > 0, 'Dolores del alumno'],
+        [!!d.guarantee, 'Garantía'],
+        [!!d.callToAction, 'Call to Action'],
+        [!!d.idealStudentProfile, 'Perfil del estudiante ideal'],
+        [!!d.competitiveAdvantage, 'Ventaja competitiva'],
+        [(d.urgencyTriggers?.length || 0) > 0, 'Gatillos de urgencia'],
+        [(d.objectionHandlers?.length || 0) > 0, 'Manejo de objeciones'],
+        [(d.successStories?.length || 0) > 0, 'Casos de éxito'],
+        [(d.faqs?.length || 0) > 0, 'Preguntas frecuentes'],
+    ];
+    const filled = checks.filter(([ok]) => ok).length;
+    const missing = checks.filter(([ok]) => !ok).map(([, label]) => label);
+    return { percent: Math.round((filled / checks.length) * 100), missing };
+}
 
 export default function CourseUpload() {
     const navigate = useNavigate();
@@ -168,6 +206,12 @@ export default function CourseUpload() {
                         socialProof: found.socialProof || [],
                         faqs: found.faqs || [],
                         bonuses: found.bonuses || [],
+                        callToAction: found.callToAction || '',
+                        idealStudentProfile: found.idealStudentProfile || '',
+                        competitiveAdvantage: found.competitiveAdvantage || '',
+                        urgencyTriggers: found.urgencyTriggers || [],
+                        objectionHandlers: found.objectionHandlers || [],
+                        successStories: found.successStories || [],
                         registrationLink: found.registrationLink || '',
                         attachments: found.attachments || []
                     });
@@ -322,6 +366,9 @@ export default function CourseUpload() {
                 tools: cleanData.tools || [],
                 faqs: cleanData.faqs || [],
                 syllabus: cleanData.syllabus || [],
+                urgencyTriggers: cleanData.urgencyTriggers || [],
+                objectionHandlers: cleanData.objectionHandlers || [],
+                successStories: cleanData.successStories || [],
             };
 
             if (id) {
@@ -369,7 +416,32 @@ export default function CourseUpload() {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
+                        {/* Completeness Indicator */}
+                        {status === 'success' && (() => {
+                            const { percent, missing } = calcCompleteness(data);
+                            const color = percent >= 80 ? 'bg-green-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-red-400';
+                            return (
+                                <div className="group relative">
+                                    <div className="flex items-center gap-2 cursor-help">
+                                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${percent}%` }} />
+                                        </div>
+                                        <span className={`text-xs font-bold ${percent >= 80 ? 'text-green-600' : percent >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
+                                            {percent}%
+                                        </span>
+                                    </div>
+                                    {missing.length > 0 && (
+                                        <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50 hidden group-hover:block">
+                                            <p className="text-xs font-bold text-gray-700 mb-2">Campos faltantes:</p>
+                                            <ul className="text-xs text-gray-500 space-y-1">
+                                                {missing.map((m, i) => <li key={i} className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-400 rounded-full flex-shrink-0" />{m}</li>)}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                         <button onClick={() => setIsChatOpen(!isChatOpen)} className={`btn gap-2 ${isChatOpen ? 'btn-primary' : 'btn-ghost'}`}>
                             <MessageSquare size={18} /> Asistente IA
                         </button>
@@ -692,8 +764,13 @@ export default function CourseUpload() {
                                                 <input className="input w-full bg-yellow-50 border-yellow-200" placeholder="Ej: 50% OFF por 24 horas" value={data.promotions || ''} onChange={e => setData({ ...data, promotions: e.target.value })} />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-bold text-gray-700">Gatillo de Urgencia</label>
-                                                <input className="input w-full" placeholder="Ej: Solo 5 cupos disponibles" value={data.urgencyTrigger || ''} onChange={e => setData({ ...data, urgencyTrigger: e.target.value })} />
+                                                <label className="block text-sm font-bold text-gray-700">Gatillos de Urgencia (uno por línea)</label>
+                                                <textarea
+                                                    className="input w-full h-16"
+                                                    placeholder="Solo 5 cupos disponibles&#10;Precio sube en 48 horas"
+                                                    value={data.urgencyTriggers?.join('\n') || ''}
+                                                    onChange={e => setData({ ...data, urgencyTriggers: e.target.value.split('\n').filter(Boolean) })}
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -757,6 +834,159 @@ export default function CourseUpload() {
                                         value={data.socialProof?.join('\n') || ''}
                                         onChange={e => setData({ ...data, socialProof: e.target.value.split('\n') })}
                                     />
+                                </div>
+
+                                {/* Sales Strategy */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🎯 Call to Action</h3>
+                                        <textarea
+                                            className="input w-full h-20"
+                                            placeholder="Ej: Inscríbete ahora y transforma tu carrera profesional..."
+                                            value={data.callToAction || ''}
+                                            onChange={e => setData({ ...data, callToAction: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🧑‍🎓 Perfil del Estudiante Ideal</h3>
+                                        <textarea
+                                            className="input w-full h-20"
+                                            placeholder="Ej: Profesionales de 25-40 años que buscan especializarse en marketing digital..."
+                                            value={data.idealStudentProfile || ''}
+                                            onChange={e => setData({ ...data, idealStudentProfile: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">💎 Ventaja Competitiva</h3>
+                                    <p className="text-xs text-gray-500 mb-2">¿Qué hace este producto diferente a los demás? ¿Por qué elegirte a ti?</p>
+                                    <textarea
+                                        className="input w-full h-24"
+                                        placeholder="Ej: Somos la única universidad en Latam que ofrece esta certificación con modalidad 100% online y con profesores activos en la industria..."
+                                        value={data.competitiveAdvantage || ''}
+                                        onChange={e => setData({ ...data, competitiveAdvantage: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* Objection Handlers */}
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="font-bold text-lg">🛡️ Manejo de Objeciones</h3>
+                                            <p className="text-xs text-gray-500 mt-1">Respuestas preparadas para las objeciones más comunes de tus prospectos</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setData(prev => ({ ...prev, objectionHandlers: [...(prev.objectionHandlers || []), { objection: '', response: '' }] }))}
+                                            className="text-sm text-blue-600 hover:underline font-bold"
+                                        >
+                                            + Agregar Objeción
+                                        </button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {data.objectionHandlers?.map((oh, idx) => (
+                                            <div key={idx} className="flex gap-4 items-start p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <span className="font-bold text-orange-400 mt-2 text-xs">OBJ{idx + 1}</span>
+                                                <div className="flex-1 space-y-2">
+                                                    <input
+                                                        className="input w-full font-bold"
+                                                        placeholder='Ej: "Es muy caro para mí"'
+                                                        value={oh.objection}
+                                                        onChange={e => {
+                                                            const updated = [...(data.objectionHandlers || [])];
+                                                            updated[idx] = { ...updated[idx], objection: e.target.value };
+                                                            setData({ ...data, objectionHandlers: updated });
+                                                        }}
+                                                    />
+                                                    <textarea
+                                                        className="input w-full h-16 text-sm"
+                                                        placeholder="Respuesta sugerida para el vendedor/agente..."
+                                                        value={oh.response}
+                                                        onChange={e => {
+                                                            const updated = [...(data.objectionHandlers || [])];
+                                                            updated[idx] = { ...updated[idx], response: e.target.value };
+                                                            setData({ ...data, objectionHandlers: updated });
+                                                        }}
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => setData(prev => ({ ...prev, objectionHandlers: prev.objectionHandlers?.filter((_, i) => i !== idx) }))}
+                                                    className="text-gray-400 hover:text-red-500"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {(!data.objectionHandlers || data.objectionHandlers.length === 0) && (
+                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay objeciones registradas. Agrega las más comunes para que el agente de ventas las maneje.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Success Stories */}
+                                <div className="bg-white p-6 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="font-bold text-lg">⭐ Casos de Éxito</h3>
+                                            <p className="text-xs text-gray-500 mt-1">Historias reales de alumnos o clientes satisfechos</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setData(prev => ({ ...prev, successStories: [...(prev.successStories || []), { name: '', quote: '', result: '' }] }))}
+                                            className="text-sm text-blue-600 hover:underline font-bold"
+                                        >
+                                            + Agregar Caso
+                                        </button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {data.successStories?.map((story, idx) => (
+                                            <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">Caso #{idx + 1}</span>
+                                                    <button
+                                                        onClick={() => setData(prev => ({ ...prev, successStories: prev.successStories?.filter((_, i) => i !== idx) }))}
+                                                        className="text-gray-400 hover:text-red-500"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <input
+                                                        className="input w-full"
+                                                        placeholder="Nombre del alumno"
+                                                        value={story.name}
+                                                        onChange={e => {
+                                                            const updated = [...(data.successStories || [])];
+                                                            updated[idx] = { ...updated[idx], name: e.target.value };
+                                                            setData({ ...data, successStories: updated });
+                                                        }}
+                                                    />
+                                                    <input
+                                                        className="input w-full"
+                                                        placeholder="Resultado obtenido"
+                                                        value={story.result || ''}
+                                                        onChange={e => {
+                                                            const updated = [...(data.successStories || [])];
+                                                            updated[idx] = { ...updated[idx], result: e.target.value };
+                                                            setData({ ...data, successStories: updated });
+                                                        }}
+                                                    />
+                                                </div>
+                                                <textarea
+                                                    className="input w-full h-16 text-sm mt-2"
+                                                    placeholder="Testimonio o cita del alumno..."
+                                                    value={story.quote}
+                                                    onChange={e => {
+                                                        const updated = [...(data.successStories || [])];
+                                                        updated[idx] = { ...updated[idx], quote: e.target.value };
+                                                        setData({ ...data, successStories: updated });
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+                                        {(!data.successStories || data.successStories.length === 0) && (
+                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay casos de éxito aún. Agrega testimonios reales para potenciar la venta.</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* FAQs */}

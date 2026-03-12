@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { profileService } from '../lib/services/profile.service';
 import { analyzeBrand } from '../lib/gemini';
 import type { OrgProfile, BrandingConfig } from '../lib/types';
-import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle, Image, History, Award, CreditCard, School } from 'lucide-react';
+import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle, Image, History, Award, CreditCard, School, Phone, MessageCircle, Mail } from 'lucide-react';
 
 const GOOGLE_FONTS = [
     'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
@@ -274,6 +274,21 @@ export default function ProfilePage() {
                                 <input className="form-input" value={data.website} onChange={e => handleChange('website', e.target.value)} placeholder="https://www.ejemplo.com" />
                             </div>
                         </div>
+
+                        <div className="grid-3" style={{ gap: '20px', marginTop: '10px' }}>
+                            <div className="form-group">
+                                <label className="flex items-center gap-2"><Mail size={14} /> Email de Contacto</label>
+                                <input className="form-input" type="email" value={data.contactEmail || ''} onChange={e => handleChange('contactEmail', e.target.value)} placeholder="info@institucion.com" />
+                            </div>
+                            <div className="form-group">
+                                <label className="flex items-center gap-2"><Phone size={14} /> Teléfono Principal</label>
+                                <input className="form-input" value={data.contactPhone || ''} onChange={e => handleChange('contactPhone', e.target.value)} placeholder="+51 1 234 5678" />
+                            </div>
+                            <div className="form-group">
+                                <label className="flex items-center gap-2"><MessageCircle size={14} /> WhatsApp</label>
+                                <input className="form-input" value={data.whatsapp || ''} onChange={e => handleChange('whatsapp', e.target.value)} placeholder="+51 999 888 777" />
+                            </div>
+                        </div>
                     </div>
 
                     {/* History & Journey */}
@@ -397,7 +412,7 @@ export default function ProfilePage() {
                             </h3>
                             <button
                                 type="button"
-                                onClick={() => handleChange('locations', [...(data.locations || []), { id: crypto.randomUUID(), name: '', address: '' }])}
+                                onClick={() => handleChange('locations', [...(data.locations || []), { id: crypto.randomUUID(), name: '', address: '', phone: '', schedule: '' }])}
                                 className="btn btn-outline btn-sm"
                             >
                                 <Plus size={14} /> Añadir Sede
@@ -405,15 +420,25 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-4">
                             {(data.locations || []).map((loc, idx) => (
-                                <div key={loc.id} className="p-4 border border-slate-100 rounded-lg flex gap-4 items-start bg-slate-50/30">
-                                    <div className="flex-1 grid grid-2 gap-4">
+                                <div key={loc.id} className="p-4 border border-slate-100 rounded-lg bg-slate-50/30">
+                                    <div className="flex justify-between mb-3">
+                                        <span className="text-sm font-semibold text-slate-600">Sede {idx + 1}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('locations', (data.locations || []).filter(l => l.id !== loc.id))}
+                                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-2 gap-4">
                                         <input
                                             className="form-input"
                                             placeholder="Nombre de la sede (Ej: Campus Central)"
                                             value={loc.name}
                                             onChange={e => {
                                                 const newLocs = [...(data.locations || [])];
-                                                newLocs[idx].name = e.target.value;
+                                                newLocs[idx] = { ...newLocs[idx], name: e.target.value };
                                                 handleChange('locations', newLocs);
                                             }}
                                         />
@@ -423,18 +448,31 @@ export default function ProfilePage() {
                                             value={loc.address}
                                             onChange={e => {
                                                 const newLocs = [...(data.locations || [])];
-                                                newLocs[idx].address = e.target.value;
+                                                newLocs[idx] = { ...newLocs[idx], address: e.target.value };
+                                                handleChange('locations', newLocs);
+                                            }}
+                                        />
+                                        <input
+                                            className="form-input"
+                                            placeholder="Teléfono de la sede"
+                                            value={loc.phone || ''}
+                                            onChange={e => {
+                                                const newLocs = [...(data.locations || [])];
+                                                newLocs[idx] = { ...newLocs[idx], phone: e.target.value };
+                                                handleChange('locations', newLocs);
+                                            }}
+                                        />
+                                        <input
+                                            className="form-input"
+                                            placeholder="Horario (Ej: L-V 9am-6pm)"
+                                            value={loc.schedule || ''}
+                                            onChange={e => {
+                                                const newLocs = [...(data.locations || [])];
+                                                newLocs[idx] = { ...newLocs[idx], schedule: e.target.value };
                                                 handleChange('locations', newLocs);
                                             }}
                                         />
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleChange('locations', (data.locations || []).filter(l => l.id !== loc.id))}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
                                 </div>
                             ))}
                             {(data.locations || []).length === 0 && (

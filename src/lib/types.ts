@@ -62,24 +62,23 @@ export interface OrgProfile {
     name: string;
     description: string;
     tagline?: string;
-    // Universidad
-    address?: string;
-    accreditations?: string;
     website?: string;
-    // Instituto
+    contactEmail?: string;
+    contactPhone?: string;
+    whatsapp?: string;
+    // Universidad-specific
+    accreditations?: string;
+    // Instituto-specific
     specialty?: string;
-    certifications?: string;
-    // Infoproductor
+    // Infoproductor-specific
     personalBrand?: string;
     niche?: string;
     // Common
     branding: BrandingConfig;
     targetAudience?: string;
     onboardingComplete: boolean;
-    botConfig?: BotConfig; // Legacy, moving to Agents
-    // New Expanded Fields
-    location?: string;
-    contactEmail?: string;
+    history?: string;
+    // Complex nested data (stored as JSONB in DB)
     socialMedia?: {
         instagram?: string;
         facebook?: string;
@@ -92,30 +91,53 @@ export interface OrgProfile {
         id: string;
         name: string;
         address: string;
-        mapUrl?: string;
+        phone?: string;
+        schedule?: string;
     }[];
     operatingHours?: {
         days: string;
         hours: string;
     }[];
-    courseCategories?: string[];
-    history?: string;
-    certificates?: string[];
     paymentMethods?: {
         type: 'bank_transfer' | 'gateway' | 'cash';
         name: string;
         details: string;
+        currency?: string;
     }[];
+    certificates?: string[];
     modalities?: string[];
+    courseCategories?: string[];
 }
 
 // === Teams ===
+export interface TeamMember {
+    id?: string;
+    name: string;
+    email: string;
+    phone?: string;
+    whatsapp?: string;
+    role?: string;
+    availability?: string;
+    vacationStart?: string;
+    vacationEnd?: string;
+    isAvailable: boolean;
+    specialties: string[];
+    maxLeads?: number;
+    userId?: string;
+}
+
+export interface TeamProductAssignment {
+    id?: string;
+    entityType: 'course' | 'program' | 'webinar' | 'taller' | 'subscription' | 'asesoria' | 'application';
+    entityId: string;
+}
+
 export interface Team {
     id: string;
     name: string;
     description?: string;
-    members: ContactInfo[];
-    assignedCourses: string[];
+    members: TeamMember[];
+    productAssignments: TeamProductAssignment[];
     createdAt: string;
 }
 
@@ -135,6 +157,8 @@ export type AiAgent = {
     avatar?: string;
     isActive: boolean;
     teamId?: string;
+    funnelId?: string;
+    extractionFieldIds?: string[];
     createdAt: string;
 };
 
@@ -172,6 +196,12 @@ export interface CursoLibre {
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     bonuses?: string[];
+    callToAction?: string;
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    urgencyTriggers?: string[];
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments?: Attachment[];
     maxStudents?: number;
     prerequisites?: string;
@@ -228,6 +258,12 @@ export interface Programa {
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     bonuses?: string[];
+    callToAction?: string;
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    urgencyTriggers?: string[];
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments?: Attachment[];
     maxStudents?: number;
     prerequisites?: string;
@@ -290,6 +326,11 @@ export interface Webinar {
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     bonuses?: string[];
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    urgencyTriggers?: string[];
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments?: Attachment[];
     registrationLink?: string;
     paymentMethods?: string[];
@@ -347,6 +388,12 @@ export interface Taller {
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     bonuses?: string[];
+    callToAction?: string;
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    urgencyTriggers?: string[];
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments?: Attachment[];
     tools?: string[];
     category: string;
@@ -396,6 +443,12 @@ export interface Asesoria {
     socialProof?: string[];
     faqs?: { question: string; answer: string }[];
     bonuses?: string[];
+    callToAction?: string;
+    idealStudentProfile?: string;
+    competitiveAdvantage?: string;
+    urgencyTriggers?: string[];
+    objectionHandlers?: { objection: string; response: string }[];
+    successStories?: { name: string; quote: string; result?: string }[];
     attachments?: Attachment[];
     tools?: string[];
     location?: string;

@@ -16,6 +16,7 @@ router.get('/', async (req: Request, res: Response) => {
             include: {
                 agentCourses: { include: { course: { select: { id: true, title: true, code: true } } } },
                 team: { select: { id: true, name: true } },
+                funnel: { select: { id: true, name: true } },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -31,7 +32,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     try {
         const agent = await prisma.aiAgent.findFirst({
             where: { id: param(req, 'id'), orgId: req.user!.orgId },
-            include: { agentCourses: { include: { course: true } }, team: true },
+            include: { agentCourses: { include: { course: true } }, team: true, funnel: true },
         });
         if (!agent) { res.status(404).json({ error: 'Agent not found' }); return; }
         res.json(agent);

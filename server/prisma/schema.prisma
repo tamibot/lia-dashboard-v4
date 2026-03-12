@@ -22,22 +22,25 @@ model Organization {
   tagline      String?
   website      String?
   contactEmail String? @map("contact_email")
+  contactPhone String? @map("contact_phone")
+  whatsapp     String?
 
-  // Extended fields
-  address        String?
-  accreditations String?
-  specialty      String?
-  certifications String?
-  personalBrand  String? @map("personal_brand")
-  niche          String?
+  // Extended fields (type-specific)
+  accreditations String? // universidad
+  specialty      String? // instituto
+  personalBrand  String? @map("personal_brand") // infoproductor
+  niche          String? // infoproductor
   targetAudience String? @map("target_audience")
-  location       String?
   history        String?
 
   // JSONB fields for complex nested data
-  branding         Json     @default("{}") // BrandingConfig
-  socialMedia      Json?    @map("social_media") // { instagram, facebook, ... }
-  operatingHours   Json?    @map("operating_hours") // [{ days, hours }]
+  branding       Json     @default("{}") // BrandingConfig: { colors, typography, voice, visualIdentity }
+  socialMedia    Json?    @map("social_media") // { instagram, facebook, linkedin, tiktok, youtube, website }
+  operatingHours Json?    @map("operating_hours") // [{ days, hours }]
+  locations      Json     @default("[]") // [{ id, name, address, phone, schedule }]
+  paymentMethods Json     @default("[]") @map("payment_methods") // [{ type, name, details, currency }]
+  certificates   String[] @default([]) // Acreditaciones, certificaciones, licencias
+  modalities     String[] @default([]) // ["Online", "Presencial", "Híbrido"]
   courseCategories String[] @map("course_categories")
 
   onboardingComplete Boolean @default(false) @map("onboarding_complete")
@@ -86,7 +89,8 @@ model User {
   isActive     Boolean   @default(true) @map("is_active")
   lastLogin    DateTime? @map("last_login")
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamMember TeamMember?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -130,22 +134,29 @@ model Course {
   contactInfo       Json?     @map("contact_info") // { name, email, phone }
 
   // Commercial fields
-  benefits         String[]   @default([])
-  painPoints       String[]   @default([]) @map("pain_points")
-  guarantee        String?
-  socialProof      String[]   @default([]) @map("social_proof")
-  bonuses          String[]   @default([])
-  maxStudents      Int?       @map("max_students")
-  prerequisites    String?
-  certification    String?
-  registrationLink String?    @map("registration_link")
-  paymentMethods   String[]   @default([]) @map("payment_methods")
-  location         String?    @default("Virtual")
-  category         String     @default("")
-  tags             String[]   @default([])
-  tools            String[]   @default([])
-  status           ItemStatus @default(borrador)
-  aiSummary        String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  maxStudents          Int?       @map("max_students")
+  prerequisites        String?
+  certification        String?
+  registrationLink     String?    @map("registration_link")
+  paymentMethods       String[]   @default([]) @map("payment_methods")
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  tools                String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -156,7 +167,6 @@ model Course {
   faqs             Faq[]
   generatedContent GeneratedContent[]
   agentCourses     AgentCourse[]
-  teamAssignments  TeamCourseAssignment[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -210,25 +220,32 @@ model Program {
   contactInfo    Json?     @map("contact_info")
 
   // Commercial fields
-  benefits         String[]   @default([])
-  painPoints       String[]   @default([]) @map("pain_points")
-  guarantee        String?
-  socialProof      String[]   @default([]) @map("social_proof")
-  bonuses          String[]   @default([])
-  maxStudents      Int?       @map("max_students")
-  prerequisites    String?
-  certification    String     @default("")
-  certifyingEntity String?    @map("certifying_entity")
-  registrationLink String?    @map("registration_link")
-  paymentMethods   String[]   @default([]) @map("payment_methods")
-  whatsappGroup    String?    @map("whatsapp_group")
-  includesProject  Boolean    @default(false) @map("includes_project")
-  location         String?    @default("Virtual")
-  category         String     @default("")
-  tags             String[]   @default([])
-  tools            String[]   @default([])
-  status           ItemStatus @default(borrador)
-  aiSummary        String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  maxStudents          Int?       @map("max_students")
+  prerequisites        String?
+  certification        String     @default("")
+  certifyingEntity     String?    @map("certifying_entity")
+  registrationLink     String?    @map("registration_link")
+  paymentMethods       String[]   @default([]) @map("payment_methods")
+  whatsappGroup        String?    @map("whatsapp_group")
+  includesProject      Boolean    @default(false) @map("includes_project")
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  tools                String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -293,20 +310,26 @@ model Webinar {
   contactInfo    Json?     @map("contact_info")
 
   // Commercial fields
-  benefits         String[]   @default([])
-  painPoints       String[]   @default([]) @map("pain_points")
-  guarantee        String?
-  socialProof      String[]   @default([]) @map("social_proof")
-  bonuses          String[]   @default([])
-  registrationLink String?    @map("registration_link")
-  paymentMethods   String[]   @default([]) @map("payment_methods")
-  promotions       String?
-  location         String?    @default("Virtual")
-  category         String     @default("")
-  tags             String[]   @default([])
-  tools            String[]   @default([])
-  status           ItemStatus @default(borrador)
-  aiSummary        String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  registrationLink     String?    @map("registration_link")
+  paymentMethods       String[]   @default([]) @map("payment_methods")
+  promotions           String?
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  tools                String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -375,16 +398,23 @@ model Taller {
   contactInfo   Json?    @map("contact_info")
 
   // Commercial fields
-  benefits    String[]   @default([])
-  painPoints  String[]   @default([]) @map("pain_points")
-  guarantee   String?
-  socialProof String[]   @default([]) @map("social_proof")
-  bonuses     String[]   @default([])
-  tools       String[]   @default([])
-  category    String     @default("")
-  tags        String[]   @default([])
-  status      ItemStatus @default(borrador)
-  aiSummary   String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  tools                String[]   @default([])
+  category             String     @default("")
+  tags                 String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -432,16 +462,23 @@ model Subscription {
   paymentMethods   String[] @default([]) @map("payment_methods")
 
   // Commercial fields
-  painPoints  String[]   @default([]) @map("pain_points")
-  guarantee   String?
-  socialProof String[]   @default([]) @map("social_proof")
-  bonuses     String[]   @default([])
-  tools       String[]   @default([])
-  location    String?    @default("Virtual")
-  category    String     @default("")
-  tags        String[]   @default([])
-  status      ItemStatus @default(borrador)
-  aiSummary   String?    @map("ai_summary")
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  tools                String[]   @default([])
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -500,17 +537,24 @@ model Asesoria {
   needsDescription Boolean  @default(true) @map("needs_description") // cliente debe describir necesidad
 
   // Commercial fields
-  benefits    String[]   @default([])
-  painPoints  String[]   @default([]) @map("pain_points")
-  guarantee   String?
-  socialProof String[]   @default([]) @map("social_proof")
-  bonuses     String[]   @default([])
-  tools       String[]   @default([])
-  location    String?    @default("Virtual")
-  category    String     @default("")
-  tags        String[]   @default([])
-  status      ItemStatus @default(borrador)
-  aiSummary   String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  tools                String[]   @default([])
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -562,17 +606,24 @@ model Application {
   paymentMethods    String[] @default([]) @map("payment_methods")
 
   // Commercial fields
-  benefits    String[]   @default([])
-  painPoints  String[]   @default([]) @map("pain_points")
-  guarantee   String?
-  socialProof String[]   @default([]) @map("social_proof")
-  bonuses     String[]   @default([])
-  tools       String[]   @default([])
-  location    String?    @default("Virtual")
-  category    String     @default("")
-  tags        String[]   @default([])
-  status      ItemStatus @default(borrador)
-  aiSummary   String?    @map("ai_summary")
+  benefits             String[]   @default([])
+  painPoints           String[]   @default([]) @map("pain_points")
+  guarantee            String?
+  socialProof          String[]   @default([]) @map("social_proof")
+  bonuses              String[]   @default([])
+  tools                String[]   @default([])
+  location             String?    @default("Virtual")
+  category             String     @default("")
+  tags                 String[]   @default([])
+  status               ItemStatus @default(borrador)
+  aiSummary            String?    @map("ai_summary")
+  // New commercial fields for sales agents
+  callToAction         String?    @map("call_to_action")
+  idealStudentProfile  String?    @map("ideal_student_profile")
+  competitiveAdvantage String?    @map("competitive_advantage")
+  urgencyTriggers      String[]   @default([]) @map("urgency_triggers")
+  objectionHandlers    Json       @default("[]") @map("objection_handlers") // [{objection, response}]
+  successStories       Json       @default("[]") @map("success_stories") // [{name, role, quote, result}]
 
   // Relations
   org              Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -596,15 +647,15 @@ model Team {
   name        String
   description String?
 
-  org               Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  members           TeamMember[]
-  courses           Course[]
-  programs          Program[]
-  webinars          Webinar[]
-  talleres          Taller[]
-  asesorias         Asesoria[]
-  agents            AiAgent[]
-  courseAssignments TeamCourseAssignment[]
+  org                Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members            TeamMember[]
+  courses            Course[]
+  programs           Program[]
+  webinars           Webinar[]
+  talleres           Taller[]
+  asesorias          Asesoria[]
+  agents             AiAgent[]
+  productAssignments TeamProductAssignment[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -619,8 +670,22 @@ model TeamMember {
   name         String
   email        String
   phone        String?
-  role         String?
-  availability String?
+  whatsapp     String?
+  role         String? // e.g. "SDR", "Closer", "Account Executive"
+  availability String? // e.g. "L-V 9am-6pm"
+
+  // Vacation / Availability
+  vacationStart DateTime? @map("vacation_start")
+  vacationEnd   DateTime? @map("vacation_end")
+  isAvailable   Boolean   @default(true) @map("is_available")
+
+  // Sales capabilities
+  specialties String[] @default([]) // Areas of expertise
+  maxLeads    Int?     @map("max_leads") // Max simultaneous leads
+
+  // Link to auth user (optional)
+  userId String? @unique @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
@@ -628,16 +693,19 @@ model TeamMember {
   @@map("team_members")
 }
 
-model TeamCourseAssignment {
-  id       String @id @default(uuid())
-  teamId   String @map("team_id")
-  courseId String @map("course_id")
+// Supports assigning any product type to a team (not just courses)
+model TeamProductAssignment {
+  id         String     @id @default(uuid())
+  teamId     String     @map("team_id")
+  entityType EntityType @map("entity_type")
+  entityId   String     @map("entity_id")
 
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([teamId, courseId])
-  @@map("team_course_assignments")
+  @@unique([teamId, entityType, entityId])
+  @@index([teamId])
+  @@index([entityType, entityId])
+  @@map("team_product_assignments")
 }
 
 // ==============================
@@ -656,7 +724,12 @@ model AiAgent {
   avatar       String?
   isActive     Boolean          @default(true) @map("is_active")
 
+  // Sales context
+  funnelId           String?  @map("funnel_id")
+  extractionFieldIds String[] @default([]) @map("extraction_field_ids") // IDs of ExtractionFields this agent should extract
+
   org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  funnel       Funnel?       @relation(fields: [funnelId], references: [id], onDelete: SetNull)
   teamId       String?       @map("team_id")
   team         Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
   agentCourses AgentCourse[]
@@ -938,6 +1011,7 @@ model Funnel {
   org    Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   stages FunnelStage[]
   fields ExtractionField[]
+  agents AiAgent[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

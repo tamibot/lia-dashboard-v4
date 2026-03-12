@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Bot, Edit2, Trash2, Play, X, Loader, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, Bot, Edit2, Trash2, Play, X, Loader, AlertTriangle, RefreshCw, GitBranch, ListChecks } from 'lucide-react';
 import type { AiAgent, CursoLibre, OrgProfile } from '../lib/types';
 
 import { courseService } from '../lib/services/course.service';
 import { agentService } from '../lib/services/agent.service';
 import { profileService } from '../lib/services/profile.service';
+import { crmService } from '../lib/services/crm.service';
 import SalesPlayground from '../components/SalesPlayground';
 
 export default function MyAgents() {
@@ -27,6 +28,10 @@ export default function MyAgents() {
         avatar: '🤖'
     });
 
+    // CRM Data
+    const [funnels, setFunnels] = useState<{ id: string; name: string; stages?: any[] }[]>([]);
+    const [extractionFields, setExtractionFields] = useState<{ id: string; name: string; key: string; dataType: string }[]>([]);
+
     // Playground State
     const [messages, setMessages] = useState<{ role: string, content: string }[]>([]);
     const [availableCourses, setAvailableCourses] = useState<(CursoLibre | any)[]>([]);
@@ -42,16 +47,20 @@ export default function MyAgents() {
         try {
             setIsLoading(true);
             setError(false);
-            const [a, c, p, w, prof] = await Promise.all([
+            const [a, c, p, w, prof, funData, fieldData] = await Promise.all([
                 agentService.getAll(),
                 courseService.getAll('curso'),
                 courseService.getAll('programa'),
                 courseService.getAll('webinar'),
-                profileService.get()
+                profileService.get(),
+                crmService.getFunnels().catch(() => []),
+                crmService.getFields().catch(() => []),
             ]);
             setAgents(a);
             setAvailableCourses([...c, ...p, ...w]);
             setProfile(prof);
+            setFunnels(funData);
+            setExtractionFields(fieldData);
         } catch (err) {
             console.error("Error fetching agents or catalog:", err);
             setError(true);
@@ -216,6 +225,18 @@ export default function MyAgents() {
                                         <div className="line-clamp-3 text-sm text-gray-600 leading-relaxed italic border-l-2 border-blue-100 pl-3">
                                             "{agent.tone}"
                                         </div>
+                                        {agent.funnelId && (
+                                            <div className="flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
+                                                <GitBranch size={12} />
+                                                {funnels.find(f => f.id === agent.funnelId)?.name || 'Embudo asignado'}
+                                            </div>
+                                        )}
+                                        {agent.extractionFieldIds && agent.extractionFieldIds.length > 0 && (
+                                            <div className="flex items-center gap-1.5 text-xs text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">
+                                                <ListChecks size={12} />
+                                                {agent.extractionFieldIds.length} campos a extraer
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-4 border-t border-gray-50 mt-auto">
@@ -337,6 +358,61 @@ export default function MyAgents() {
                                     onChange={e => setAgentForm({ ...agentForm, systemPrompt: e.target.value })}
                                 />
                                 <p className="text-xs text-gray-400 mt-1">Tip: Dale reglas claras sobre qué hacer y qué NO hacer.</p>
+                            </div>
+
+                            {/* Funnel & Extraction Fields */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <GitBranch size={14} className="text-purple-500" /> Embudo Comercial
+                                    </label>
+                                    <select
+                                        className="input w-full"
+                                        value={agentForm.funnelId || ''}
+                                        onChange={e => setAgentForm({ ...agentForm, funnelId: e.target.value || undefined })}
+                                    >
+                                        <option value="">Sin embudo asignado</option>
+                                        {funnels.map(f => (
+                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-400 mt-1">El agente seguirá las etapas de este embudo.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                        <ListChecks size={14} className="text-teal-500" /> Campos a Extraer
+                                    </label>
+                                    {extractionFields.length > 0 ? (
+                                        <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                            {extractionFields.map(field => {
+                                                const isSelected = agentForm.extractionFieldIds?.includes(field.id) || false;
+                                                return (
+                                                    <label key={field.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded transition-colors">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                const current = agentForm.extractionFieldIds || [];
+                                                                const updated = isSelected
+                                                                    ? current.filter(id => id !== field.id)
+                                                                    : [...current, field.id];
+                                                                setAgentForm({ ...agentForm, extractionFieldIds: updated });
+                                                            }}
+                                                            className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                                        />
+                                                        <span className="text-sm text-gray-700">{field.name}</span>
+                                                        <span className="text-[10px] text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">{field.dataType}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 italic border border-dashed border-gray-200 rounded-lg p-4 text-center">
+                                            No hay campos de extracción configurados. Crea campos en CRM primero.
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-1">El agente intentará extraer estos datos de la conversación.</p>
+                                </div>
                             </div>
                         </div>
 
