@@ -1,251 +1,445 @@
-# LIA Atlas V2.1 — Arquitectura Activa
+# LIA Atlas V2.2 — Arquitectura Activa
 
-> Documentación de los componentes activos en producción
-> Última actualización: 2026-03-11
+> Documentacion completa del modelo de datos, API, relaciones y deploy
+> Ultima actualizacion: 2026-03-12
 
 ---
 
 ## 1. Flujo Principal del Sistema
 
 ```
-Usuario → app.liabotedu.com → Express (SPA) → React Frontend
-                                    ↓
-                              /api/* → Express API
-                                    ↓
-                              Prisma ORM → PostgreSQL
-                                    ↓
-                              Gemini/OpenAI (para agentes)
+Usuario -> app.liabotedu.com -> Express (SPA static files) -> React Frontend
+                                       |
+                                 /api/* -> Express API -> Prisma ORM -> PostgreSQL
+                                       |
+                                 /api/ai/* -> Gemini / OpenAI (IA)
+                                       |
+                                 /api/public/:orgSlug/* -> API publica (n8n, agentes externos)
 ```
-
-## 2. Módulos Activos — Detalle
-
-### 2.1 Catálogo Educativo (7 Tipos)
-
-**Propósito**: Centralizar toda la oferta educativa de la institución en un solo lugar.
-
-**Tipos soportados:**
-
-| Tipo | Modelo Prisma | Prefix | Tabla | Campos Únicos |
-|------|--------------|--------|-------|---------------|
-| Curso | `Course` | CRS- | `courses` | `syllabusModules[]`, `instructor`, `instructorBio`, `totalHours`, `schedule`, `earlyBirdPrice`, `maxStudents`, `prerequisites`, `certification`, `registrationLink`, `paymentMethods[]` |
-| Programa | `Program` | PRG- | `programs` | `programCourses[]`, `certification`, `certifyingEntity`, `totalDuration`, `coordinator`, `earlyBirdPrice`, `maxStudents`, `whatsappGroup`, `includesProject`, `registrationLink`, `paymentMethods[]` |
-| Webinar | `Webinar` | WBN- | `webinars` | `speaker`, `speakerBio`, `speakerTitle`, `eventDate`, `eventTime`, `webinarFormat` (webinar/masterclass/charla), `maxAttendees`, `callToAction`, `keyTopics[]`, `registrationLink`, `paymentMethods[]` |
-| Taller | `Taller` | TLR- | `talleres` | `venue`, `venueAddress`, `venueCapacity`, `maxParticipants`, `availableSpots`, `waitlistEnabled`, `materials[]`, `deliverables[]`, `certification`, `earlyBirdPrice`, `earlyBirdDeadline`, `registrationLink`, `paymentMethods[]` |
-| Suscripción | `Subscription` | SUB- | `subscriptions` | `period`, `features[]`, `maxUsers`, `advisoryHours`, `whatsappGroup`, `communityAccess`, `registrationLink`, `paymentMethods[]` |
-| Asesoría | `Asesoria` | ASE- | `asesorias` | `pricePerHour`, `minimumHours`, `packageHours`, `packagePrice`, `advisor`, `advisorBio`, `advisorTitle`, `specialties[]`, `bookingLink`, `minAdvanceBooking`, `availableSchedule`, `sessionDuration`, `topicsCovered[]`, `deliverables[]`, `needsDescription`, `registrationLink`, `paymentMethods[]` |
-| Postulación | `Application` | ADM- | `applications` | `deadline`, `availableSlots`, `examRequired`, `examDescription`, `applicationFee`, `steps[]`, `documentsNeeded[]`, `selectionCriteria[]`, `registrationLink`, `paymentMethods[]` |
-
-**Campos comunes a todos los 7 tipos**: `code`, `title`, `subtitle`, `description`, `category`, `price`/`pricePerHour`, `currency`, `status` (borrador/activo/archivado), `tags[]`, `targetAudience`, `objectives[]`, `benefits[]`, `painPoints[]`, `socialProof[]`, `bonuses[]`, `guarantee`, `tools[]`, `requirements[]`, `contactInfo`, `promotions`, `location`, `aiSummary`, `attachments[]`, `faqs[]`
-
-**Flujo de datos:**
-1. Usuario sube información (PDF, texto, temario) en `/courses/upload`
-2. Selecciona tipo: Curso, Programa, Webinar, Taller, Suscripción, Asesoría o Postulación
-3. Agente IA analiza y estructura los datos
-4. Se crea el registro en la tabla correspondiente con prefix de código automático
-5. Aparece en Mi Catálogo en su tab correspondiente
-
-### 2.2 Agentes IA
-
-**Propósito**: Automatizar la venta y análisis de información educativa.
-
-**Agentes activos:**
-
-| Agente | Función | Cómo Funciona |
-|--------|---------|---------------|
-| **Sales Closer** | Cierre consultivo de ventas | Recibe datos del catálogo + perfil de org. Responde preguntas de prospectos, maneja objeciones, recomienda programas. |
-| **BDR Agent** | Recolección de datos de prospecto | Captura nombre, teléfono, correo, interés de forma conversacional. Clasifica el lead. |
-| **Catalog Expert** | Exploración de oferta | Ayuda a usuarios a comparar programas, entender beneficios y encontrar el curso ideal. |
-
-**Anti-hallucination (Grounding):**
-- Cada agente recibe el catálogo REAL de la base de datos como contexto (los 7 tipos)
-- Solo puede responder con información verificada
-- Si no tiene datos, indica que no puede confirmar
-
-**Multi-model failover:**
-```
-Gemini 1.5 Flash → (error) → Gemini 1.5 Pro → (error) → OpenAI GPT-4o-mini
-```
-
-### 2.3 CRM — Embudo Comercial y Campos de Extracción
-
-**Propósito**: Definir el pipeline de ventas y los datos que los agentes deben extraer de cada conversación.
-
-#### 2.3.1 Embudo de Ventas (Pipeline)
-
-El embudo define las etapas por las que pasa un lead desde el primer contacto hasta el cierre o descarte. Es completamente configurable desde `/crm`.
-
-**Embudo Default — 9 etapas:**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    FLUJO PRINCIPAL                            │
-│                                                              │
-│  ① BBDD → ② Interesado → ③ Informado → ④ Filtrado          │
-│                                            ↓                 │
-│                                    ⑤ Cualificado             │
-│                                            ↓                 │
-│                                    ⑥ Asesor Manual           │
-│                                                              │
-├──────────────── FLUJOS ALTERNATIVOS ────────────────────────┤
-│                                                              │
-│  ⑦ Seguimiento ← (sin respuesta 15 min)                     │
-│  ⑧ Descartado  ← (no le interesa / no aplica)               │
-│  ⑨ Caso Especial ← (bot no puede procesar)                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Detalle de cada etapa (default — personalizable por el admin):**
-
-| # | Etapa | Key | Descripción | Regla de Avance |
-|---|-------|-----|-------------|-----------------|
-| 1 | BBDD | `bbdd` | Base de datos inicial | Entrada automática de leads nuevos |
-| 2 | Interesado | `interesado` | Interés detectado | Bot detecta intención clara de compra o consulta sobre un producto específico |
-| 3 | Informado | `informado` | Info entregada | Al entregar temario, precios, horarios o detalles del servicio solicitado |
-| 4 | Filtrado | `filtrado` | Preguntas filtro aplicadas | Después de obtener respuestas a las preguntas de calificación |
-| 5 | Cualificado a asesor | `cualificado` | Perfil ideal confirmado | Lead cumple perfil → se transfiere a asesor humano |
-| 6 | Asesor manual | `asesor_manual` | Solicita humano | Si el usuario escribe "quiero hablar con un humano" o similar |
-| 7 | Seguimiento | `seguimiento` | Secuencia follow-up | Si después de 15 min no responde el mensaje |
-| 8 | Descartado | `descartado` | No aplica | Lead indica desinterés, no tiene presupuesto, o no cumple requisitos |
-| 9 | Caso especial | `caso_especial` | Contingencia | Leads con requerimientos que el bot no puede procesar (reclamos, temas legales, etc.) |
-
-**Configuración (todo personalizable):**
-- Las etapas son **por defecto** — el admin puede agregar, editar, eliminar o reordenar etapas
-- Cada etapa tiene: `name`, `key`, `description`, `rules`, `color`, `sortOrder`
-- Se pueden crear **múltiples embudos** (uno default + embudos especializados por producto/campaña)
-- Cada embudo tiene sus propias etapas y campos de extracción independientes
-
-#### 2.3.2 Campos de Extracción de Conversación
-
-Los campos de extracción definen qué datos debe capturar el agente IA durante cada conversación con un prospecto. Estos datos se almacenan como metadata del contacto y alimentan el CRM. Todos los campos son **por defecto** y el admin puede personalizarlos.
-
-**Campos Default (11 campos):**
-
-| Campo | Key | Tipo | Obligatorio | Opciones / Default | Para qué sirve |
-|-------|-----|------|-------------|-------------------|----------------|
-| Nombre | `cliente_nombre` | string | Si | — | Identificar al prospecto |
-| Teléfono | `cliente_telefono` | string | Si | — | WhatsApp para follow-up |
-| Correo | `cliente_correo` | string | Si | — | Email marketing y comunicación |
-| Interés | `interes_tipo` | string | No | Curso, Programa, Webinar, Taller, Suscripción, Asesoría, Postulación | Clasificar qué tipo de producto busca |
-| Detalle Interés | `interes_detalle` | string | No | — | Producto específico (ej: "Curso de IA para Arquitectos") |
-| **Preguntas Filtro** | `preguntas_filtro` | **array** | No | (ver abajo) | Preguntas de calificación para determinar si es lead cualificado |
-| **Respuestas Filtro** | `respuestas_filtro` | **array** | No | — | Respuestas del prospecto a las preguntas filtro |
-| Resumen Solicitud | `solicitud_resumen` | string | No | — | Contexto de la conversación para el asesor |
-| Filtrado | `es_filtrado` | boolean | No | — | Indica si pasó las preguntas de calificación |
-| Derivado Asesor | `es_derivado` | boolean | No | — | Tracking de leads transferidos a humano |
-| Caso Especial | `caso_especial_motivo` | string | No | — | Razón por la cual el bot no pudo cerrar |
-
-**Preguntas Filtro por defecto** (el admin las personaliza según su negocio):
-1. ¿Cuál es tu presupuesto aproximado?
-2. ¿Cuándo te gustaría empezar?
-3. ¿Tienes experiencia previa en el tema?
-4. ¿Cuál es tu disponibilidad horaria?
-5. ¿Buscas certificación?
-
-**Cómo funcionan:**
-1. El admin configura los campos y preguntas filtro desde `/crm` → pestaña "Campos de Extracción"
-2. Los agentes IA reciben la lista de campos + preguntas filtro como parte de su system prompt
-3. Durante la conversación, el agente extrae los datos y hace las preguntas filtro de forma natural (sin formulario)
-4. Los datos extraídos y respuestas se guardan en el contacto del CRM
-5. Si el prospecto pasa las preguntas filtro → `es_filtrado = true` → avanza a etapa "Cualificado"
-6. El asesor humano recibe el resumen completo + respuestas filtro al momento del handoff
-
-**Personalización de campos:**
-- El admin puede **agregar campos** adicionales (ej: "Presupuesto", "Empresa", "Cargo", "Ciudad")
-- Puede **modificar las preguntas filtro** para adaptarlas a su proceso de ventas
-- Cada campo tiene: `name`, `key`, `dataType` (string/boolean/number/array), `isRequired`, `options[]`
-- Los campos se vinculan a un embudo específico o son globales para toda la organización
-- Tipos de datos soportados: `string`, `boolean`, `number`, `array`
-
-### 2.4 Equipos Comerciales
-
-**Propósito**: Organizar al equipo humano de ventas para escalamiento desde los agentes.
-
-**Estructura:**
-```
-Organización → Equipos → Miembros
-                  ↓
-            Cursos Asignados (especialización)
-```
-
-**Campos de miembro**: nombre, email, rol (Closer/SDR/Tutor), disponibilidad, vacaciones
-
-### 2.5 Perfil de Institución
-
-**Propósito**: Configurar la identidad de la organización que los agentes IA usarán como contexto.
-
-**Secciones:**
-- **General**: Tipo, nombre, tagline, descripción, audiencia, website, historia
-- **Branding**: Logo, colores (primary/secondary/accent), tipografía, tono de voz, identidad visual
-- **Social Media**: Instagram, Facebook, LinkedIn, TikTok, YouTube
-- **Operacional**: Modalidades de estudio, sedes, métodos de pago, horarios
 
 ---
 
-## 3. Modelo de Datos (Entidades Principales)
+## 2. Modelo de Datos Completo
+
+### 2.1 Diagrama de Entidades y Relaciones
 
 ```
 Organization (multi-tenant root)
-├── User (auth + RBAC)
-├── Course / Program / Webinar / Taller / Subscription / Asesoria / Application
-│   ├── Attachment (archivos polimórficos)
-│   ├── FAQ (preguntas frecuentes polimórficas)
-│   ├── GeneratedContent (tracking de IA polimórfico)
-│   ├── SyllabusModule (solo Course)
-│   └── ProgramCourse (solo Program)
-├── Team
-│   ├── TeamMember
-│   └── TeamCourseAssignment
-├── AiAgent (configuración de agentes)
-│   └── AgentCourse (cursos asignados)
-├── Contact (leads del CRM)
-├── Funnel
-│   ├── FunnelStage (etapas del embudo)
-│   └── ExtractionField (campos a extraer)
-└── ApiKey (Gemini/OpenAI keys encriptadas)
+|
++-- User (auth + RBAC)
+|   +-- TeamMember? (link opcional a miembro de equipo)
+|
++-- Course / Program / Webinar / Taller / Subscription / Asesoria / Application
+|   +-- Attachment[] (archivos polimorficos via entityType)
+|   +-- Faq[] (preguntas frecuentes polimorficas)
+|   +-- GeneratedContent[] (tracking de IA polimorficas)
+|   +-- SyllabusModule[] (solo Course)
+|   +-- ProgramCourse[] (solo Program)
+|   +-- AgentCourse[] (solo Course - vincula agente<->curso)
+|
++-- Team
+|   +-- TeamMember[]
+|   +-- TeamProductAssignment[] (asigna cualquier producto al equipo)
+|   +-- Course[] (FK directo), Program[], Webinar[], Taller[], Asesoria[] (FK directo)
+|   +-- AiAgent[] (agentes asignados al equipo)
+|
++-- AiAgent
+|   +-- AgentCourse[] (productos que el agente puede vender)
+|   +-- Funnel? (embudo asignado)
+|   +-- Team? (equipo al que escala)
+|
++-- Contact (leads del CRM)
+|
++-- Funnel
+|   +-- FunnelStage[] (etapas del embudo)
+|   +-- ExtractionField[] (campos vinculados)
+|   +-- AiAgent[] (agentes que usan este embudo)
+|
++-- ExtractionField (campos de extraccion, globales o por embudo)
+|
++-- ApiKey (Gemini/OpenAI keys, por org)
++-- GeneratedContent (contenido generado por IA)
 ```
 
-**EntityType enum** (usado por Attachment, Faq, GeneratedContent):
-`course | program | webinar | taller | subscription | asesoria | application`
+### 2.2 Tablas y Campos Detallados
+
+#### organizations
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| slug | string | unique | URL-friendly identifier |
+| name | string | — | Nombre |
+| type | OrgType | infoproductor | universidad, instituto, infoproductor |
+| description | string | "" | Descripcion |
+| tagline | string? | null | Eslogan |
+| website | string? | null | Sitio web |
+| contactEmail | string? | null | Email institucional |
+| contactPhone | string? | null | Telefono |
+| whatsapp | string? | null | WhatsApp institucional |
+| accreditations | string? | null | Solo universidad |
+| specialty | string? | null | Solo instituto |
+| personalBrand | string? | null | Solo infoproductor |
+| niche | string? | null | Solo infoproductor |
+| targetAudience | string? | null | Publico objetivo |
+| history | string? | null | Historia |
+| branding | JSON | {} | {colors, typography, voice, visualIdentity} |
+| socialMedia | JSON? | null | {instagram, facebook, linkedin, tiktok, youtube} |
+| operatingHours | JSON? | null | [{days, hours}] |
+| locations | JSON | [] | [{id, name, address, phone, schedule}] |
+| paymentMethods | JSON | [] | [{type, name, details, currency}] |
+| certificates | string[] | [] | Acreditaciones, licencias |
+| modalities | string[] | [] | "Online", "Presencial", "Hibrido" |
+| courseCategories | string[] | — | Categorias |
+| onboardingComplete | boolean | false | Onboarding completado |
+
+#### users
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| email | string | unique | Login |
+| passwordHash | string | — | bcrypt hash |
+| name | string | — | Nombre |
+| role | UserRole | editor | admin, editor, viewer |
+| phone | string? | null | Telefono |
+| avatarUrl | string? | null | Avatar |
+| isActive | boolean | true | Activo |
+| lastLogin | DateTime? | null | Ultimo login |
+
+#### courses (y otros 6 modelos de producto)
+
+Los campos comunes se documentan en 00_INDEX_V2.md. Aqui se listan las diferencias clave:
+
+**Course-specific:** `syllabusModules[]` relation, `instructor`, `instructorBio`, `totalHours`, `schedule`, `earlyBirdPrice`, `earlyBirdDeadline`, `maxStudents`, `prerequisites`, `certification`, `registrationLink`, `paymentMethods[]`, `agentCourses[]` relation
+
+**Program-specific:** `programCourses[]` relation, `coordinator`, `totalDuration`, `certification`, `certifyingEntity`, `whatsappGroup`, `includesProject`, `earlyBirdPrice`, `maxStudents`, `registrationLink`, `paymentMethods[]`
+
+**Webinar-specific:** `speaker`, `speakerBio`, `speakerTitle`, `eventDate`, `eventTime`, `webinarFormat`, `maxAttendees`, `keyTopics[]`, `platform`, `callToAction` (campo propio del modelo), `registrationLink`, `paymentMethods[]`
+
+**Taller-specific:** `venue`, `venueAddress`, `venueCapacity`, `maxParticipants`, `availableSpots`, `waitlistEnabled`, `materials[]`, `deliverables[]`, `certification`, `earlyBirdPrice`, `earlyBirdDeadline`, `registrationLink`, `paymentMethods[]`
+
+**Subscription-specific:** `period`, `features[]`, `maxUsers`, `advisoryHours`, `whatsappGroup`, `communityAccess`, `registrationLink`, `paymentMethods[]`
+
+**Asesoria-specific:** `pricePerHour`, `minimumHours`, `packageHours`, `packagePrice`, `advisor`, `advisorBio`, `advisorTitle`, `specialties[]`, `bookingLink`, `minAdvanceBooking`, `availableSchedule`, `sessionDuration`, `topicsCovered[]`, `deliverables[]`, `needsDescription`, `registrationLink`, `paymentMethods[]`
+
+**Application-specific:** `deadline`, `availableSlots`, `examRequired`, `examDescription`, `applicationFee`, `steps[]`, `documentsNeeded[]`, `selectionCriteria[]`, `registrationLink`, `paymentMethods[]`
+
+#### teams
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| name | string | — | Nombre del equipo |
+| description | string? | null | Descripcion |
+
+**Relaciones:** members[], courses[], programs[], webinars[], talleres[], asesorias[], agents[], productAssignments[]
+
+#### team_members
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| teamId | uuid | FK | -> teams.id (CASCADE) |
+| name | string | — | Nombre |
+| email | string | — | Email |
+| phone | string? | null | Telefono |
+| whatsapp | string? | null | WhatsApp |
+| role | string? | null | SDR, Closer, Account Executive |
+| availability | string? | null | "L-V 9am-6pm" |
+| vacationStart | DateTime? | null | Inicio vacaciones |
+| vacationEnd | DateTime? | null | Fin vacaciones |
+| isAvailable | boolean | true | Disponible para leads |
+| specialties | string[] | [] | Areas de expertise |
+| maxLeads | int? | null | Max leads simultaneos |
+| userId | string? | unique, null | -> users.id (SET NULL) |
+
+#### team_product_assignments
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| teamId | uuid | FK | -> teams.id (CASCADE) |
+| entityType | EntityType | — | course, program, webinar, taller, subscription, asesoria, application |
+| entityId | uuid | — | ID del producto |
+
+**Unique constraint:** (teamId, entityType, entityId)
+
+#### ai_agents
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| name | string | — | Nombre del agente |
+| role | string | "" | Rol (Sales Closer, BDR, etc.) |
+| personality | AgentPersonality | professional | professional, friendly, empathetic, strict, enthusiastic |
+| tone | string | "" | Tono personalizado |
+| language | string | "es" | Idioma |
+| expertise | string[] | [] | Areas de expertise |
+| systemPrompt | string? | null | System prompt personalizado |
+| avatar | string? | null | Emoji o URL |
+| isActive | boolean | true | Activo |
+| funnelId | uuid? | null | -> crm_funnels.id (SET NULL) |
+| extractionFieldIds | string[] | [] | IDs de ExtractionFields a extraer |
+| teamId | uuid? | null | -> teams.id (SET NULL) |
+
+**Relaciones:** agentCourses[] (cursos asignados), funnel? (embudo), team? (equipo)
+
+#### agent_courses
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| id | uuid | PK |
+| agentId | uuid | -> ai_agents.id (CASCADE) |
+| courseId | uuid | -> courses.id (CASCADE) |
+
+**Unique constraint:** (agentId, courseId)
+
+#### contacts
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| ghlContactId | string? | unique | ID de GoHighLevel |
+| name | string | — | Nombre |
+| email | string? | null | Email |
+| phone | string? | null | Telefono |
+| phoneCountry | string? | null | Pais del telefono |
+| stage | ContactStage | nuevo | nuevo, contactado, interesado, propuesta, negociacion, ganado, perdido, inactivo |
+| origin | ContactOrigin | organico | organico, meta_ads, google_ads, tiktok_ads, referido, webinar, evento, linkedin, whatsapp, email, otro |
+| customOrigin | string? | null | Origen personalizado |
+| courseInterest | string? | null | Interes en curso |
+| programInterest | string? | null | Interes en programa |
+| webinarInterest | string? | null | Interes en webinar |
+| tallerInterest | string? | null | Interes en taller |
+| subscriptionInterest | string? | null | Interes en suscripcion |
+| asesoriaInterest | string? | null | Interes en asesoria |
+| applicationInterest | string? | null | Interes en postulacion |
+| budget | Decimal? | 0 | Presupuesto |
+| currency | string | "USD" | Moneda |
+| city | string? | null | Ciudad |
+| country | string? | null | Pais |
+| timezone | string? | null | Zona horaria |
+| utmSource/Medium/Campaign | string? | null | UTM tracking |
+| adPlatform | string? | null | Plataforma de ads |
+| landingPage | string? | null | Landing page |
+| isActive | boolean | true | Activo (soft delete) |
+| notes | string? | null | Notas |
+| tags | string[] | [] | Etiquetas |
+| ghlLastSyncAt | DateTime? | null | Ultima sync GHL |
+| ghlData | JSON? | null | Data raw de GHL |
+
+#### crm_funnels
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| name | string | — | Nombre del embudo |
+| description | string? | null | Descripcion |
+| isDefault | boolean | false | Embudo por defecto |
+
+**Relaciones:** stages[], fields[], agents[]
+
+#### crm_funnel_stages
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| funnelId | uuid | FK | -> crm_funnels.id (CASCADE) |
+| name | string | — | Nombre de la etapa |
+| key | string? | null | Key unico (bbdd, interesado, etc.) |
+| description | string? | null | Descripcion |
+| rules | string? | null | Reglas de avance |
+| isDefault | boolean | false | Etapa por defecto |
+| sortOrder | int | 0 | Orden |
+| color | string? | null | Color hex |
+
+#### crm_extraction_fields
+| Campo | Tipo | Default | Descripcion |
+|-------|------|---------|-------------|
+| id | uuid | auto | PK |
+| orgId | uuid | FK | -> organizations.id (CASCADE) |
+| funnelId | uuid? | null | -> crm_funnels.id (SET NULL) |
+| name | string | — | Nombre visible |
+| key | string | — | Key para codigo |
+| description | string? | null | Descripcion |
+| dataType | string | "string" | string, boolean, number, array |
+| isRequired | boolean | false | Obligatorio |
+| isDefault | boolean | false | Campo por defecto |
+| options | string[] | [] | Opciones para dropdowns/selects |
+
+#### Tablas polimorficas (Attachment, Faq, GeneratedContent)
+
+Estas tablas usan `entityType` + FK nullable para vincularse a cualquiera de los 7 tipos de producto:
+
+```
+entityType: course | program | webinar | taller | subscription | asesoria | application
+courseId?, programId?, webinarId?, tallerId?, subscriptionId?, asesoriaId?, applicationId?
+```
+
+#### api_keys
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| id | uuid | PK |
+| orgId | uuid | -> organizations.id (CASCADE) |
+| provider | AiProvider | gemini, openai |
+| encryptedKey | string | Key encriptada |
+
+**Unique constraint:** (orgId, provider)
+
+### 2.3 Enums
+
+| Enum | Valores |
+|------|---------|
+| OrgType | universidad, instituto, infoproductor |
+| UserRole | admin, editor, viewer |
+| EntityType | course, program, webinar, taller, subscription, asesoria, application |
+| Modality | online, presencial, hibrido |
+| ItemStatus | borrador, activo, archivado |
+| AgentPersonality | professional, friendly, empathetic, strict, enthusiastic |
+| ContactStage | nuevo, contactado, interesado, propuesta, negociacion, ganado, perdido, inactivo |
+| ContactOrigin | organico, meta_ads, google_ads, tiktok_ads, referido, webinar, evento, linkedin, whatsapp, email, otro |
+| AiProvider | gemini, openai |
+| FileType | pdf, video, image, link |
 
 ---
 
-## 4. Endpoints API
+## 3. API Completa
 
-### Públicos (sin auth)
-- `GET /api/health` — Health check
-- `GET /api/public/courses` — Catálogo público
+### 3.1 Endpoints Publicos (sin auth)
 
-### Auth
-- `POST /api/auth/login` — Login
-- `POST /api/auth/register` — Registro
-- `GET /api/auth/me` — Usuario actual
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/health` | Health check (`{status: "ok"}`) |
+| GET | `/api/public/:orgSlug/catalog` | Catalogo completo (courses + programs + webinars) |
+| GET | `/api/public/:orgSlug/courses` | Cursos con filtros (category, search) |
+| GET | `/api/public/:orgSlug/courses/:code` | Curso por codigo unico |
+| GET | `/api/public/:orgSlug/programs` | Programas |
+| GET | `/api/public/:orgSlug/webinars` | Webinars |
+| GET | `/api/public/:orgSlug/agents` | Agentes activos con contexto completo (cursos, embudo, equipo, campos) |
+| GET | `/api/public/:orgSlug/agents/:agentId` | Agente individual con extraction fields |
+| GET | `/api/public/:orgSlug/funnels` | Embudos con etapas |
+| GET | `/api/public/:orgSlug/fields` | Campos de extraccion |
+| GET | `/api/public/:orgSlug/org` | Perfil publico (nombre, branding, sedes, pagos, horarios) |
+| GET | `/api/public/:orgSlug/teams` | Equipos con miembros disponibles |
 
-### Catálogo (auth required)
-- `GET /api/courses?type=curso|programa|webinar|taller|subscripcion|asesoria|postulacion`
-- `GET /api/courses/:id?type=...`
-- `POST /api/courses` — Crear (body incluye `type`, auto-genera `code` con prefix)
-- `PUT /api/courses/:id` — Actualizar
-- `DELETE /api/courses/:id?type=...`
+> Estos endpoints estan disenados para ser consumidos por **n8n**, agentes externos, o cualquier integracion que necesite datos de la organizacion.
 
-### CRM
-- `GET/POST /api/crm/funnels` — Listar/crear embudos
-- `GET/PUT/DELETE /api/crm/funnels/:id` — CRUD de embudo individual
-- `GET/POST /api/crm/fields` — Listar/crear campos de extracción
-- `PUT/DELETE /api/crm/fields/:id` — CRUD de campo individual
+### 3.2 Auth
 
-### Equipos
-- `GET/POST /api/teams`
-- `PUT/DELETE /api/teams/:id`
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Registro (crea usuario + organizacion) |
+| POST | `/api/auth/login` | Login (retorna JWT) |
+| GET | `/api/auth/me` | Usuario autenticado actual |
 
-### Agentes
-- `GET/POST /api/agents`
-- `PUT/DELETE /api/agents/:id`
+### 3.3 Catalogo (auth required)
 
-### Otros
-- `GET/PUT /api/profile` — Perfil de organización
-- `GET/POST /api/settings/keys` — API Keys
-- `POST /api/ai/chat` — Chat con agente (grounding con catálogo real)
-- `POST /api/contacts/ghl-sync` — Sync con GoHighLevel
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/courses?type=curso\|programa\|webinar\|taller\|subscripcion\|asesoria\|postulacion` | Listar items por tipo |
+| GET | `/api/courses/:id?type=...` | Detalle de un item |
+| POST | `/api/courses` | Crear item (body incluye `type`, auto-genera `code` con prefix) |
+| PUT | `/api/courses/:id` | Actualizar item (reemplaza syllabus, attachments, FAQs) |
+| DELETE | `/api/courses/:id?type=...` | Eliminar item |
+
+> Nota: Programa y Webinar tambien tienen rutas dedicadas `/api/programs` y `/api/webinars` con CRUD completo.
+
+### 3.4 CRM
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/crm/funnels` | Listar embudos con etapas |
+| GET | `/api/crm/funnels/:id` | Embudo individual |
+| POST | `/api/crm/funnels` | Crear embudo con etapas |
+| PUT | `/api/crm/funnels/:id` | Actualizar embudo (reemplaza etapas) |
+| DELETE | `/api/crm/funnels/:id` | Eliminar embudo |
+| GET | `/api/crm/fields` | Listar campos de extraccion |
+| POST | `/api/crm/fields` | Crear campo |
+| PUT | `/api/crm/fields/:id` | Actualizar campo |
+| DELETE | `/api/crm/fields/:id` | Eliminar campo |
+
+### 3.5 Contactos
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/contacts` | Listar contactos (filtros: stage, origin, search) |
+| GET | `/api/contacts/stats` | Stats del pipeline por etapa |
+| GET | `/api/contacts/:id` | Contacto individual |
+| POST | `/api/contacts` | Crear contacto |
+| POST | `/api/contacts/ghl-sync` | Bulk upsert desde GoHighLevel webhook |
+| PUT | `/api/contacts/:id` | Actualizar contacto |
+| DELETE | `/api/contacts/:id` | Soft delete (isActive=false) |
+
+### 3.6 Equipos
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/teams` | Listar equipos con miembros y product assignments |
+| POST | `/api/teams` | Crear equipo con miembros y asignaciones |
+| PUT | `/api/teams/:id` | Actualizar (reemplaza miembros y asignaciones en transaction) |
+| DELETE | `/api/teams/:id` | Eliminar equipo |
+
+### 3.7 Agentes IA
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/agents` | Listar agentes con cursos, equipo y embudo |
+| GET | `/api/agents/:id` | Agente individual con todo el contexto |
+| POST | `/api/agents` | Crear agente con cursos asignados |
+| PUT | `/api/agents/:id` | Actualizar (reemplaza cursos asignados) |
+| DELETE | `/api/agents/:id` | Eliminar agente |
+
+### 3.8 IA
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| POST | `/api/ai/ask` | Proxy a Gemini/OpenAI (soporta param `provider`) |
+| POST | `/api/ai/keys` | Guardar API key (gemini u openai) |
+| DELETE | `/api/ai/keys/:provider` | Eliminar API key |
+
+### 3.9 Perfil
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/profile` | Perfil de la organizacion |
+| PUT | `/api/profile` | Actualizar (whitelist de campos permitidos) |
+
+> Seguridad: el PUT usa una whitelist de campos (`PROFILE_UPDATABLE_FIELDS`) para prevenir inyeccion de `id`, `slug`, etc.
+
+### 3.10 Settings
+
+| Metodo | Ruta | Descripcion |
+|--------|------|-------------|
+| GET | `/api/settings/keys` | API keys (masked) |
+| POST | `/api/settings/keys/gemini` | Guardar key Gemini |
+| POST | `/api/settings/keys/openai` | Guardar key OpenAI |
+| DELETE | `/api/settings/keys/gemini` | Eliminar key Gemini |
+| DELETE | `/api/settings/keys/openai` | Eliminar key OpenAI |
+
+---
+
+## 4. Autenticacion y Seguridad
+
+### JWT Auth
+- Login retorna JWT con `{userId, orgId, role}`
+- Token se almacena en `localStorage`
+- Middleware `authenticate` valida en cada request protegido
+- Multi-tenant: todas las queries filtran por `orgId` del token
+
+### Roles
+| Rol | Permisos |
+|-----|----------|
+| admin | CRUD completo, gestion de equipo, settings, CRM |
+| editor | CRUD de catalogo, uso de agentes |
+| viewer | Solo lectura |
+
+### Seguridad implementada
+- Password hashing con bcrypt (12 rounds)
+- Whitelist de campos en PUT /api/profile
+- Cascade deletes (eliminar org elimina todo)
+- Demo fallback solo en NODE_ENV=development
+
+### Seguridad pendiente
+- Encriptacion real de API keys (marcado pero no implementado)
+- Verificacion de firma del webhook GHL
+- Rate limiting en endpoints publicos
+- Paginacion para listas grandes
 
 ---
 
@@ -254,18 +448,55 @@ Organization (multi-tenant root)
 ### Dockerfile Multi-Stage
 ```
 Stage 1: frontend-builder (node:20-alpine)
-  → npm ci + npm run build (Vite SPA)
+  -> npm ci + npm run build (Vite SPA -> /dist)
 
 Stage 2: backend-builder (node:20-alpine)
-  → npm install + prisma generate + npm run build (Express TS)
+  -> npm install + prisma generate + npm run build (Express TS -> /dist)
 
 Stage 3: production (node:20-alpine)
-  → Copy dist/, node_modules/, prisma/, public/
-  → CMD: pre-migrate.ts → prisma db push → seed.ts → node dist/index.js
+  -> Copy dist/, node_modules/, prisma/, public/ (frontend build)
+  -> CMD: pre-migrate.ts -> prisma db push -> seed.ts -> node dist/index.js
 ```
 
 ### Startup Sequence
-1. `npx tsx prisma/pre-migrate.ts` — Limpia datos/tablas obsoletas (idempotente)
+1. `npx tsx prisma/pre-migrate.ts` — Limpia datos/tablas obsoletas (SQL raw, idempotente)
 2. `npx prisma db push --skip-generate --accept-data-loss` — Sincroniza schema con DB
 3. `npx tsx prisma/seed.ts` — Asegura datos demo (upsert, idempotente)
 4. `node dist/index.js` — Inicia Express en puerto 3001
+
+### Static File Serving
+```
+/assets/*  -> max-age: 1 year, immutable (hashed filenames)
+/*         -> max-age: 1 hour (favicon, etc.)
+/*path     -> no-cache, no-store (index.html SPA fallback)
+```
+
+### Infraestructura
+| Componente | Servicio |
+|-----------|----------|
+| App | Railway (Docker) |
+| DB | PostgreSQL (Railway addon) |
+| DNS | SiteGround (CNAME -> Railway) |
+| Dominio | app.liabotedu.com |
+| Repo | github.com/tamibot/lia-dashboard-v4 |
+| CI/CD | Push to main -> Railway auto-deploy |
+
+---
+
+## 6. Seed Data (Demo)
+
+La organizacion demo "Instituto de Innovacion para Arquitectos" incluye:
+
+| Tipo | Cantidad | Ejemplos |
+|------|----------|---------|
+| Cursos | 10 | IA para Arquitectos, Renderizado con IA, Marketing Digital |
+| Programas | 3 | IA y Programacion para Arquitectos |
+| Webinars | 4 | Tendencias de IA para Arquitectos |
+| Talleres | 2 | Aprende a usar IA, BIM + IA |
+| Suscripciones | 3 | Asesor IA, Plan Enterprise |
+| Asesorias | 2 | Consulta IA, Asesoria para Estudios |
+| Postulaciones | 2 | Beca de Innovacion en IA |
+| Equipos | 3 | Con miembros y productos asignados |
+| Agentes | 4 | Ventas, BDR, Catalogo + personalizado |
+| Embudos | 1 | Embudo General (9 etapas default) |
+| Campos extraccion | 11 | Incluye preguntas filtro y respuestas |

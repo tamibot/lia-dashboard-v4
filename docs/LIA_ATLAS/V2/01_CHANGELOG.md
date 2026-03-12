@@ -1,10 +1,62 @@
 # LIA Atlas V2 — Changelog
 
-> Registro detallado de todos los cambios realizados en la transición V1 → V2
+> Registro detallado de todos los cambios realizados en la transicion V1 -> V2
 
 ---
 
-## [2026-03-11] — V2.1: Reestructuración de Catálogo (7 Tipos)
+## [2026-03-12] — V2.2: Sales Intelligence + Equipos Generalizados + API Publica
+
+### Schema — Campos Comerciales para Agentes de Ventas
+- **Nuevo en 7 modelos de producto** (Course, Program, Webinar, Taller, Subscription, Asesoria, Application):
+  `callToAction`, `idealStudentProfile`, `competitiveAdvantage`, `urgencyTriggers[]`, `objectionHandlers` (JSON), `successStories` (JSON)
+- **Organization expandida**: `contactPhone`, `whatsapp`, `locations` (JSON array), `paymentMethods` (JSON array), `certificates[]`, `modalities[]`
+- **Eliminados de Organization**: `address`, `certifications`, `location` (reemplazados por campos mas estructurados)
+
+### Schema — Equipos Generalizados
+- **Renombrado**: `TeamCourseAssignment` -> `TeamProductAssignment` (soporta cualquier tipo de producto via `entityType` + `entityId`)
+- **TeamMember expandido**: `whatsapp`, `vacationStart`, `vacationEnd`, `isAvailable`, `specialties[]`, `maxLeads`, `userId` (link a User)
+- **User**: nueva relacion `teamMember?` (link opcional a TeamMember)
+
+### Schema — Agentes + CRM
+- **AiAgent**: nuevos campos `funnelId` (relacion directa con Funnel), `extractionFieldIds[]` (IDs de campos a extraer)
+- **Funnel**: nueva relacion `agents[]`
+
+### Backend
+- **profile.routes.ts**: whitelist de campos permitidos en PUT (seguridad: previene inyeccion de id/slug)
+- **agents.routes.ts**: incluye `funnel` en queries
+- **teams.routes.ts**: adaptado a TeamProductAssignment y nuevos campos de TeamMember
+- **public.routes.ts** — 4 endpoints nuevos:
+  - `GET /:orgSlug/agents/:agentId` — agente individual con contexto completo
+  - `GET /:orgSlug/funnels` — embudos con etapas
+  - `GET /:orgSlug/fields` — campos de extraccion
+  - `GET /:orgSlug/teams` — equipos con miembros disponibles
+- **public.routes.ts** — endpoints existentes enriquecidos con campos comerciales + funnel + team members
+
+### Frontend
+- **AiAgentsPage.tsx**: selectores de embudo y campos de extraccion por agente
+- **CourseUpload.tsx**: indicador de completitud (%), secciones de Call to Action, Perfil Estudiante Ideal, Ventaja Competitiva, Manejo de Objeciones (CRUD inline), Casos de Exito (CRUD inline), urgencyTriggers como array
+- **Profile.tsx**: campos nuevos (telefono, WhatsApp, modalidades, certificaciones)
+- **TeamManagement.tsx**: reescrito para multi-producto, campos expandidos de miembros
+
+### IA (gemini.ts)
+- Prompts de extraccion actualizados con campos comerciales (objectionHandlers, successStories)
+- Agent chat usa manejo de objeciones, casos de exito, ventaja competitiva como contexto
+- Org info incluye telefono, WhatsApp, sedes con detalle, metodos de pago
+
+### Documentacion
+- Documentacion V2 reescrita completamente (00_INDEX, 01_CHANGELOG, 02_ARQUITECTURA)
+- Tablas detalladas de todas las entidades con campos, tipos, defaults y relaciones
+- API completa documentada (50+ endpoints)
+
+### Commits
+| Hash | Mensaje |
+|------|---------|
+| `8ec5ea9` | feat: add sales intelligence fields, generalize teams, and enrich public API |
+| `0b89ee3` | fix: add no-cache headers for index.html to prevent stale CDN cache |
+
+---
+
+## [2026-03-11] — V2.1: Reestructuracion de Catalogo (7 Tipos)
 
 ### Catálogo: Software → Taller + Asesoría
 - **Eliminado**: Modelo `Software` y enum `WebinarType`
