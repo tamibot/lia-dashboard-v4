@@ -306,8 +306,8 @@ const PROMPTS = {
       "title": "TÍTULO GANCHO DE URGENCIA",
       "description": "Copy corto. Qué descubrirán en estos 60/90 minutos.",
       "speaker": "Nombre del experto",
-      "date": "YYYY-MM-DD",
-      "time": "HH:MM",
+      "eventDate": "YYYY-MM-DDTHH:MM:SSZ",
+      "eventTime": "HH:MM",
       "duration": "Tiempo corto",
       "targetAudience": "A quién le urge ver esto",
       "modality": "online" | "presencial",
@@ -325,39 +325,181 @@ const PROMPTS = {
     }
     REGLA DE ORO: NO INCLUYAS SYLLABUS. EL WEBINAR ES CORTO, ENFÓCATE EN EL ENLACE DE REGISTRO, SI ES VIRTUAL/PRESENCIAL Y QUÉ SECRETO VAN A DESCUBRIR.`,
 
-    RAW_EXTRACT_POSTULACION: `Eres un experto en Admisiones Universitarias y Reclutamiento.
-    TU TAREA: extraer información sobre procesos de POSTULACIÓN, ADMISIÓN o INGRESO.
+    RAW_EXTRACT_TALLER: `Eres un experto en Formación Experiencial y Talleres Prácticos.
+    TU TAREA: Transformar contenido crudo de un TALLER/WORKSHOP en una propuesta de alto impacto.
 
-    FORMATO DE RESPUESTA (JSON PURO):
+    ANALIZA el texto y EXTRAE toda la información posible.
+    INVENTA datos faltantes con valores realistas basados en el contexto.
+
+    FORMATO DE RESPUESTA (JSON PURO, SIN MARCADORES DE CÓDIGO):
+    {
+      "type": "taller",
+      "title": "NOMBRE ATRACTIVO DEL TALLER",
+      "subtitle": "Subtítulo que enganche",
+      "description": "Descripción persuasiva del taller y qué van a lograr los participantes",
+      "objectives": ["Objetivo 1", "Objetivo 2", "Objetivo 3"],
+      "targetAudience": "Público específico al que está dirigido",
+      "modality": "presencial" | "online" | "hibrido",
+      "eventDate": "YYYY-MM-DD o null",
+      "eventTime": "HH:MM o null",
+      "duration": "4 horas",
+      "totalHours": 4,
+      "schedule": "Sábado 9am-1pm",
+      "instructor": "Nombre del facilitador",
+      "instructorBio": "Bio profesional del facilitador",
+      "venue": "Nombre del local/sala",
+      "venueAddress": "Dirección completa",
+      "maxParticipants": 25,
+      "materials": ["Material 1", "Material 2"],
+      "deliverables": ["Entregable 1", "Entregable 2"],
+      "certification": "Certificado de participación",
+      "price": 150,
+      "currency": "USD",
+      "earlyBirdPrice": 120,
+      "registrationLink": "URL o null",
+      "paymentMethods": ["Transferencia", "Tarjeta"],
+      "requirements": ["Laptop", "Conocimientos básicos"],
+      "benefits": ["Aprende haciendo", "Material incluido"],
+      "painPoints": ["Problema que resuelve"],
+      "guarantee": "Garantía",
+      "socialProof": ["Testimonio"],
+      "bonuses": ["Bonus"],
+      "callToAction": "Reserva tu cupo ahora",
+      "idealStudentProfile": "Perfil del participante ideal",
+      "competitiveAdvantage": "Qué hace este taller diferente",
+      "urgencyTriggers": ["Solo 25 cupos", "Fecha única"],
+      "objectionHandlers": [{"objection": "Es muy caro", "response": "Incluye materiales y certificación..."}],
+      "successStories": [{"name": "Participante", "quote": "Testimonio", "result": "Resultado"}],
+      "missing": ["Campos faltantes"]
+    }
+    REGLA: ENFATIZA LA EXPERIENCIA PRÁCTICA, LOS MATERIALES INCLUIDOS Y LOS CUPOS LIMITADOS COMO URGENCIA.`,
+
+    RAW_EXTRACT_ASESORIA: `Eres un experto en Consultoría Profesional y Servicios de Asesoría.
+    TU TAREA: Transformar contenido crudo de un servicio de ASESORÍA/CONSULTORÍA en una propuesta premium.
+
+    ANALIZA el texto y EXTRAE toda la información posible.
+    INVENTA datos faltantes con valores realistas basados en el contexto.
+
+    FORMATO DE RESPUESTA (JSON PURO, SIN MARCADORES DE CÓDIGO):
+    {
+      "type": "asesoria",
+      "title": "NOMBRE DEL SERVICIO DE ASESORÍA",
+      "subtitle": "Subtítulo que comunique valor",
+      "description": "Descripción del servicio y resultados que obtendrá el cliente",
+      "objectives": ["Objetivo 1", "Objetivo 2"],
+      "targetAudience": "Perfil del cliente ideal",
+      "modality": "online" | "presencial" | "hibrido",
+      "advisor": "Nombre del asesor/consultor",
+      "advisorBio": "Bio profesional y credenciales",
+      "advisorTitle": "Título profesional",
+      "specialties": ["Especialidad 1", "Especialidad 2"],
+      "pricePerHour": 100,
+      "currency": "USD",
+      "minimumHours": 1,
+      "packageHours": 10,
+      "packagePrice": 800,
+      "bookingLink": "URL de reserva o null",
+      "availableSchedule": "L-V 9am-6pm",
+      "sessionDuration": "1 hora",
+      "topicsCovered": ["Tema 1", "Tema 2"],
+      "deliverables": ["Entregable por sesión"],
+      "requirements": ["Requisito"],
+      "benefits": ["Beneficio 1", "Beneficio 2"],
+      "painPoints": ["Problema que resuelve"],
+      "guarantee": "Garantía de satisfacción",
+      "socialProof": ["Testimonio de cliente"],
+      "bonuses": ["Bonus incluido"],
+      "callToAction": "Agenda tu primera sesión",
+      "idealStudentProfile": "Cliente ideal para esta asesoría",
+      "competitiveAdvantage": "Qué diferencia esta asesoría",
+      "urgencyTriggers": ["Agenda limitada", "Solo 3 clientes al mes"],
+      "objectionHandlers": [{"objection": "Es muy caro por hora", "response": "El ROI es..."}],
+      "successStories": [{"name": "Cliente", "quote": "Testimonio", "result": "Resultado"}],
+      "missing": ["Campos faltantes"]
+    }
+    REGLA: ENFATIZA LAS CREDENCIALES DEL ASESOR, EL RETORNO DE INVERSIÓN Y LA EXCLUSIVIDAD DEL SERVICIO.`,
+
+    RAW_EXTRACT_POSTULACION: `Eres un experto en Admisiones Universitarias y Procesos de Selección.
+    TU TAREA: Transformar contenido crudo de un proceso de POSTULACIÓN/ADMISIÓN en una convocatoria atractiva.
+
+    ANALIZA el texto y EXTRAE toda la información posible.
+    INVENTA datos faltantes con valores realistas basados en el contexto.
+
+    FORMATO DE RESPUESTA (JSON PURO, SIN MARCADORES DE CÓDIGO):
     {
       "type": "postulacion",
-      "title": "NOMBRE DEL PROCESO (Ej: 'Admisión 2026-I')",
-      "description": "Explicación del proceso y a qué programas aplica.",
-      "methods": ["Examen de admisión", "Ingreso directo", "Traslado"],
-      "modalities": ["Ordinario", "Extraordinario", "Beca"],
-      "dates": [ { "event": "Cierre de inscripciones", "date": "YYYY-MM-DD" } ],
-      "requirements": ["DNI", "Certificado de estudios"],
-      "contactInfo": { "phone": "string", "email": "string", "office": "string" },
-      "price": número,
-      "currency": "USD" | "PEN",
+      "title": "NOMBRE DEL PROCESO (Ej: 'Beca de Innovación 2026')",
+      "subtitle": "Subtítulo atractivo",
+      "description": "Descripción del proceso, a qué programas aplica y por qué postular",
+      "objectives": ["Qué lograrás al ser admitido"],
+      "targetAudience": "Perfil del postulante ideal",
+      "modality": "online" | "presencial" | "hibrido",
+      "deadline": "YYYY-MM-DD o null",
+      "availableSlots": 50,
+      "examRequired": false,
+      "examDescription": "Descripción del examen si aplica",
+      "applicationFee": 0,
+      "steps": ["Paso 1: Registro online", "Paso 2: Envío de documentos", "Paso 3: Entrevista"],
+      "documentsNeeded": ["DNI", "CV", "Certificado de estudios"],
+      "selectionCriteria": ["Promedio académico", "Experiencia laboral", "Ensayo motivacional"],
+      "registrationLink": "URL o null",
+      "paymentMethods": ["Transferencia", "Tarjeta"],
+      "price": 0,
+      "currency": "USD",
+      "requirements": ["Requisitos de admisión"],
+      "contactInfo": {"name": "Oficina de admisiones", "email": "admisiones@...", "phone": "..."},
+      "benefits": ["Beneficio de ser admitido"],
+      "painPoints": ["Problema que resuelve esta oportunidad"],
+      "guarantee": "Garantía",
+      "socialProof": ["Testimonio de egresado"],
+      "callToAction": "Postula ahora",
+      "idealStudentProfile": "Perfil del candidato ideal",
+      "competitiveAdvantage": "Qué hace única esta convocatoria",
+      "urgencyTriggers": ["Fecha límite", "Cupos limitados"],
+      "objectionHandlers": [{"objection": "No sé si califico", "response": "Los requisitos son..."}],
+      "successStories": [{"name": "Egresado", "quote": "Testimonio", "result": "Resultado"}],
       "missing": ["Campos faltantes"]
-    }`,
+    }
+    REGLA: ENFATIZA LOS PASOS CLAROS DEL PROCESO, LA FECHA LÍMITE COMO URGENCIA Y LOS BENEFICIOS DE SER ADMITIDO.`,
 
-    RAW_EXTRACT_SUBSCRIPCION: `Eres un experto en Modelos de Negocio Recurrentes (SaaS/Memberhsips).
-    TU TAREA: extraer información sobre un servicio de SUSCRIPCIÓN (asesoría, acompañamiento, etc).
+    RAW_EXTRACT_SUBSCRIPCION: `Eres un experto en Modelos de Negocio Recurrentes y Membresías Educativas.
+    TU TAREA: Transformar contenido crudo de un servicio de SUSCRIPCIÓN/MEMBRESÍA en una propuesta de valor irresistible.
 
-    FORMATO DE RESPUESTA (JSON PURO):
+    ANALIZA el texto y EXTRAE toda la información posible.
+    INVENTA datos faltantes con valores realistas basados en el contexto.
+
+    FORMATO DE RESPUESTA (JSON PURO, SIN MARCADORES DE CÓDIGO):
     {
       "type": "subscripcion",
-      "title": "NOMBRE DE LA SUSCRIPCIÓN (Ej: 'Asesoría Premium')",
-      "description": "Valor recurrente que aporta el servicio.",
-      "price": número,
-      "currency": "USD" | "PEN",
-      "frequency": "mensual" | "anual" | "trimestral",
-      "benefits": ["Acceso a portal", "1 sesión semanal"],
-      "bonuses": ["Guía gratuita"],
+      "title": "NOMBRE DE LA SUSCRIPCIÓN (Ej: 'Plan Premium Educador')",
+      "subtitle": "Subtítulo que comunique valor recurrente",
+      "description": "Valor recurrente que aporta el servicio y por qué suscribirse",
+      "objectives": ["Lo que lograrás como suscriptor"],
+      "targetAudience": "Público ideal para esta membresía",
+      "period": "mensual" | "anual" | "trimestral",
+      "features": ["Acceso a plataforma", "Sesiones semanales", "Comunidad privada"],
+      "advisoryHours": 4,
+      "whatsappGroup": "URL del grupo o null",
+      "communityAccess": "Descripción del acceso a comunidad",
+      "maxUsers": 100,
+      "registrationLink": "URL o null",
+      "paymentMethods": ["Tarjeta", "PayPal"],
+      "price": 99,
+      "currency": "USD",
+      "benefits": ["Beneficio 1", "Beneficio 2"],
+      "bonuses": ["Bonus incluido"],
+      "painPoints": ["Problema que resuelve"],
+      "guarantee": "Garantía de satisfacción 30 días",
+      "socialProof": ["Testimonio de suscriptor"],
+      "callToAction": "Suscríbete ahora",
+      "idealStudentProfile": "Perfil del suscriptor ideal",
+      "competitiveAdvantage": "Qué hace única esta membresía",
+      "urgencyTriggers": ["Precio especial de lanzamiento", "Solo 100 cupos"],
+      "objectionHandlers": [{"objection": "Ya hay muchas suscripciones", "response": "Esta incluye..."}],
+      "successStories": [{"name": "Suscriptor", "quote": "Testimonio", "result": "Resultado"}],
       "missing": ["Campos faltantes"]
-    }`,
+    }
+    REGLA: ENFATIZA EL VALOR RECURRENTE, LAS FEATURES INCLUIDAS Y LA COMUNIDAD COMO DIFERENCIADOR.`,
 
     REVIEW_CONTENT: `Eres un editor senior de contenido educativo.
     TU TAREA: Revisar el borrador del curso generado y sugerir 3 mejoras CRÍTICAS para vender más.
@@ -376,31 +518,33 @@ const PROMPTS = {
         ]
     }`,
 
-    COMPLETE_FIELD: `Eres un asistente experto en diseño instruccional y gestión académica.
-    Tu tarea es ayudar a completar la información faltante de un curso/programa/webinar.
-    
-    El usuario te proporcionará el contexto actual del curso y te pedirá completar o mejorar información.
-    
+    COMPLETE_FIELD: `Eres un consultor comercial experto en productos educativos y ventas.
+    Tu tarea es ayudar a completar la información de un producto educativo (curso, programa, webinar, taller, suscripción, asesoría o postulación).
+
+    El usuario te proporcionará el contexto actual del producto y una pregunta o instrucción.
+    A veces el usuario responde a una pregunta previa del sistema — interpreta su respuesta en ese contexto.
+
     DEBES RESPONDER SIEMPRE con un JSON válido (sin marcadores de código) con esta estructura:
     {
       "updates": {
         "campo1": "nuevo valor",
         "campo2": "nuevo valor"
       },
-      "message": "Explicación breve de lo que hiciste y por qué"
+      "message": "Explicación breve y amigable de lo que actualizaste"
     }
-    
+
     REGLAS:
-    - "updates" contiene SOLO los campos que el usuario pidió completar o mejorar.
-    - Los nombres de campos válidos son: title, description, objectives, targetAudience, modality, duration, hours, startDate, schedule, syllabus, instructor, instructorBio, price, currency, maxStudents, category, prerequisites, certification, promotions, requirements, contactInfo, benefits, painPoints, guarantee, socialProof, faqs, bonuses, callToAction, idealStudentProfile, competitiveAdvantage, urgencyTriggers, objectionHandlers, successStories, methods, modalities, dates, frequency.
-    - Si el usuario pide objetivos, devuelve "objectives": ["Obj1", "Obj2", ...].
-    - Si el usuario pide descripción, devuelve "description": "texto".
-    - Si el usuario pide precio, devuelve "price": número.
-    - Si el usuario pide temario/syllabus, devuelve "syllabus": [{"module": "Nombre", "topics": ["t1", "t2"]}].
-    - "message" es una explicación amigable de los cambios para mostrar al usuario.
-    - Genera contenido persuasivo, profesional y realista.
-    - Responde en español (o el idioma del usuario).
-    - Responde SOLO con el JSON, sin marcadores de código.`,
+    - "updates" contiene SOLO los campos que puedes inferir de la respuesta del usuario.
+    - Campos válidos COMUNES: title, description, objectives (array), targetAudience, modality, duration, hours, startDate, schedule, syllabus (array de {module, topics[]}), instructor, instructorBio, price (número), currency, maxStudents, category, prerequisites, certification, promotions, requirements (array), benefits (array), painPoints (array), guarantee, socialProof (array), faqs (array de {question, answer}), bonuses (array), callToAction, idealStudentProfile, competitiveAdvantage, urgencyTriggers (array), objectionHandlers (array de {objection, response}), successStories (array de {name, quote, result}), registrationLink.
+    - Campos TALLER: venue, venueAddress, maxParticipants (número), materials (array), deliverables (array), earlyBirdPrice (número).
+    - Campos ASESORIA: advisor, advisorBio, advisorTitle, specialties (array), pricePerHour (número), minimumHours (número), packageHours (número), packagePrice (número), bookingLink, availableSchedule, sessionDuration, topicsCovered (array).
+    - Campos POSTULACION: steps (array), documentsNeeded (array), selectionCriteria (array), deadline, examRequired (boolean), availableSlots (número), methods (array).
+    - Campos SUBSCRIPCION: frequency, period, features (array), advisoryHours (número), whatsappGroup, communityAccess, maxUsers (número).
+    - Si el usuario menciona objeciones, devuelve objectionHandlers: [{objection: "...", response: "..."}].
+    - Si el usuario menciona casos de éxito, devuelve successStories: [{name: "...", quote: "...", result: "..."}].
+    - Si no puedes extraer un update válido, devuelve "updates": null y en "message" responde la pregunta del usuario de forma útil.
+    - Genera contenido persuasivo y comercialmente fuerte.
+    - Responde en español. Solo JSON, sin marcadores de código.`,
 
     PROFILE_AUDIT: `Eres un consultor de marca educativa de alto nivel.
     TU TAREA: Auditar el perfil de la institución.
@@ -640,11 +784,19 @@ export async function analyzeCourseData(data: Record<string, unknown>, type: 'cu
     return cleanJson(res);
 }
 
+const PROMPT_MAP: Record<string, string> = {
+    curso: PROMPTS.RAW_EXTRACT_CURSO,
+    programa: PROMPTS.RAW_EXTRACT_PROGRAMA,
+    webinar: PROMPTS.RAW_EXTRACT_WEBINAR,
+    taller: PROMPTS.RAW_EXTRACT_TALLER,
+    subscripcion: PROMPTS.RAW_EXTRACT_SUBSCRIPCION,
+    asesoria: PROMPTS.RAW_EXTRACT_ASESORIA,
+    postulacion: PROMPTS.RAW_EXTRACT_POSTULACION,
+};
+
 export async function analyzeRawText(text: string, type?: string): Promise<string> {
     const hint = type ? `\nNota: El usuario indicó que es un "${type}".` : '';
-    let prompt = PROMPTS.RAW_EXTRACT_CURSO;
-    if (type === 'programa') prompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
-    if (type === 'webinar') prompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+    const prompt = (type && PROMPT_MAP[type]) || PROMPTS.RAW_EXTRACT_CURSO;
     const res = await ask(`Extrae la información del siguiente texto:\n---\n${text}\n---${hint}`, prompt);
     return cleanJson(res);
 }
@@ -657,9 +809,7 @@ export async function analyzeFileContent(content: string, fileName: string, type
         const mimeType = content.split(';')[0].split(':')[1];
         const client = getClient();
         const hint = type && type !== 'auto' ? `El usuario indica que es un "${type}".` : '';
-        let basePrompt = PROMPTS.RAW_EXTRACT_CURSO;
-        if (type === 'programa') basePrompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
-        if (type === 'webinar') basePrompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+        const basePrompt = (type && PROMPT_MAP[type]) || PROMPTS.RAW_EXTRACT_CURSO;
         const prompt = `${basePrompt}\n\nAnaliza este archivo adjunto: "${fileName}". ${hint}\nExtrae TODA la información que encuentres en el documento.`;
 
         for (const model of GEMINI_MODELS) {
@@ -684,9 +834,7 @@ export async function analyzeFileContent(content: string, fileName: string, type
     }
 
     const hint = type ? `\nNota: El usuario indicó que es un "${type}".` : '';
-    let prompt = PROMPTS.RAW_EXTRACT_CURSO;
-    if (type === 'programa') prompt = PROMPTS.RAW_EXTRACT_PROGRAMA;
-    if (type === 'webinar') prompt = PROMPTS.RAW_EXTRACT_WEBINAR;
+    const prompt = (type && PROMPT_MAP[type]) || PROMPTS.RAW_EXTRACT_CURSO;
     const res = await ask(`Analiza este contenido del archivo "${fileName}":\n---\n${content}\n---${hint}`, prompt);
     return cleanJson(res);
 }

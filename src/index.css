@@ -804,3 +804,17 @@ a:hover {
   color: var(--error);
   border: 1px solid #FCA5A5;
 }
+
+/* Form label shorthand */
+.label-sm {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+/* Fade-in animation utility */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

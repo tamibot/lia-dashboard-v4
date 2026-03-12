@@ -1,14 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Upload, FileText, Check, Loader, Wand2,
-    BookOpen, DollarSign, Layout, Video,
-    MessageSquare, Send, Paperclip, X, File, Link as LinkIcon, Sparkles
+    Video, Send, Paperclip, X, File, Link as LinkIcon,
+    GraduationCap, Award, Tv, Hammer, CreditCard, Users, ClipboardList, AlertTriangle, RefreshCw,
+    ChevronDown, ChevronUp, ArrowRight, MessageSquare
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from '../lib/gemini';
 import { courseService } from '../lib/services/course.service';
 import type { Attachment, ContactInfo } from '../lib/types';
 
+// ─── Types ───────────────────────────────────────────────────────────
 interface CourseData {
     type: 'curso' | 'programa' | 'webinar' | 'taller' | 'subscripcion' | 'asesoria' | 'postulacion';
     title: string;
@@ -49,104 +51,278 @@ interface CourseData {
     successStories?: { name: string; quote: string; result?: string }[];
     attachments: Attachment[];
     registrationLink?: string;
-    // Postulacion fields
+    venue?: string;
+    venueAddress?: string;
+    maxParticipants?: number;
+    materials?: string[];
+    deliverables?: string[];
+    earlyBirdPrice?: number;
+    advisor?: string;
+    advisorBio?: string;
+    advisorTitle?: string;
+    specialties?: string[];
+    pricePerHour?: number;
+    minimumHours?: number;
+    packageHours?: number;
+    packagePrice?: number;
+    bookingLink?: string;
+    availableSchedule?: string;
+    sessionDuration?: string;
+    topicsCovered?: string[];
     methods?: string[];
     modalities?: string[];
     dates?: { event: string; date: string }[];
-    // Subscripcion fields
+    steps?: string[];
+    documentsNeeded?: string[];
+    selectionCriteria?: string[];
+    deadline?: string;
+    examRequired?: boolean;
+    availableSlots?: number;
     frequency?: 'mensual' | 'anual' | 'trimestral';
+    period?: string;
+    features?: string[];
+    advisoryHours?: number;
+    whatsappGroup?: string;
+    communityAccess?: string;
+    maxUsers?: number;
 }
 
 const INITIAL_STATE: CourseData = {
-    type: 'curso',
-    title: '',
-    description: '',
-    objectives: [],
-    targetAudience: '',
-    modality: 'online',
-    duration: '',
-    hours: null,
-    startDate: null,
-    schedule: null,
-    syllabus: [],
-    instructor: '',
-    instructorBio: '',
-    price: null,
-    currency: 'USD',
-    maxStudents: null,
-    category: 'Negocios',
-    prerequisites: null,
-    certification: null,
-    promotions: null,
-    requirements: [],
-    contactInfo: null,
-    missing: [],
-    painPoints: [],
-    guarantee: '',
-    socialProof: [],
-    faqs: [],
-    bonuses: [],
-    callToAction: '',
-    idealStudentProfile: '',
-    competitiveAdvantage: '',
-    urgencyTriggers: [],
-    objectionHandlers: [],
-    successStories: [],
-    attachments: [],
-    registrationLink: '',
-    methods: [],
-    modalities: [],
-    dates: [],
-    frequency: 'mensual'
+    type: 'curso', title: '', description: '', objectives: [], targetAudience: '',
+    modality: 'online', duration: '', hours: null, startDate: null, schedule: null,
+    syllabus: [], instructor: '', instructorBio: '', price: null, currency: 'USD',
+    maxStudents: null, category: 'Negocios', prerequisites: null, certification: null,
+    promotions: null, requirements: [], contactInfo: null, missing: [],
+    painPoints: [], guarantee: '', socialProof: [], faqs: [], bonuses: [],
+    callToAction: '', idealStudentProfile: '', competitiveAdvantage: '',
+    urgencyTriggers: [], objectionHandlers: [], successStories: [],
+    attachments: [], registrationLink: '', methods: [], modalities: [], dates: [],
+    frequency: 'mensual', venue: '', venueAddress: '', materials: [], deliverables: [],
+    advisor: '', advisorBio: '', advisorTitle: '', specialties: [], bookingLink: '',
+    availableSchedule: '', sessionDuration: '', topicsCovered: [],
+    steps: [], documentsNeeded: [], selectionCriteria: [], deadline: '', examRequired: false,
+    period: '', features: [], whatsappGroup: '', communityAccess: '',
 };
 
 type AnalysisStatus = 'idle' | 'analyzing' | 'success' | 'error';
-type Tab = 'upload' | 'details' | 'content' | 'marketing';
+type Tab = 'type-select' | 'upload' | 'guided' | 'editor';
 
-// Completeness calculation — fields that matter for sales readiness
-function calcCompleteness(d: CourseData): { percent: number; missing: string[] } {
-    const checks: [boolean, string][] = [
-        [!!d.title, 'Título'],
-        [!!d.description && d.description.length > 20, 'Descripción detallada'],
-        [d.objectives.length > 0, 'Objetivos'],
-        [!!d.targetAudience, 'Público objetivo'],
-        [!!d.instructor, 'Instructor / Speaker'],
-        [d.price !== null && d.price > 0, 'Precio'],
-        [d.syllabus.length > 0, 'Temario / Malla curricular'],
-        // Commercial fields
-        [(d.benefits?.length || 0) > 0, 'Beneficios / Transformación'],
-        [(d.painPoints?.length || 0) > 0, 'Dolores del alumno'],
-        [!!d.guarantee, 'Garantía'],
-        [!!d.callToAction, 'Call to Action'],
-        [!!d.idealStudentProfile, 'Perfil del estudiante ideal'],
-        [!!d.competitiveAdvantage, 'Ventaja competitiva'],
-        [(d.urgencyTriggers?.length || 0) > 0, 'Gatillos de urgencia'],
-        [(d.objectionHandlers?.length || 0) > 0, 'Manejo de objeciones'],
-        [(d.successStories?.length || 0) > 0, 'Casos de éxito'],
-        [(d.faqs?.length || 0) > 0, 'Preguntas frecuentes'],
+const TYPE_OPTIONS = [
+    { value: 'curso', label: 'Curso', icon: GraduationCap, color: 'blue', desc: 'Formacion estructurada con temario, modulos y certificacion' },
+    { value: 'programa', label: 'Programa', icon: Award, color: 'purple', desc: 'Diplomado o especializacion de largo plazo con multiples cursos' },
+    { value: 'webinar', label: 'Webinar', icon: Tv, color: 'green', desc: 'Evento en vivo, corto, de alto impacto (masterclass, charla)' },
+    { value: 'taller', label: 'Taller', icon: Hammer, color: 'amber', desc: 'Sesion practica presencial o virtual con materiales incluidos' },
+    { value: 'subscripcion', label: 'Suscripcion', icon: CreditCard, color: 'pink', desc: 'Membresia recurrente con acceso continuo y beneficios' },
+    { value: 'asesoria', label: 'Asesoria', icon: Users, color: 'teal', desc: 'Consultoria personalizada por hora o paquete con experto' },
+    { value: 'postulacion', label: 'Postulacion', icon: ClipboardList, color: 'indigo', desc: 'Proceso de admision, beca o convocatoria con pasos claros' },
+] as const;
+
+const TYPE_LABELS: Record<string, string> = {
+    curso: 'Curso', programa: 'Programa', webinar: 'Webinar', taller: 'Taller',
+    subscripcion: 'Suscripcion', asesoria: 'Asesoria', postulacion: 'Postulacion',
+};
+
+// ─── Required fields per type (for completeness + guided questions) ──
+type FieldCheck = { ok: boolean; label: string; priority: 'high' | 'medium' | 'low' };
+
+function getRequiredFields(d: CourseData): FieldCheck[] {
+    // Common required fields (all types)
+    const common: FieldCheck[] = [
+        { ok: !!d.title, label: 'Titulo', priority: 'high' },
+        { ok: !!d.description && d.description.length > 20, label: 'Descripcion comercial', priority: 'high' },
+        { ok: d.objectives.length > 0, label: 'Objetivos', priority: 'high' },
+        { ok: !!d.targetAudience, label: 'Publico objetivo', priority: 'high' },
+        { ok: !!d.callToAction, label: 'Call to Action', priority: 'medium' },
+        { ok: !!d.idealStudentProfile, label: 'Perfil estudiante ideal', priority: 'medium' },
+        { ok: !!d.competitiveAdvantage, label: 'Ventaja competitiva', priority: 'medium' },
+        { ok: (d.objectionHandlers?.length || 0) > 0, label: 'Manejo de objeciones', priority: 'medium' },
+        { ok: (d.successStories?.length || 0) > 0, label: 'Casos de exito', priority: 'low' },
+        { ok: (d.benefits?.length || 0) > 0, label: 'Beneficios / Transformacion', priority: 'medium' },
     ];
-    const filled = checks.filter(([ok]) => ok).length;
-    const missing = checks.filter(([ok]) => !ok).map(([, label]) => label);
-    return { percent: Math.round((filled / checks.length) * 100), missing };
+
+    // Type-specific required fields
+    const specific: Record<string, FieldCheck[]> = {
+        curso: [
+            { ok: !!d.instructor, label: 'Instructor', priority: 'high' },
+            { ok: d.price !== null && d.price > 0, label: 'Precio', priority: 'high' },
+            { ok: d.syllabus.length > 0, label: 'Temario / Modulos', priority: 'high' },
+            { ok: !!d.duration, label: 'Duracion', priority: 'medium' },
+            { ok: !!d.registrationLink, label: 'Link de registro', priority: 'low' },
+        ],
+        programa: [
+            { ok: !!d.instructor, label: 'Coordinador / Instructor', priority: 'high' },
+            { ok: d.price !== null && d.price > 0, label: 'Precio', priority: 'high' },
+            { ok: d.syllabus.length > 0, label: 'Malla curricular', priority: 'high' },
+            { ok: !!d.duration, label: 'Duracion total', priority: 'medium' },
+            { ok: !!d.certification, label: 'Certificacion', priority: 'medium' },
+            { ok: !!d.registrationLink, label: 'Link de registro', priority: 'low' },
+        ],
+        webinar: [
+            { ok: !!d.instructor, label: 'Speaker', priority: 'high' },
+            { ok: d.price !== null && d.price >= 0, label: 'Precio (0 si es gratis)', priority: 'high' },
+            { ok: !!d.startDate, label: 'Fecha del evento', priority: 'high' },
+            { ok: !!d.duration, label: 'Duracion', priority: 'medium' },
+            { ok: !!d.registrationLink, label: 'Link de registro (Zoom, etc)', priority: 'high' },
+        ],
+        taller: [
+            { ok: !!d.instructor, label: 'Instructor', priority: 'high' },
+            { ok: d.price !== null && d.price > 0, label: 'Precio', priority: 'high' },
+            { ok: !!d.venue, label: 'Sede / Venue', priority: 'high' },
+            { ok: !!d.venueAddress, label: 'Direccion de la sede', priority: 'medium' },
+            { ok: !!d.maxParticipants, label: 'Capacidad maxima', priority: 'high' },
+            { ok: (d.materials?.length || 0) > 0, label: 'Materiales incluidos', priority: 'medium' },
+            { ok: (d.deliverables?.length || 0) > 0, label: 'Entregables', priority: 'medium' },
+            { ok: !!d.startDate, label: 'Fecha del taller', priority: 'high' },
+            { ok: !!d.duration, label: 'Duracion', priority: 'medium' },
+        ],
+        asesoria: [
+            { ok: !!d.advisor, label: 'Nombre del asesor', priority: 'high' },
+            { ok: !!d.advisorTitle, label: 'Titulo profesional del asesor', priority: 'medium' },
+            { ok: !!d.pricePerHour, label: 'Precio por hora', priority: 'high' },
+            { ok: (d.specialties?.length || 0) > 0, label: 'Especialidades', priority: 'high' },
+            { ok: !!d.bookingLink, label: 'Link de reserva', priority: 'high' },
+            { ok: !!d.sessionDuration, label: 'Duracion de sesion', priority: 'medium' },
+            { ok: !!d.availableSchedule, label: 'Horario disponible', priority: 'medium' },
+            { ok: (d.topicsCovered?.length || 0) > 0, label: 'Temas cubiertos', priority: 'medium' },
+        ],
+        postulacion: [
+            { ok: (d.steps?.length || 0) > 0, label: 'Pasos del proceso', priority: 'high' },
+            { ok: (d.documentsNeeded?.length || 0) > 0, label: 'Documentos requeridos', priority: 'high' },
+            { ok: (d.selectionCriteria?.length || 0) > 0, label: 'Criterios de seleccion', priority: 'medium' },
+            { ok: !!d.deadline, label: 'Fecha limite', priority: 'high' },
+            { ok: !!d.availableSlots, label: 'Cupos disponibles', priority: 'medium' },
+            { ok: !!d.registrationLink, label: 'Link de registro / postulacion', priority: 'high' },
+        ],
+        subscripcion: [
+            { ok: d.price !== null && d.price > 0, label: 'Precio por periodo', priority: 'high' },
+            { ok: !!d.frequency, label: 'Frecuencia de pago', priority: 'high' },
+            { ok: (d.features?.length || 0) > 0, label: 'Beneficios incluidos', priority: 'high' },
+            { ok: !!d.advisoryHours, label: 'Horas de asesoria incluidas', priority: 'low' },
+            { ok: !!d.registrationLink, label: 'Link de registro', priority: 'medium' },
+        ],
+    };
+
+    return [...common, ...(specific[d.type] || [])];
 }
 
+function calcCompleteness(d: CourseData): { percent: number; missing: string[]; missingHigh: string[] } {
+    const fields = getRequiredFields(d);
+    const filled = fields.filter(f => f.ok).length;
+    const missing = fields.filter(f => !f.ok).map(f => f.label);
+    const missingHigh = fields.filter(f => !f.ok && f.priority === 'high').map(f => f.label);
+    return { percent: Math.round((filled / fields.length) * 100), missing, missingHigh };
+}
+
+// ─── Guided questions (all types, exhaustive) ────────────────────────
+function getNextQuestion(d: CourseData): string | null {
+    const t = TYPE_LABELS[d.type] || 'producto';
+
+    // ── 1. Core info (all types) ──
+    if (!d.title) return `Para empezar, ¿cual es el nombre de tu ${t}?`;
+    if (!d.description || d.description.length < 30) return `Necesito una descripcion comercial atractiva de "${d.title}". ¿Que problema resuelve? ¿Que transformacion ofrece?`;
+    if (d.objectives.length === 0) return `¿Cuales son los objetivos principales de "${d.title}"? Lista los 3-5 mas importantes.`;
+    if (!d.targetAudience) return '¿A quien va dirigido? Describe a tu alumno/cliente ideal (edad, profesion, situacion actual).';
+
+    // ── 2. Type-specific REQUIRED fields ──
+    if (d.type === 'curso') {
+        if (!d.instructor) return '¿Quien imparte el curso? Dame nombre y un breve perfil profesional.';
+        if (d.price === null || d.price === 0) return `¿Cual es el precio del curso? Si no lo tienes definido, indica "pendiente".`;
+        if (d.syllabus.length === 0) return '¿Cuales son los modulos o temas principales del curso? Lista cada uno con sus subtemas.';
+        if (!d.duration) return '¿Cuanto dura el curso? (ej: 4 semanas, 3 meses, 20 horas)';
+    }
+    if (d.type === 'programa') {
+        if (!d.instructor) return '¿Quien coordina o imparte el programa? Dame nombre y perfil.';
+        if (d.price === null || d.price === 0) return '¿Cual es la inversion total del programa?';
+        if (d.syllabus.length === 0) return '¿Cuales son los cursos o modulos que incluye el programa? Lista cada uno.';
+        if (!d.duration) return '¿Cuanto dura el programa completo?';
+        if (!d.certification) return '¿El programa otorga certificacion? ¿Cual y por quien?';
+    }
+    if (d.type === 'webinar') {
+        if (!d.instructor) return '¿Quien es el speaker del webinar? Dame nombre y titulo.';
+        if (d.price === null) return '¿El webinar es gratuito o tiene costo? Indica el precio (0 si es gratis).';
+        if (!d.startDate) return '¿Cuando se realizara el webinar? Dame la fecha y hora.';
+        if (!d.registrationLink) return 'Es MUY IMPORTANTE: ¿Cual es el link de registro? (Zoom, Eventbrite, formulario). Sin este link no podran inscribirse.';
+        if (!d.duration) return '¿Cuanto durara el webinar?';
+    }
+    if (d.type === 'taller') {
+        if (!d.instructor) return '¿Quien impartira el taller? Dame nombre y perfil.';
+        if (d.price === null || d.price === 0) return '¿Cual es el precio del taller?';
+        if (!d.venue) return '¿Donde se realizara el taller? Indica el nombre de la sede.';
+        if (!d.venueAddress) return '¿Cual es la direccion exacta de la sede del taller?';
+        if (!d.maxParticipants) return '¿Cual es la capacidad maxima de participantes?';
+        if (!d.startDate) return '¿Cuando se realizara el taller? Dame la fecha.';
+        if ((d.materials?.length || 0) === 0) return '¿Que materiales o herramientas se entregaran a los participantes?';
+        if ((d.deliverables?.length || 0) === 0) return '¿Que se llevaran los participantes al finalizar? (entregables, certificado, proyecto)';
+        if (!d.duration) return '¿Cuanto durara el taller?';
+    }
+    if (d.type === 'asesoria') {
+        if (!d.advisor) return '¿Quien es el asesor/consultor? Dame nombre completo.';
+        if (!d.advisorTitle) return `¿Cual es el titulo profesional de ${d.advisor || 'el asesor'}?`;
+        if (!d.pricePerHour) return '¿Cual es el precio por hora de la asesoria?';
+        if ((d.specialties?.length || 0) === 0) return '¿Cuales son las especialidades del asesor? Lista las 3-5 principales.';
+        if (!d.bookingLink) return 'Es MUY IMPORTANTE: ¿Tienes un link para agendar sesiones? (Calendly, Google Calendar, etc.). Sin esto los clientes no pueden reservar.';
+        if (!d.sessionDuration) return '¿Cuanto dura cada sesion de asesoria? (ej: 60 minutos)';
+        if (!d.availableSchedule) return '¿Cual es el horario disponible para agendar? (ej: Lunes a Viernes 9am-6pm)';
+        if ((d.topicsCovered?.length || 0) === 0) return '¿Que temas cubre la asesoria? Lista los principales.';
+    }
+    if (d.type === 'postulacion') {
+        if ((d.steps?.length || 0) === 0) return '¿Cuales son los pasos que debe seguir alguien para postular? Lista cada paso en orden.';
+        if ((d.documentsNeeded?.length || 0) === 0) return '¿Que documentos necesita presentar el postulante?';
+        if (!d.deadline) return '¿Cual es la fecha limite para postular?';
+        if (!d.availableSlots) return '¿Cuantos cupos hay disponibles?';
+        if ((d.selectionCriteria?.length || 0) === 0) return '¿Cuales son los criterios de seleccion?';
+        if (!d.registrationLink) return 'Es MUY IMPORTANTE: ¿Cual es el link o formulario de postulacion? Sin esto los interesados no pueden postular.';
+    }
+    if (d.type === 'subscripcion') {
+        if (d.price === null || d.price === 0) return '¿Cual es el precio de la suscripcion?';
+        if ((d.features?.length || 0) === 0) return '¿Que beneficios incluye la suscripcion? Lista todo lo que obtiene el suscriptor.';
+        if (!d.registrationLink) return '¿Tienes un link de registro para la suscripcion?';
+    }
+
+    // ── 3. Commercial intelligence (all types) ──
+    if (!d.competitiveAdvantage) return `¿Que hace UNICO a "${d.title}"? ¿Por que un prospecto deberia elegirte a ti y no a la competencia?`;
+    if (!d.callToAction) return '¿Cual es tu llamada a la accion? ¿Que frase motivaria al prospecto a inscribirse YA?';
+    if (!d.idealStudentProfile) return 'Describe en detalle a tu cliente ideal. ¿Que situacion vive hoy y que resultado busca?';
+    if ((d.benefits?.length || 0) === 0) return '¿Cuales son los principales beneficios o transformaciones que obtendra el alumno?';
+    if ((d.objectionHandlers?.length || 0) === 0) return 'Piensa en las 2-3 objeciones mas comunes que escuchas (ej: "es caro", "no tengo tiempo"). ¿Cuales son y como las respondes?';
+    if ((d.urgencyTriggers?.length || 0) === 0) return '¿Tienes algun gatillo de urgencia? (ej: cupos limitados, precio sube pronto, fecha limite)';
+    if ((d.successStories?.length || 0) === 0) return '¿Tienes algun caso de exito o testimonio? Dame nombre, resultado obtenido y una cita. Si no tienes, escribe "no tengo aun".';
+
+    return null; // All done!
+}
+
+// ─── Component ────────────────────────────────────────────────────────
 export default function CourseUpload() {
     const navigate = useNavigate();
-    const { id } = useParams(); // Get ID from URL
+    const { id } = useParams();
     const [status, setStatus] = useState<AnalysisStatus>('idle');
     const [data, setData] = useState<CourseData>(INITIAL_STATE);
     const [text, setText] = useState('');
     const [youtubeUrl, setYoutubeUrl] = useState('');
-    const [activeTab, setActiveTab] = useState<Tab>('upload');
+    const [activeTab, setActiveTab] = useState<Tab>('type-select');
+    const [errorMessage, setErrorMessage] = useState('');
 
-    // Chat & AI State
-    const [isChatOpen, setIsChatOpen] = useState(false);
-    const [chatMessages, setChatMessages] = useState<{ role: string, content: string }[]>([]);
+    // Chat state (shared between guided + sidebar)
+    const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [applyingChange, setApplyingChange] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const chatEndRef = useRef<HTMLDivElement>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+    // Editor section collapse state
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+        basic: true, instructor: true, typeSpecific: true,
+        content: false, marketing: false, sales: false, social: false,
+    });
+    const toggleSection = (s: string) => setOpenSections(prev => ({ ...prev, [s]: !prev[s] }));
+
+    // Auto-scroll chat
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatMessages]);
 
     // Load data if editing
     useEffect(() => {
@@ -155,33 +331,23 @@ export default function CourseUpload() {
                 setData(INITIAL_STATE);
                 setStatus('idle');
                 setChatMessages([]);
-                setActiveTab('upload');
+                setActiveTab('type-select');
+                setErrorMessage('');
                 return;
             }
-
             try {
-                // Use analyzing as a temporary loading state
                 setStatus('analyzing');
                 const found = await courseService.getById(id);
-
                 if (found) {
-                    // Determine type based on properties or stored type
-                    let type: 'curso' | 'programa' | 'webinar' = 'curso';
-                    if (found.type) {
-                        type = found.type;
-                    } else if ('totalDuration' in found || 'courses' in found) {
-                        type = 'programa';
-                    } else if ('speaker' in found || 'date' in found) {
-                        type = 'webinar';
-                    }
+                    let type: CourseData['type'] = 'curso';
+                    if (found.type) type = found.type;
+                    else if ('totalDuration' in found || 'courses' in found) type = 'programa';
+                    else if ('speaker' in found || 'date' in found) type = 'webinar';
 
-                    // Robust mapping from API to local form state
                     setData({
                         type,
-                        title: found.title || '',
-                        description: found.description || '',
-                        objectives: found.objectives || [],
-                        targetAudience: found.targetAudience || '',
+                        title: found.title || '', description: found.description || '',
+                        objectives: found.objectives || [], targetAudience: found.targetAudience || '',
                         modality: found.modality || 'online',
                         duration: found.duration || found.totalDuration || '',
                         hours: found.hours || found.totalHours || null,
@@ -190,22 +356,17 @@ export default function CourseUpload() {
                         syllabus: found.syllabus || found.courses || [],
                         instructor: found.instructor || found.speaker || '',
                         instructorBio: found.instructorBio || found.speakerBio || '',
-                        price: found.price || null,
-                        currency: found.currency || 'USD',
+                        price: found.price || null, currency: found.currency || 'USD',
                         maxStudents: found.maxStudents || null,
                         category: found.category || 'General',
                         prerequisites: found.prerequisites || null,
                         certification: found.certification || null,
                         promotions: found.promotions || null,
-                        requirements: found.requirements || [],
-                        contactInfo: found.contactInfo || null,
+                        requirements: found.requirements || [], contactInfo: found.contactInfo || null,
                         missing: [],
-                        benefits: found.benefits || [],
-                        painPoints: found.painPoints || [],
-                        guarantee: found.guarantee || '',
-                        socialProof: found.socialProof || [],
-                        faqs: found.faqs || [],
-                        bonuses: found.bonuses || [],
+                        benefits: found.benefits || [], painPoints: found.painPoints || [],
+                        guarantee: found.guarantee || '', socialProof: found.socialProof || [],
+                        faqs: found.faqs || [], bonuses: found.bonuses || [],
                         callToAction: found.callToAction || '',
                         idealStudentProfile: found.idealStudentProfile || '',
                         competitiveAdvantage: found.competitiveAdvantage || '',
@@ -213,39 +374,58 @@ export default function CourseUpload() {
                         objectionHandlers: found.objectionHandlers || [],
                         successStories: found.successStories || [],
                         registrationLink: found.registrationLink || '',
-                        attachments: found.attachments || []
+                        attachments: found.attachments || [],
+                        venue: found.venue || '', venueAddress: found.venueAddress || '',
+                        maxParticipants: found.maxParticipants || undefined,
+                        materials: found.materials || [], deliverables: found.deliverables || [],
+                        earlyBirdPrice: found.earlyBirdPrice || undefined,
+                        advisor: found.advisor || '', advisorBio: found.advisorBio || '',
+                        advisorTitle: found.advisorTitle || '', specialties: found.specialties || [],
+                        pricePerHour: found.pricePerHour || undefined,
+                        minimumHours: found.minimumHours || undefined,
+                        packageHours: found.packageHours || undefined,
+                        packagePrice: found.packagePrice || undefined,
+                        bookingLink: found.bookingLink || '',
+                        availableSchedule: found.availableSchedule || '',
+                        sessionDuration: found.sessionDuration || '',
+                        topicsCovered: found.topicsCovered || [],
+                        steps: found.steps || [], documentsNeeded: found.documentsNeeded || [],
+                        selectionCriteria: found.selectionCriteria || [],
+                        deadline: found.deadline || '', examRequired: found.examRequired || false,
+                        availableSlots: found.availableSlots || undefined,
+                        period: found.period || '', features: found.features || [],
+                        advisoryHours: found.advisoryHours || undefined,
+                        whatsappGroup: found.whatsappGroup || '',
+                        communityAccess: found.communityAccess || '',
+                        maxUsers: found.maxUsers || undefined,
                     });
-                    setActiveTab('details'); // Skip upload step
-                    setStatus('success'); // Mark as loaded
+                    setActiveTab('editor');
+                    setStatus('success');
                 }
             } catch (err) {
                 console.error("Error fetching course detail:", err);
                 setStatus('error');
             }
         };
-
         fetchItem();
     }, [id]);
 
+    // ─── Analyze handler ──────────────────────────────────────────────
     const handleAnalyze = async () => {
         if (!text && !youtubeUrl && !selectedFile) return;
-
         setStatus('analyzing');
+        setErrorMessage('');
         try {
             let resultJson = '';
-
-            // Prioritize Video/File analysis
             if (selectedFile) {
                 const file = selectedFile;
-                const reader = new FileReader();
                 const content = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
                     reader.onload = (e) => resolve(e.target?.result as string);
                     reader.readAsDataURL(file);
                 });
                 resultJson = await analyzeFileContent(content, file.name, data.type);
             } else if (youtubeUrl) {
-                // If YouTube URL is present, ask AI to analyze it (it can't watch it, but can analyze title/context provided)
-                // For a real app, you'd use a server to get transcript. Here we pass URL + Context.
                 resultJson = await analyzeRawText(`Analiza este recurso: ${youtubeUrl}\n\nContexto adicional: ${text}`, data.type);
             } else {
                 resultJson = await analyzeRawText(text, data.type);
@@ -253,65 +433,116 @@ export default function CourseUpload() {
 
             const parsed = JSON.parse(resultJson);
 
-            // Calculate new attachment to add
             let attachmentToAdd: any = null;
             if (selectedFile) {
-                const file = selectedFile;
                 attachmentToAdd = {
-                    id: Date.now().toString(),
-                    name: file.name,
-                    url: '#', // In a real app, upload result URL
-                    type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'video',
-                    size: (file.size / 1024 / 1024).toFixed(2) + ' MB'
+                    id: Date.now().toString(), name: selectedFile.name, url: '#',
+                    type: selectedFile.type.includes('pdf') ? 'pdf' : selectedFile.type.includes('image') ? 'image' : 'video',
+                    size: (selectedFile.size / 1024 / 1024).toFixed(2) + ' MB'
                 };
             } else if (youtubeUrl) {
-                attachmentToAdd = {
-                    id: Date.now().toString(),
-                    name: 'YouTube Resource',
-                    url: youtubeUrl,
-                    type: 'link'
-                };
+                attachmentToAdd = { id: Date.now().toString(), name: 'YouTube Resource', url: youtubeUrl, type: 'link' };
             }
 
-            // Merge with initial state to ensure all fields exist
-            setData(prev => {
-                const currentAttachments = prev.attachments || [];
-                const updatedAttachments = attachmentToAdd
-                    ? [...currentAttachments, attachmentToAdd]
-                    : currentAttachments;
+            // Normalize Gemini response to unified CourseData fields
+            // (model-specific names → unified UI names)
+            if (parsed.speaker && !parsed.instructor) {
+                parsed.instructor = parsed.speaker;
+                parsed.instructorBio = parsed.speakerBio || parsed.instructorBio || '';
+            }
+            if (parsed.coordinator && !parsed.instructor) {
+                parsed.instructor = parsed.coordinator;
+            }
+            if (parsed.advisor && !parsed.instructor) {
+                parsed.instructor = parsed.advisor;
+                parsed.instructorBio = parsed.advisorBio || parsed.instructorBio || '';
+            }
+            if (parsed.totalDuration && !parsed.duration) {
+                parsed.duration = parsed.totalDuration;
+            }
+            if (parsed.totalHours && !parsed.hours) {
+                parsed.hours = typeof parsed.totalHours === 'number' ? parsed.totalHours : parseInt(parsed.totalHours) || null;
+            }
+            if (parsed.eventDate && !parsed.startDate) {
+                parsed.startDate = parsed.eventDate;
+            }
+            if (parsed.eventTime && !parsed.schedule) {
+                parsed.schedule = parsed.eventTime;
+            }
+            if (parsed.topics && !parsed.objectives && data.type === 'webinar') {
+                parsed.objectives = parsed.topics;
+            }
+            if (parsed.courses && !parsed.syllabus && data.type === 'programa') {
+                parsed.syllabus = parsed.courses;
+            }
+            if (parsed.period && !parsed.frequency) {
+                parsed.frequency = parsed.period;
+            }
 
+            const mergedData = { ...data, ...parsed };
+
+            setData(prev => {
+                const atts = prev.attachments || [];
                 return {
-                    ...prev,
-                    ...parsed,
-                    objectives: parsed.objectives || [],
-                    syllabus: parsed.syllabus || [],
-                    requirements: parsed.requirements || [],
-                    attachments: updatedAttachments
+                    ...prev, ...parsed,
+                    objectives: parsed.objectives || prev.objectives || [],
+                    syllabus: parsed.syllabus || prev.syllabus || [],
+                    requirements: parsed.requirements || prev.requirements || [],
+                    attachments: attachmentToAdd ? [...atts, attachmentToAdd] : atts,
                 };
             });
 
             setStatus('success');
-            setActiveTab('details');
+            setActiveTab('guided');
 
-            // Proactive Review
+            // Build initial guided messages
+            const msgs: { role: string; content: string }[] = [];
+            const fields = [
+                mergedData.title && `"${mergedData.title}"`,
+                `${mergedData.objectives?.length || 0} objetivos`,
+                `${mergedData.syllabus?.length || 0} modulos`,
+                mergedData.price ? `$${mergedData.price} ${mergedData.currency || 'USD'}` : null,
+                mergedData.instructor ? `Instructor: ${mergedData.instructor}` : null,
+            ].filter(Boolean);
+            msgs.push({ role: 'assistant', content: `He analizado tu ${TYPE_LABELS[mergedData.type]}. Encontre: ${fields.join(', ')}.` });
+
+            // Try proactive review
             try {
                 const reviewJson = await reviewContent(parsed);
                 const review = JSON.parse(reviewJson);
-                setChatMessages([
-                    { role: 'assistant', content: '✅ Información extraída.' },
-                    { role: 'assistant', content: `🕵️ **Auditoría de Ventas:**\n\n**Puntaje:** ${review.score}/10\n\n_${review.critique}_\n\n**Sugerencias:**\n${review.suggestions.map((s: any) => `• ${s}`).join('\n')}` }
-                ]);
-            } catch (e) {
-                setChatMessages([{ role: 'assistant', content: '¡He extraído la información! Revisa los campos.' }]);
-            }
+                if (review.score !== undefined) {
+                    msgs.push({ role: 'assistant', content: `Auditoria comercial: ${review.score}/10\n${review.suggestions?.slice(0, 3).map((s: string) => `• ${s}`).join('\n') || ''}` });
+                }
+            } catch { /* skip review if fails */ }
 
-        } catch (error) {
-            console.error(error);
+            msgs.push({ role: 'assistant', content: 'Voy a hacerte algunas preguntas para completar la informacion comercial. Responde con naturalidad.' });
+
+            const nextQ = getNextQuestion(mergedData as CourseData);
+            if (nextQ) msgs.push({ role: 'assistant', content: nextQ });
+            else msgs.push({ role: 'assistant', content: 'Tu producto ya tiene toda la informacion comercial necesaria. Puedes ir al editor para revisar los detalles.' });
+
+            setChatMessages(msgs);
+
+        } catch (error: any) {
+            console.error('Analysis error:', error);
+            const msg = error?.message || String(error);
+            if (msg.includes('API_KEY_INVALID') || msg.includes('invalid')) {
+                setErrorMessage('API Key de Gemini invalida. Ve a Configuracion para actualizarla.');
+            } else if (msg.includes('429') || msg.includes('rate') || msg.includes('quota')) {
+                setErrorMessage('Se alcanzo el limite de uso de la API. Espera unos minutos e intenta de nuevo.');
+            } else if (msg.includes('network') || msg.includes('fetch')) {
+                setErrorMessage('Error de conexion. Verifica tu internet e intenta de nuevo.');
+            } else if (msg.includes('JSON') || msg.includes('parse')) {
+                setErrorMessage('La IA no pudo estructurar la informacion. Intenta pegar el contenido como texto.');
+            } else {
+                setErrorMessage(msg.length > 200 ? 'Error al analizar. Intenta con otro formato o pega texto directamente.' : msg);
+            }
             setStatus('error');
         }
     };
 
-    const handleChatAction = async () => {
+    // ─── Chat handler (guided + sidebar) ──────────────────────────────
+    const handleChatAction = useCallback(async () => {
         if (!chatInput.trim()) return;
         const msg = chatInput;
         setChatInput('');
@@ -319,788 +550,908 @@ export default function CourseUpload() {
         setApplyingChange(true);
 
         try {
-            // Context is current form data
+            // Include last AI question as context for better field mapping
+            const lastAiMsg = chatMessages.filter(m => m.role === 'assistant').pop()?.content || '';
+            const contextPrompt = lastAiMsg
+                ? `Pregunta anterior del sistema: "${lastAiMsg}"\n\nRespuesta del usuario: "${msg}"`
+                : msg;
+
             const context = JSON.stringify(data);
-            const responseJson = await completeField(context, msg);
+            const responseJson = await completeField(context, contextPrompt);
             const response = JSON.parse(responseJson);
 
             if (response.updates) {
+                const newData = { ...data, ...response.updates };
                 setData(prev => ({ ...prev, ...response.updates }));
-                setChatMessages(prev => [...prev, { role: 'assistant', content: `✅ ${response.message}` }]);
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `${response.message}` }]);
+
+                // Auto-ask next question in guided mode
+                if (activeTab === 'guided') {
+                    const nextQ = getNextQuestion(newData as CourseData);
+                    if (nextQ) {
+                        setTimeout(() => {
+                            setChatMessages(prev => [...prev, { role: 'assistant', content: nextQ }]);
+                        }, 1200);
+                    } else {
+                        setTimeout(() => {
+                            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Tu producto esta completo. Toda la informacion comercial ha sido recopilada. Haz clic en "Ir al Editor" para revisar los detalles finales.' }]);
+                        }, 1200);
+                    }
+                }
             } else {
                 setChatMessages(prev => [...prev, { role: 'assistant', content: response.message || 'No pude entender el cambio solicitado.' }]);
             }
-        } catch (e) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: '❌ Error al procesar la solicitud.' }]);
+        } catch {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Error al procesar. Intenta reformular tu respuesta.' }]);
         } finally {
             setApplyingChange(false);
         }
+    }, [chatInput, chatMessages, data, activeTab]);
+
+    // ─── Build payload mapped to correct model fields per type ────────
+    const buildPayload = (d: CourseData) => {
+        const type = d.type;
+        // Common fields all models share
+        const base: Record<string, any> = {
+            type,
+            title: d.title,
+            description: d.description,
+            targetAudience: d.targetAudience,
+            status: 'borrador',
+            category: d.category || '',
+            tags: d.tools ? [] : [],
+            requirements: d.requirements || [],
+            benefits: d.benefits || [],
+            painPoints: d.painPoints || [],
+            socialProof: d.socialProof || [],
+            bonuses: d.bonuses || [],
+            urgencyTriggers: d.urgencyTriggers || [],
+            objectionHandlers: d.objectionHandlers || [],
+            successStories: d.successStories || [],
+            callToAction: d.callToAction || '',
+            idealStudentProfile: d.idealStudentProfile || '',
+            competitiveAdvantage: d.competitiveAdvantage || '',
+            guarantee: d.guarantee || '',
+        };
+        if (d.registrationLink) base.registrationLink = d.registrationLink;
+        if (d.promotions) base.promotions = d.promotions;
+        if (d.location) base.location = d.location;
+        if (d.tools?.length) base.tools = d.tools;
+        if (d.tags?.length) base.tags = d.tags;
+
+        // Type-specific field mapping
+        switch (type) {
+            case 'curso':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    modality: d.modality || 'online',
+                    duration: d.duration || '',
+                    totalHours: d.hours || undefined,
+                    schedule: d.schedule || undefined,
+                    startDate: d.startDate || undefined,
+                    instructor: d.instructor || '',
+                    instructorBio: d.instructorBio || '',
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    maxStudents: d.maxStudents || undefined,
+                    prerequisites: d.prerequisites || undefined,
+                    certification: d.certification || undefined,
+                    earlyBirdPrice: d.earlyBirdPrice || undefined,
+                    syllabus: d.syllabus || [],
+                    faqs: d.faqs || [],
+                };
+            case 'programa':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    modality: d.modality || 'online',
+                    totalDuration: d.duration || '',
+                    totalHours: d.hours || 0,
+                    coordinator: d.instructor || '', // unified "instructor" maps to coordinator
+                    schedule: d.schedule || undefined,
+                    startDate: d.startDate || undefined,
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    maxStudents: d.maxStudents || undefined,
+                    prerequisites: d.prerequisites || undefined,
+                    certification: d.certification || '',
+                    courses: d.syllabus || [], // unified "syllabus" maps to programCourses
+                    faqs: d.faqs || [],
+                };
+            case 'webinar':
+                return {
+                    ...base,
+                    modality: d.modality || 'online',
+                    duration: d.duration || '',
+                    speaker: d.instructor || '', // unified "instructor" maps to speaker
+                    speakerBio: d.instructorBio || '',
+                    speakerTitle: (d as any).speakerTitle || '',
+                    eventDate: d.startDate || undefined,
+                    eventTime: d.schedule || undefined,
+                    topics: d.objectives || [], // unified "objectives" maps to topics
+                    keyTopics: d.topicsCovered || [],
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    maxAttendees: d.maxStudents || undefined,
+                    platform: (d as any).platform || undefined,
+                    faqs: d.faqs || [],
+                };
+            case 'taller':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    modality: d.modality || 'presencial',
+                    duration: d.duration || '',
+                    totalHours: d.hours || undefined,
+                    schedule: d.schedule || undefined,
+                    eventDate: d.startDate || undefined,
+                    instructor: d.instructor || '',
+                    instructorBio: d.instructorBio || '',
+                    venue: d.venue || '',
+                    venueAddress: d.venueAddress || '',
+                    maxParticipants: d.maxParticipants || undefined,
+                    materials: d.materials || [],
+                    deliverables: d.deliverables || [],
+                    certification: d.certification || undefined,
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    earlyBirdPrice: d.earlyBirdPrice || undefined,
+                    faqs: d.faqs || [],
+                };
+            case 'asesoria':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    modality: d.modality || 'online',
+                    advisor: d.advisor || d.instructor || '',
+                    advisorBio: d.advisorBio || d.instructorBio || '',
+                    advisorTitle: d.advisorTitle || '',
+                    specialties: d.specialties || [],
+                    pricePerHour: parseFloat(String(d.pricePerHour)) || 0,
+                    currency: d.currency || 'USD',
+                    minimumHours: d.minimumHours || 1,
+                    packageHours: d.packageHours || undefined,
+                    packagePrice: d.packagePrice || undefined,
+                    bookingLink: d.bookingLink || '',
+                    availableSchedule: d.availableSchedule || '',
+                    sessionDuration: d.sessionDuration || '',
+                    topicsCovered: d.topicsCovered || [],
+                    deliverables: d.deliverables || [],
+                    faqs: d.faqs || [],
+                };
+            case 'subscripcion':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    period: d.period || d.frequency || 'mensual',
+                    features: d.features || [],
+                    advisoryHours: d.advisoryHours || undefined,
+                    whatsappGroup: d.whatsappGroup || '',
+                    communityAccess: d.communityAccess || '',
+                    maxUsers: d.maxUsers || undefined,
+                    faqs: d.faqs || [],
+                };
+            case 'postulacion':
+                return {
+                    ...base,
+                    objectives: d.objectives || [],
+                    modality: d.modality || 'online',
+                    duration: d.duration || undefined,
+                    startDate: d.startDate || undefined,
+                    deadline: d.deadline || undefined,
+                    availableSlots: d.availableSlots || undefined,
+                    examRequired: d.examRequired || false,
+                    steps: d.steps || [],
+                    documentsNeeded: d.documentsNeeded || [],
+                    selectionCriteria: d.selectionCriteria || [],
+                    price: parseFloat(String(d.price)) || 0,
+                    currency: d.currency || 'USD',
+                    faqs: d.faqs || [],
+                };
+            default:
+                return base;
+        }
     };
 
+    // ─── Save handler ─────────────────────────────────────────────────
     const handleSave = async () => {
-        // Basic validation
-        if (!data.title) {
-            alert('Por favor, ingresa un título');
-            return;
-        }
-
+        if (!data.title) { alert('Por favor, ingresa un titulo'); return; }
         try {
             setStatus('analyzing');
-
-            // Strip UI-only fields NOT in Prisma schema
-            // Strip UI-only and read-only fields NOT in Prisma schema
-            const { missing, contactInfo, updatedAt, createdAt, id: _id, orgId: _orgId, ...cleanData } = data as any;
-
-            const payload = {
-                ...cleanData,
-                price: parseFloat(cleanData.price) || 0,
-                status: 'borrador',
-                // Ensure arrays are never null
-                objectives: cleanData.objectives || [],
-                requirements: cleanData.requirements || [],
-                benefits: cleanData.benefits || [],
-                painPoints: cleanData.painPoints || [],
-                socialProof: cleanData.socialProof || [],
-                bonuses: cleanData.bonuses || [],
-                tags: cleanData.tags || [],
-                tools: cleanData.tools || [],
-                faqs: cleanData.faqs || [],
-                syllabus: cleanData.syllabus || [],
-                urgencyTriggers: cleanData.urgencyTriggers || [],
-                objectionHandlers: cleanData.objectionHandlers || [],
-                successStories: cleanData.successStories || [],
-            };
-
-            if (id) {
-                await courseService.update(id, payload);
-            } else {
-                await courseService.create(payload);
-            }
-
+            const payload = buildPayload(data);
+            if (id) await courseService.update(id, payload);
+            else await courseService.create(payload);
             navigate('/courses');
         } catch (error: any) {
-            console.error("Error saving course:", error);
+            console.error("Error saving:", error);
             alert("Error al guardar: " + (error.message || "Intenta de nuevo"));
             setStatus('error');
         }
     };
 
     const addAttachment = () => {
-        const newAtt: Attachment = {
-            id: Date.now().toString(),
-            name: 'Nuevo Recurso.pdf',
-            type: 'pdf',
-            url: '#',
-            size: '1.2 MB'
-        };
-        setData(prev => ({ ...prev, attachments: [...prev.attachments, newAtt] }));
+        setData(prev => ({
+            ...prev,
+            attachments: [...prev.attachments, { id: Date.now().toString(), name: 'Nuevo Recurso.pdf', type: 'pdf', url: '#', size: '1.2 MB' }]
+        }));
     };
 
+    const { percent, missing, missingHigh } = calcCompleteness(data);
+    const progressColor = percent >= 80 ? 'bg-green-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-red-400';
+    const progressTextColor = percent >= 80 ? 'text-green-600' : percent >= 50 ? 'text-yellow-600' : 'text-red-500';
+
+    // ─── Render ───────────────────────────────────────────────────────
     return (
         <div className="flex h-screen bg-gray-50 overflow-hidden">
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative transition-all duration-300">
-                {/* Header */}
-                <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center z-10">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/courses')} className="text-gray-400 hover:text-gray-600">
-                            <X size={24} />
-                        </button>
+                {/* ── Header ── */}
+                <div className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center z-10">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate('/courses')} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900">
-                                {id ? `Editar ${data.type === 'webinar' ? 'Webinar' : data.type === 'programa' ? 'Programa' : data.type === 'postulacion' ? 'Postulación' : data.type === 'subscripcion' ? 'Suscripción' : 'Curso'}` : `Crear Nuevo ${data.type === 'webinar' ? 'Webinar' : data.type === 'postulacion' ? 'Postulación' : data.type === 'subscripcion' ? 'Suscripción' : 'Curso'}`}
+                            <h1 className="text-lg font-bold text-gray-900">
+                                {id ? `Editar ${TYPE_LABELS[data.type]}` : activeTab === 'type-select' ? 'Nuevo Producto' : `Nuevo ${TYPE_LABELS[data.type]}`}
                             </h1>
-                            <p className="text-sm text-gray-500 flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${status === 'success' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                                {id ? 'Editando recurso existente' : status === 'success' ? 'Datos extraídos con IA' : 'Borrador'}
+                            <p className="text-xs text-gray-500">
+                                {activeTab === 'type-select' ? 'Selecciona el tipo' : activeTab === 'upload' ? 'Carga tu contenido' : activeTab === 'guided' ? 'Asistente comercial' : 'Editor completo'}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        {/* Completeness Indicator */}
-                        {status === 'success' && (() => {
-                            const { percent, missing } = calcCompleteness(data);
-                            const color = percent >= 80 ? 'bg-green-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-red-400';
-                            return (
-                                <div className="group relative">
-                                    <div className="flex items-center gap-2 cursor-help">
-                                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                            <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${percent}%` }} />
-                                        </div>
-                                        <span className={`text-xs font-bold ${percent >= 80 ? 'text-green-600' : percent >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
-                                            {percent}%
-                                        </span>
-                                    </div>
-                                    {missing.length > 0 && (
-                                        <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50 hidden group-hover:block">
-                                            <p className="text-xs font-bold text-gray-700 mb-2">Campos faltantes:</p>
-                                            <ul className="text-xs text-gray-500 space-y-1">
-                                                {missing.map((m, i) => <li key={i} className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-400 rounded-full flex-shrink-0" />{m}</li>)}
-                                            </ul>
-                                        </div>
-                                    )}
+                    <div className="flex items-center gap-3">
+                        {status === 'success' && (
+                            <div className="flex items-center gap-2">
+                                <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className={`h-full ${progressColor} rounded-full transition-all`} style={{ width: `${percent}%` }} />
                                 </div>
-                            );
-                        })()}
-                        <button onClick={() => setIsChatOpen(!isChatOpen)} className={`btn gap-2 ${isChatOpen ? 'btn-primary' : 'btn-ghost'}`}>
-                            <MessageSquare size={18} /> Asistente IA
-                        </button>
-                        <button onClick={handleSave} className="btn btn-primary gap-2 px-6">
-                            <Check size={18} /> Guardar Registro
+                                <span className={`text-xs font-bold ${progressTextColor}`}>{percent}%</span>
+                            </div>
+                        )}
+                        {activeTab === 'editor' && (
+                            <button onClick={() => setIsChatOpen(!isChatOpen)} className={`btn btn-sm gap-1.5 ${isChatOpen ? 'btn-primary' : 'btn-ghost'}`}>
+                                <MessageSquare size={16} /> IA
+                            </button>
+                        )}
+                        <button onClick={handleSave} className="btn btn-primary btn-sm gap-1.5 px-4">
+                            <Check size={16} /> Guardar
                         </button>
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="max-w-5xl mx-auto">
+                {/* ── Steps bar ── */}
+                <div className="bg-white border-b border-gray-100 px-6 flex items-center gap-1 overflow-x-auto">
+                    {[
+                        { id: 'type-select' as Tab, label: 'Tipo', step: 1 },
+                        { id: 'upload' as Tab, label: 'Contenido', step: 2 },
+                        { id: 'guided' as Tab, label: 'Asistente', step: 3 },
+                        { id: 'editor' as Tab, label: 'Editor', step: 4 },
+                    ].map((tab, i) => {
+                        const isActive = activeTab === tab.id;
+                        const isPast = ['type-select', 'upload', 'guided', 'editor'].indexOf(activeTab) > i;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                                    isActive ? 'border-blue-600 text-blue-600' : isPast ? 'border-transparent text-green-600' : 'border-transparent text-gray-400'
+                                }`}
+                            >
+                                <span className={`w-5 h-5 rounded-full text-xs flex items-center justify-center font-bold ${
+                                    isActive ? 'bg-blue-600 text-white' : isPast ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                                }`}>{isPast && !isActive ? <Check size={12} /> : tab.step}</span>
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
 
-                        {/* Tabs */}
-                        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto">
-                            {[
-                                { id: 'upload', label: '1. Cargar Contenido', icon: Upload },
-                                { id: 'details', label: '2. Detalles Básicos', icon: Layout },
-                                { id: 'content', label: '3. Temario', icon: BookOpen },
-                                { id: 'tools', label: '4. Herramientas y Requisitos', icon: FileText },
-                                { id: 'marketing', label: '5. Venta y Marketing', icon: DollarSign },
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as Tab)}
-                                    className={`flex whitespace-nowrap items-center gap-2 px-6 py-4 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    <tab.icon size={16} />
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
+                {/* ── Content ── */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className={`${activeTab === 'guided' ? 'h-full' : 'p-6'}`}>
+                        <div className={`${activeTab === 'guided' ? 'h-full' : 'max-w-5xl mx-auto'}`}>
 
-                        {/* Step 1: Upload */}
-                        {activeTab === 'upload' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
-                                <div className="space-y-6">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                            <FileText className="text-blue-600" size={20} />
-                                            Pegar Información Texto
-                                        </h3>
-                                        <textarea
-                                            className="w-full h-48 p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                            placeholder="Pega aquí el temario, brochure o notas del experto..."
-                                            value={text}
-                                            onChange={e => setText(e.target.value)}
-                                        />
+                            {/* ═══ STEP 1: Type Select ═══ */}
+                            {activeTab === 'type-select' && (
+                                <div className="animate-fade-in">
+                                    <div className="text-center mb-8">
+                                        <h2 className="text-2xl font-bold text-gray-900">Que tipo de producto quieres crear?</h2>
+                                        <p className="text-gray-500 mt-2">La IA adaptara el analisis y los campos segun el tipo</p>
                                     </div>
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                            <Video className="text-red-600" size={20} />
-                                            Enlace de YouTube
-                                        </h3>
-                                        <input
-                                            className="input w-full"
-                                            placeholder="https://youtube.com/watch?v=..."
-                                            value={youtubeUrl}
-                                            onChange={e => setYoutubeUrl(e.target.value)}
-                                        />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                                        {TYPE_OPTIONS.map(opt => {
+                                            const Icon = opt.icon;
+                                            const isSelected = data.type === opt.value;
+                                            const colorMap: Record<string, string> = {
+                                                blue: 'border-blue-500 bg-blue-50 ring-blue-200',
+                                                purple: 'border-purple-500 bg-purple-50 ring-purple-200',
+                                                green: 'border-green-500 bg-green-50 ring-green-200',
+                                                amber: 'border-amber-500 bg-amber-50 ring-amber-200',
+                                                pink: 'border-pink-500 bg-pink-50 ring-pink-200',
+                                                teal: 'border-teal-500 bg-teal-50 ring-teal-200',
+                                                indigo: 'border-indigo-500 bg-indigo-50 ring-indigo-200',
+                                            };
+                                            const iconColorMap: Record<string, string> = {
+                                                blue: 'text-blue-600', purple: 'text-purple-600', green: 'text-green-600',
+                                                amber: 'text-amber-600', pink: 'text-pink-600', teal: 'text-teal-600', indigo: 'text-indigo-600',
+                                            };
+                                            return (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => { setData(prev => ({ ...prev, type: opt.value as any })); setActiveTab('upload'); }}
+                                                    className={`p-6 rounded-xl border-2 text-left transition-all hover:shadow-md ${isSelected ? `${colorMap[opt.color]} ring-2` : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                                                >
+                                                    <Icon size={28} className={isSelected ? iconColorMap[opt.color] : 'text-gray-400'} />
+                                                    <h3 className="font-bold text-lg mt-3 text-gray-900">{opt.label}</h3>
+                                                    <p className="text-sm text-gray-500 mt-1">{opt.desc}</p>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
+                            )}
 
-                                <div className="space-y-6">
-                                    <div className="bg-white p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors h-full flex flex-col items-center justify-center text-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
-                                        <input
-                                            type="file"
-                                            ref={fileInputRef}
-                                            className="hidden"
-                                            accept=".pdf,.docx,.txt,video/*"
-                                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                        />
-                                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                                            <Upload className="text-blue-600 w-8 h-8" />
+                            {/* ═══ STEP 2: Upload ═══ */}
+                            {activeTab === 'upload' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
+                                    <div className="space-y-4">
+                                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                                            <h3 className="font-bold text-base mb-3 flex items-center gap-2">
+                                                <FileText className="text-blue-600" size={18} /> Pegar Informacion
+                                            </h3>
+                                            <textarea
+                                                className="w-full h-40 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                placeholder="Pega aqui el temario, brochure, landing page o notas del experto..."
+                                                value={text} onChange={e => setText(e.target.value)}
+                                            />
                                         </div>
-                                        <h3 className="font-bold text-gray-900">Subir Archivo o Video</h3>
-                                        <p className="text-sm text-gray-500 mt-2 max-w-xs">
-                                            Arrastra tu PDF, Word o Video (MP4) aquí. La IA analizará el contenido visual o textual.
-                                        </p>
+                                        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                                            <h3 className="font-bold text-base mb-3 flex items-center gap-2">
+                                                <Video className="text-red-600" size={18} /> Enlace YouTube
+                                            </h3>
+                                            <input className="input w-full" placeholder="https://youtube.com/watch?v=..." value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-5 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 transition-colors flex flex-col items-center justify-center text-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                        <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.docx,.txt,video/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                                        <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-3">
+                                            <Upload className="text-blue-600 w-7 h-7" />
+                                        </div>
+                                        <h3 className="font-bold text-gray-900">Subir Archivo</h3>
+                                        <p className="text-sm text-gray-500 mt-1 max-w-xs">PDF, Word o Video. La IA analizara el contenido.</p>
                                         {selectedFile && (
-                                            <div className="mt-4 px-4 py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium flex items-center gap-2">
-                                                <Check size={14} />
-                                                {selectedFile.name}
+                                            <div className="mt-3 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium flex items-center gap-2">
+                                                <Check size={14} /> {selectedFile.name}
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                                <div className="col-span-full">
-                                    <button
-                                        onClick={handleAnalyze}
-                                        disabled={status === 'analyzing' || (!text && !youtubeUrl && !selectedFile)}
-                                        className="btn btn-primary w-full py-4 text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {status === 'analyzing' ? (
-                                            <span className="flex items-center gap-2"><Loader className="animate-spin" /> Analizando Contenido...</span>
-                                        ) : (
-                                            <span className="flex items-center gap-2"><Wand2 /> Analizar y Extraer Datos</span>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 2: Details */}
-                        {activeTab === 'details' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">
-                                <div className="space-y-4">
-                                    <label className="block text-sm font-medium text-gray-700">Título del Curso</label>
-                                    <input className="input w-full font-bold text-lg" value={data.title} onChange={e => setData({ ...data, title: e.target.value })} />
-
-                                    <label className="block text-sm font-medium text-gray-700">Descripción Persuasiva</label>
-                                    <textarea className="input w-full h-32" value={data.description} onChange={e => setData({ ...data, description: e.target.value })} />
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Tipo de Registro</label>
-                                            <select className="input w-full" value={data.type} onChange={e => setData({ ...data, type: e.target.value as any })}>
-                                                <option value="curso">Curso</option>
-                                                <option value="programa">Programa</option>
-                                                <option value="webinar">Webinar</option>
-                                                <option value="taller">Taller</option>
-                                                <option value="subscripcion">Suscripción</option>
-                                                <option value="asesoria">Asesoría</option>
-                                                <option value="postulacion">Postulación</option>
-                                            </select>
+                                    <div className="col-span-full space-y-3">
+                                        <div className="flex items-center gap-3 px-3 py-2 bg-gray-100 rounded-lg text-sm">
+                                            <span className="text-gray-500">Tipo:</span>
+                                            <span className="font-bold text-gray-800">{TYPE_LABELS[data.type]}</span>
+                                            <button onClick={() => setActiveTab('type-select')} className="text-blue-600 hover:underline text-xs ml-auto">Cambiar</button>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Modalidad</label>
-                                            <select className="input w-full" value={data.modality} onChange={e => setData({ ...data, modality: e.target.value as any })}>
-                                                <option value="online">Online</option>
-                                                <option value="presencial">Presencial</option>
-                                                <option value="hibrido">Híbrido</option>
-                                                <option value="remoto">Remoto</option>
-                                            </select>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={handleAnalyze}
+                                                disabled={status === 'analyzing' || (!text && !youtubeUrl && !selectedFile)}
+                                                className="btn btn-primary flex-1 py-3 text-base shadow-lg hover:shadow-xl disabled:opacity-50"
+                                            >
+                                                {status === 'analyzing' ? (
+                                                    <span className="flex items-center gap-2"><Loader className="animate-spin" size={18} /> Analizando...</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-2"><Wand2 size={18} /> Analizar con IA</span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => { setStatus('success'); setActiveTab('guided'); setChatMessages([{ role: 'assistant', content: `Vamos a crear tu ${TYPE_LABELS[data.type]} desde cero. Te hare algunas preguntas para completar la informacion.` }, { role: 'assistant', content: getNextQuestion(data) || 'Dame el titulo de tu producto.' }]); }}
+                                                className="btn btn-ghost py-3 text-sm"
+                                            >
+                                                Crear desde cero
+                                            </button>
                                         </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-4 bg-white p-6 rounded-xl border border-gray-200">
-                                    <h3 className="font-bold border-b pb-2 mb-4">Información del Instructor</h3>
-                                    <div className="flex gap-4">
-                                        <div className="w-16 h-16 bg-gray-200 rounded-full flex-shrink-0"></div>
-                                        <div className="flex-1 space-y-3">
-                                            <input className="input w-full" placeholder="Nombre Instructor" value={data.instructor} onChange={e => setData({ ...data, instructor: e.target.value })} />
-                                            <textarea className="input w-full h-20 text-sm" placeholder="Bio corta..." value={data.instructorBio} onChange={e => setData({ ...data, instructorBio: e.target.value })} />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-span-full">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Público Objetivo</label>
-                                    <textarea className="input w-full h-20" value={data.targetAudience} onChange={e => setData({ ...data, targetAudience: e.target.value })} />
-                                </div>
-
-                                <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Fecha de Inicio / Evento</label>
-                                        <input type="date" className="input w-full" value={data.startDate?.split('T')[0] || ''} onChange={e => setData({ ...data, startDate: e.target.value })} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Duración / Horas</label>
-                                        <div className="flex gap-2">
-                                            <input className="input w-2/3" placeholder="Ej: 4 semanas" value={data.duration || ''} onChange={e => setData({ ...data, duration: e.target.value })} />
-                                            <input type="number" className="input w-1/3" placeholder="Hrs" value={data.hours || ''} onChange={e => setData({ ...data, hours: Number(e.target.value) })} />
-                                        </div>
-                                    </div>
-                                </div>
-                                {data.type === 'webinar' && (
-                                    <div className="col-span-full">
-                                        <label className="block text-sm font-medium text-gray-700">Link de Registro (Zoom, Eventbrite, etc)</label>
-                                        <input className="input w-full" placeholder="https://zoom.us/webinar/..." value={data.registrationLink || ''} onChange={e => setData({ ...data, registrationLink: e.target.value })} />
-                                    </div>
-                                )}
-
-                                {data.type === 'postulacion' && (
-                                    <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-blue-50/30 rounded-xl border border-blue-100 mt-4">
-                                        <div className="col-span-full">
-                                            <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-4">
-                                                <Layout size={18} /> Detalles de Postulación
-                                            </h4>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Métodos de Ingreso</label>
-                                            <input className="input w-full" placeholder="Ej: Examen, Entrevista, Méritos" value={data.methods?.join(', ') || ''}
-                                                onChange={e => setData({ ...data, methods: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Modalidades Disponibles</label>
-                                            <input className="input w-full" placeholder="Ej: Ordinario, Especial, Beca" value={data.modalities?.join(', ') || ''}
-                                                onChange={e => setData({ ...data, modalities: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {data.type === 'subscripcion' && (
-                                    <div className="col-span-full grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-purple-50/30 rounded-xl border border-purple-100 mt-4">
-                                        <div className="col-span-full">
-                                            <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-4">
-                                                <DollarSign size={18} /> Plan de Suscripción
-                                            </h4>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Frecuencia de Pago</label>
-                                            <select className="input w-full" value={data.frequency} onChange={e => setData({ ...data, frequency: e.target.value as any })}>
-                                                <option value="mensual">Mensual</option>
-                                                <option value="trimestral">Trimestral</option>
-                                                <option value="anual">Anual</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Precio per Periodo</label>
-                                            <div className="flex gap-2">
-                                                <input type="number" className="input w-full" placeholder="0.00" value={data.price || ''} onChange={e => setData({ ...data, price: Number(e.target.value) })} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Step 2.5: Tools and Requirements */}
-                        {activeTab === 'tools' as Tab && (
-                            <div className="grid grid-cols-1 gap-8 animate-fade-in bg-white p-6 rounded-xl border border-gray-200">
-                                <div>
-                                    <h3 className="font-bold text-lg mb-2">Herramientas a Enseñar</h3>
-                                    <p className="text-sm text-gray-500 mb-4">¿Qué plataformas, softwares o herramientas se enseñarán durante el programa?</p>
-                                    <input className="input w-full" placeholder="Ej: Excel, ChatGPT, n8n, Python" value={data.tools?.join(', ') || ''} onChange={e => setData({ ...data, tools: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                                </div>
-                                <hr className="border-gray-100" />
-                                <div>
-                                    <h3 className="font-bold text-lg mb-2">Requisitos Previos</h3>
-                                    <p className="text-sm text-gray-500 mb-4">¿Qué necesita el estudiante antes de empezar? (Ej: Laptop, Experiencia previa).</p>
-                                    <input className="input w-full" placeholder="Ej: Experiencia previa en ventas, Laptop moderna" value={data.requirements?.join(', ') || ''} onChange={e => setData({ ...data, requirements: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Step 3: Content */}
-                        {activeTab === 'content' && (
-                            <div className="space-y-8 animate-fade-in">
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-lg">Malla Curricular</h3>
-                                        <button className="text-sm text-blue-600 font-medium hover:underline">+ Agregar Módulo</button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {data.syllabus.map((mod, idx) => (
-                                            <div key={idx} className="border border-gray-100 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                                                <div className="flex justify-between font-bold text-gray-800 mb-2">
-                                                    <span>{mod.module || `Módulo ${idx + 1}`}</span>
-                                                    <span className="text-gray-400 text-sm font-normal">Editar</span>
+                                        {status === 'error' && errorMessage && (
+                                            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-3">
+                                                <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                                                <div className="flex-1">
+                                                    <p className="text-red-700 font-medium text-sm">{errorMessage}</p>
+                                                    <p className="text-red-500 text-xs mt-1">Tip: Si el archivo falla, intenta pegar el contenido como texto.</p>
                                                 </div>
-                                                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-2">
-                                                    {mod.topics?.map((t: string, i: number) => <li key={i}>{t}</li>)}
-                                                </ul>
+                                                <button onClick={() => { setErrorMessage(''); setStatus('idle'); handleAnalyze(); }} className="btn btn-sm bg-red-100 text-red-700 hover:bg-red-200 gap-1 flex-shrink-0">
+                                                    <RefreshCw size={14} /> Reintentar
+                                                </button>
                                             </div>
-                                        ))}
-                                        {data.syllabus.length === 0 && <p className="text-gray-400 italic text-center py-8">No se ha detectado temario aún.</p>}
+                                        )}
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Attachments Section */}
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-lg">Recursos Descargables (Brochure, Guías)</h3>
-                                        <button onClick={addAttachment} className="btn btn-sm btn-outline gap-2">
-                                            <Paperclip size={14} /> Adjuntar
+                            {/* ═══ STEP 3: Guided Chat ═══ */}
+                            {activeTab === 'guided' && (
+                                <div className="flex h-full animate-fade-in">
+                                    {/* Left: Summary Card */}
+                                    <div className="w-80 border-r border-gray-200 bg-white p-5 flex flex-col overflow-y-auto flex-shrink-0">
+                                        <div className="space-y-4 flex-1">
+                                            {/* Progress */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Completitud</span>
+                                                    <span className={`text-sm font-bold ${progressTextColor}`}>{percent}%</span>
+                                                </div>
+                                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div className={`h-full ${progressColor} rounded-full transition-all duration-500`} style={{ width: `${percent}%` }} />
+                                                </div>
+                                            </div>
+
+                                            {/* Type badge */}
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg">
+                                                {(() => { const opt = TYPE_OPTIONS.find(o => o.value === data.type); const Icon = opt?.icon || GraduationCap; return <Icon size={16} className="text-gray-500" />; })()}
+                                                <span className="font-bold text-sm text-gray-700">{TYPE_LABELS[data.type]}</span>
+                                            </div>
+
+                                            {/* Data preview */}
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide">Datos extraidos</h4>
+                                                {[
+                                                    ['Titulo', data.title],
+                                                    ['Precio', data.price ? `$${data.price} ${data.currency}` : ''],
+                                                    ['Instructor', data.instructor || data.advisor || ''],
+                                                    ['Objetivos', data.objectives.length ? `${data.objectives.length} definidos` : ''],
+                                                    ['Temario', data.syllabus.length ? `${data.syllabus.length} modulos` : ''],
+                                                ].map(([label, val]) => (
+                                                    <div key={label as string} className="flex items-center justify-between text-sm">
+                                                        <span className="text-gray-500">{label}</span>
+                                                        {val ? (
+                                                            <span className="font-medium text-gray-800 truncate max-w-[140px] text-right">{val as string}</span>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">Pendiente</span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Missing fields */}
+                                            {missingHigh.length > 0 && (
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-red-500 uppercase tracking-wide mb-1.5">Obligatorios</h4>
+                                                    <ul className="space-y-1">
+                                                        {missingHigh.map((m, i) => (
+                                                            <li key={i} className="text-xs text-red-600 font-medium flex items-center gap-1.5">
+                                                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />{m}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            {missing.length > missingHigh.length && (
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-amber-500 uppercase tracking-wide mb-1.5">Recomendados</h4>
+                                                    <ul className="space-y-1">
+                                                        {missing.filter(m => !missingHigh.includes(m)).slice(0, 5).map((m, i) => (
+                                                            <li key={i} className="text-xs text-gray-500 flex items-center gap-1.5">
+                                                                <span className="w-1.5 h-1.5 bg-amber-300 rounded-full flex-shrink-0" />{m}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Go to editor button */}
+                                        <button
+                                            onClick={() => setActiveTab('editor')}
+                                            className={`mt-4 btn w-full gap-2 ${percent >= 40 ? 'btn-primary' : 'btn-ghost border border-gray-200'}`}
+                                        >
+                                            <ArrowRight size={16} />
+                                            {percent >= 40 ? 'Ir al Editor' : 'Saltar al Editor'}
                                         </button>
                                     </div>
-                                    <div className="space-y-3">
-                                        {data.attachments.map((att) => (
-                                            <div key={att.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-white rounded shadow-sm">
-                                                        {att.type === 'pdf' ? <File className="text-red-500" size={20} /> : <LinkIcon className="text-blue-500" size={20} />}
+
+                                    {/* Right: Chat */}
+                                    <div className="flex-1 flex flex-col bg-gray-50">
+                                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                                            {chatMessages.map((msg, i) => (
+                                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                    <div className={`max-w-[75%] p-3 rounded-2xl text-sm leading-relaxed ${
+                                                        msg.role === 'user'
+                                                            ? 'bg-blue-600 text-white rounded-br-md'
+                                                            : 'bg-white border border-gray-200 text-gray-800 rounded-bl-md shadow-sm'
+                                                    }`}>
+                                                        {msg.content.split('\n').map((line, j) => (
+                                                            <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
+                                                        ))}
                                                     </div>
+                                                </div>
+                                            ))}
+                                            {applyingChange && (
+                                                <div className="flex items-center gap-2 text-xs text-gray-400 ml-2">
+                                                    <Loader size={12} className="animate-spin" /> Procesando...
+                                                </div>
+                                            )}
+                                            <div ref={chatEndRef} />
+                                        </div>
+                                        <div className="p-4 bg-white border-t border-gray-200">
+                                            <div className="relative max-w-2xl mx-auto">
+                                                <input
+                                                    className="w-full pl-4 pr-12 py-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Responde aqui..."
+                                                    value={chatInput} onChange={e => setChatInput(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleChatAction()}
+                                                    disabled={applyingChange}
+                                                />
+                                                <button onClick={handleChatAction} disabled={!chatInput.trim() || applyingChange}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50">
+                                                    <Send size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ═══ STEP 4: Full Editor ═══ */}
+                            {activeTab === 'editor' && (
+                                <div className="space-y-4 animate-fade-in pb-8">
+
+                                    {/* Section: Basic Info */}
+                                    <EditorSection title="Informacion Basica" id="basic" open={openSections.basic} toggle={toggleSection}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="col-span-full">
+                                                <label className="label-sm">Titulo</label>
+                                                <input className="input w-full font-bold text-lg" value={data.title} onChange={e => setData({ ...data, title: e.target.value })} />
+                                            </div>
+                                            <div className="col-span-full">
+                                                <label className="label-sm">Descripcion Comercial</label>
+                                                <textarea className="input w-full h-28" value={data.description} onChange={e => setData({ ...data, description: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Tipo</label>
+                                                <div className="input w-full bg-gray-50 font-bold text-gray-700 cursor-default">{TYPE_LABELS[data.type]}</div>
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Modalidad</label>
+                                                <select className="input w-full" value={data.modality} onChange={e => setData({ ...data, modality: e.target.value as any })}>
+                                                    <option value="online">Online</option>
+                                                    <option value="presencial">Presencial</option>
+                                                    <option value="hibrido">Hibrido</option>
+                                                    <option value="remoto">Remoto</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-full">
+                                                <label className="label-sm">Publico Objetivo</label>
+                                                <textarea className="input w-full h-16" value={data.targetAudience} onChange={e => setData({ ...data, targetAudience: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Fecha de Inicio</label>
+                                                <input type="date" className="input w-full" value={data.startDate?.split('T')[0] || ''} onChange={e => setData({ ...data, startDate: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Duracion / Horas</label>
+                                                <div className="flex gap-2">
+                                                    <input className="input w-2/3" placeholder="Ej: 4 semanas" value={data.duration || ''} onChange={e => setData({ ...data, duration: e.target.value })} />
+                                                    <input type="number" className="input w-1/3" placeholder="Hrs" value={data.hours || ''} onChange={e => setData({ ...data, hours: Number(e.target.value) })} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Objetivos (uno por linea)</label>
+                                                <textarea className="input w-full h-20" value={data.objectives.join('\n')} onChange={e => setData({ ...data, objectives: e.target.value.split('\n').filter(Boolean) })} />
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Requisitos Previos (coma)</label>
+                                                <input className="input w-full" placeholder="Ej: Laptop, experiencia previa" value={data.requirements?.join(', ') || ''} onChange={e => setData({ ...data, requirements: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                            </div>
+                                        </div>
+                                    </EditorSection>
+
+                                    {/* Section: Instructor */}
+                                    {!['postulacion'].includes(data.type) && (
+                                        <EditorSection title={data.type === 'asesoria' ? 'Asesor' : 'Instructor'} id="instructor" open={openSections.instructor} toggle={toggleSection}>
+                                            <div className="flex gap-4">
+                                                <div className="w-14 h-14 bg-gray-200 rounded-full flex-shrink-0" />
+                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <input className="input w-full" placeholder="Nombre" value={data.type === 'asesoria' ? (data.advisor || '') : data.instructor} onChange={e => data.type === 'asesoria' ? setData({ ...data, advisor: e.target.value }) : setData({ ...data, instructor: e.target.value })} />
+                                                    {data.type === 'asesoria' && <input className="input w-full" placeholder="Titulo profesional" value={data.advisorTitle || ''} onChange={e => setData({ ...data, advisorTitle: e.target.value })} />}
+                                                    <textarea className="input w-full h-16 text-sm col-span-full" placeholder="Bio corta..." value={data.type === 'asesoria' ? (data.advisorBio || '') : data.instructorBio} onChange={e => data.type === 'asesoria' ? setData({ ...data, advisorBio: e.target.value }) : setData({ ...data, instructorBio: e.target.value })} />
+                                                </div>
+                                            </div>
+                                        </EditorSection>
+                                    )}
+
+                                    {/* Section: Type-Specific */}
+                                    {['taller', 'asesoria', 'postulacion', 'subscripcion', 'webinar', 'programa'].includes(data.type) && (
+                                        <EditorSection title={`Detalles de ${TYPE_LABELS[data.type]}`} id="typeSpecific" open={openSections.typeSpecific} toggle={toggleSection}>
+                                            {data.type === 'taller' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <InputField label="Sede / Venue" pending value={data.venue || ''} onChange={v => setData({ ...data, venue: v })} />
+                                                    <InputField label="Direccion" pending value={data.venueAddress || ''} onChange={v => setData({ ...data, venueAddress: v })} />
+                                                    <InputField label="Capacidad Maxima" pending type="number" value={data.maxParticipants || ''} onChange={v => setData({ ...data, maxParticipants: Number(v) || undefined })} />
+                                                    <InputField label="Precio Early Bird" type="number" value={data.earlyBirdPrice || ''} onChange={v => setData({ ...data, earlyBirdPrice: Number(v) || undefined })} />
+                                                    <TextareaField label="Materiales (uno por linea)" value={data.materials?.join('\n') || ''} onChange={v => setData({ ...data, materials: v.split('\n').filter(Boolean) })} />
+                                                    <TextareaField label="Entregables (uno por linea)" value={data.deliverables?.join('\n') || ''} onChange={v => setData({ ...data, deliverables: v.split('\n').filter(Boolean) })} />
+                                                </div>
+                                            )}
+                                            {data.type === 'asesoria' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <InputField label="Precio por Hora" pending type="number" value={data.pricePerHour || ''} onChange={v => setData({ ...data, pricePerHour: Number(v) || undefined })} />
+                                                    <InputField label="Horas Minimas" type="number" value={data.minimumHours || ''} onChange={v => setData({ ...data, minimumHours: Number(v) || undefined })} />
+                                                    <InputField label="Paquete: Horas" type="number" value={data.packageHours || ''} onChange={v => setData({ ...data, packageHours: Number(v) || undefined })} />
+                                                    <InputField label="Paquete: Precio" type="number" value={data.packagePrice || ''} onChange={v => setData({ ...data, packagePrice: Number(v) || undefined })} />
+                                                    <InputField label="Duracion de Sesion" pending value={data.sessionDuration || ''} onChange={v => setData({ ...data, sessionDuration: v })} placeholder="Ej: 60 minutos" />
+                                                    <InputField label="Link de Reserva" pending value={data.bookingLink || ''} onChange={v => setData({ ...data, bookingLink: v })} placeholder="https://calendly.com/..." />
+                                                    <InputField label="Especialidades (coma)" pending value={data.specialties?.join(', ') || ''} onChange={v => setData({ ...data, specialties: v.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                                    <InputField label="Temas Cubiertos (coma)" value={data.topicsCovered?.join(', ') || ''} onChange={v => setData({ ...data, topicsCovered: v.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                                    <div className="col-span-full">
+                                                        <InputField label="Horario Disponible" value={data.availableSchedule || ''} onChange={v => setData({ ...data, availableSchedule: v })} placeholder="Ej: Lunes a Viernes 9am-6pm" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {data.type === 'postulacion' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
-                                                        <p className="font-medium text-sm text-gray-900">{att.name}</p>
-                                                        <p className="text-xs text-gray-500">{att.size || 'Enlace externo'}</p>
+                                                        <label className="label-sm">Fecha Limite</label>
+                                                        <input type="date" className="input w-full" value={data.deadline || ''} onChange={e => setData({ ...data, deadline: e.target.value })} />
                                                     </div>
+                                                    <InputField label="Cupos Disponibles" pending type="number" value={data.availableSlots || ''} onChange={v => setData({ ...data, availableSlots: Number(v) || undefined })} />
+                                                    <div className="col-span-full">
+                                                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                            <input type="checkbox" checked={data.examRequired || false} onChange={e => setData({ ...data, examRequired: e.target.checked })} className="rounded" />
+                                                            Requiere examen de admision
+                                                        </label>
+                                                    </div>
+                                                    <TextareaField label="Pasos del Proceso (uno por linea)" value={data.steps?.join('\n') || ''} onChange={v => setData({ ...data, steps: v.split('\n').filter(Boolean) })} />
+                                                    <TextareaField label="Documentos Requeridos (uno por linea)" value={data.documentsNeeded?.join('\n') || ''} onChange={v => setData({ ...data, documentsNeeded: v.split('\n').filter(Boolean) })} />
+                                                    <InputField label="Criterios de Seleccion (coma)" value={data.selectionCriteria?.join(', ') || ''} onChange={v => setData({ ...data, selectionCriteria: v.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                                    <InputField label="Metodos de Ingreso (coma)" value={data.methods?.join(', ') || ''} onChange={v => setData({ ...data, methods: v.split(',').map(s => s.trim()).filter(Boolean) })} />
                                                 </div>
-                                                <button className="text-gray-400 hover:text-red-500"><X size={16} /></button>
-                                            </div>
-                                        ))}
-                                        {data.attachments.length === 0 && (
-                                            <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-sm">
-                                                Arrastra archivos aquí o haz clic en "Adjuntar"
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                                            )}
+                                            {data.type === 'subscripcion' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="label-sm">Frecuencia</label>
+                                                        <select className="input w-full" value={data.frequency} onChange={e => setData({ ...data, frequency: e.target.value as any })}>
+                                                            <option value="mensual">Mensual</option>
+                                                            <option value="trimestral">Trimestral</option>
+                                                            <option value="anual">Anual</option>
+                                                        </select>
+                                                    </div>
+                                                    <InputField label="Precio por Periodo" type="number" value={data.price || ''} onChange={v => setData({ ...data, price: Number(v) })} />
+                                                    <TextareaField label="Beneficios Incluidos (uno por linea)" cls="col-span-full" value={data.features?.join('\n') || ''} onChange={v => setData({ ...data, features: v.split('\n').filter(Boolean) })} />
+                                                    <InputField label="Horas Asesoria Incluidas" type="number" value={data.advisoryHours || ''} onChange={v => setData({ ...data, advisoryHours: Number(v) || undefined })} />
+                                                    <InputField label="Max Usuarios" type="number" value={data.maxUsers || ''} onChange={v => setData({ ...data, maxUsers: Number(v) || undefined })} />
+                                                    <InputField label="Grupo WhatsApp" value={data.whatsappGroup || ''} onChange={v => setData({ ...data, whatsappGroup: v })} />
+                                                    <InputField label="Acceso a Comunidad" value={data.communityAccess || ''} onChange={v => setData({ ...data, communityAccess: v })} placeholder="Discord, Slack, etc." />
+                                                </div>
+                                            )}
+                                            {data.type === 'webinar' && (
+                                                <InputField label="Link de Registro (Zoom, Eventbrite)" pending value={data.registrationLink || ''} onChange={v => setData({ ...data, registrationLink: v })} />
+                                            )}
+                                            {data.type === 'programa' && (
+                                                <InputField label="Link de Registro" value={data.registrationLink || ''} onChange={v => setData({ ...data, registrationLink: v })} />
+                                            )}
+                                        </EditorSection>
+                                    )}
 
-                        {/* Step 4: Marketing */}
-                        {activeTab === 'marketing' && (
-                            <div className="space-y-8 animate-fade-in">
-                                {/* Pricing & Guarantee */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 text-green-700 flex items-center gap-2"><DollarSign size={20} /> Oferta Irresistible</h3>
+                                    {/* Section: Content / Syllabus */}
+                                    <EditorSection title="Temario y Recursos" id="content" open={openSections.content} toggle={toggleSection}>
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-bold text-gray-700">Precio</label>
-                                                    <input type="number" className="input w-full" value={data.price || ''} onChange={e => setData({ ...data, price: Number(e.target.value) })} />
+                                            {data.syllabus.map((mod, idx) => (
+                                                <div key={idx} className="border border-gray-100 rounded-lg p-3 hover:border-blue-300 transition-colors">
+                                                    <div className="flex justify-between font-bold text-gray-800 text-sm mb-1">
+                                                        <span>{mod.module || `Modulo ${idx + 1}`}</span>
+                                                    </div>
+                                                    <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5 ml-2">
+                                                        {mod.topics?.map((t: string, i: number) => <li key={i}>{t}</li>)}
+                                                    </ul>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-bold text-gray-700">Moneda</label>
-                                                    <select className="input w-full" value={data.currency} onChange={e => setData({ ...data, currency: e.target.value })}>
-                                                        <option value="USD">USD</option>
-                                                        <option value="PEN">PEN</option>
-                                                        <option value="MXN">MXN</option>
-                                                    </select>
+                                            ))}
+                                            {data.syllabus.length === 0 && <p className="text-gray-400 italic text-center text-sm py-4">No se ha detectado temario.</p>}
+                                            <div>
+                                                <label className="label-sm">Herramientas a Ensenar (coma)</label>
+                                                <input className="input w-full" placeholder="Excel, ChatGPT, Python" value={data.tools?.join(', ') || ''} onChange={e => setData({ ...data, tools: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <label className="label-sm">Recursos Adjuntos</label>
+                                                <button onClick={addAttachment} className="text-xs text-blue-600 hover:underline flex items-center gap-1"><Paperclip size={12} /> Adjuntar</button>
+                                            </div>
+                                            {data.attachments.map((att) => (
+                                                <div key={att.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border text-sm">
+                                                    <div className="flex items-center gap-2">
+                                                        {att.type === 'pdf' ? <File className="text-red-500" size={16} /> : <LinkIcon className="text-blue-500" size={16} />}
+                                                        <span className="font-medium text-gray-900">{att.name}</span>
+                                                    </div>
+                                                    <button onClick={() => setData(prev => ({ ...prev, attachments: prev.attachments.filter(a => a.id !== att.id) }))} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
                                                 </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-bold text-gray-700">Promoción (Descuento)</label>
-                                                <input className="input w-full bg-yellow-50 border-yellow-200" placeholder="Ej: 50% OFF por 24 horas" value={data.promotions || ''} onChange={e => setData({ ...data, promotions: e.target.value })} />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-bold text-gray-700">Gatillos de Urgencia (uno por línea)</label>
-                                                <textarea
-                                                    className="input w-full h-16"
-                                                    placeholder="Solo 5 cupos disponibles&#10;Precio sube en 48 horas"
-                                                    value={data.urgencyTriggers?.join('\n') || ''}
-                                                    onChange={e => setData({ ...data, urgencyTriggers: e.target.value.split('\n').filter(Boolean) })}
-                                                />
-                                            </div>
+                                            ))}
                                         </div>
-                                    </div>
+                                    </EditorSection>
 
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🛡️ Garantía y Bonos</h3>
+                                    {/* Section: Pricing & Marketing */}
+                                    <EditorSection title="Precio y Oferta" id="marketing" open={openSections.marketing} toggle={toggleSection}>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="label-sm">Precio</label>
+                                                <input type="number" className="input w-full" value={data.price || ''} onChange={e => setData({ ...data, price: Number(e.target.value) })} />
+                                            </div>
+                                            <div>
+                                                <label className="label-sm">Moneda</label>
+                                                <select className="input w-full" value={data.currency} onChange={e => setData({ ...data, currency: e.target.value })}>
+                                                    <option value="USD">USD</option><option value="PEN">PEN</option><option value="MXN">MXN</option>
+                                                </select>
+                                            </div>
+                                            <div className="col-span-full">
+                                                <InputField label="Promocion / Descuento" value={data.promotions || ''} onChange={v => setData({ ...data, promotions: v })} placeholder="Ej: 50% OFF por 24 horas" />
+                                            </div>
+                                            <TextareaField label="Gatillos de Urgencia (uno por linea)" value={data.urgencyTriggers?.join('\n') || ''} onChange={v => setData({ ...data, urgencyTriggers: v.split('\n').filter(Boolean) })} />
+                                            <TextareaField label="Bonos (uno por linea)" value={data.bonuses?.join('\n') || ''} onChange={v => setData({ ...data, bonuses: v.split('\n').filter(Boolean) })} />
+                                            <TextareaField label="Garantia" cls="col-span-full" value={data.guarantee || ''} onChange={v => setData({ ...data, guarantee: v })} placeholder="Ej: Devolucion 100% en 30 dias" />
+                                        </div>
+                                    </EditorSection>
+
+                                    {/* Section: Sales Intelligence */}
+                                    <EditorSection title="Inteligencia de Ventas" id="sales" open={openSections.sales} toggle={toggleSection}>
                                         <div className="space-y-4">
+                                            <TextareaField label="Call to Action" pending value={data.callToAction || ''} onChange={v => setData({ ...data, callToAction: v })} placeholder="Inscribete ahora y transforma tu carrera..." />
+                                            <TextareaField label="Perfil del Estudiante Ideal" pending value={data.idealStudentProfile || ''} onChange={v => setData({ ...data, idealStudentProfile: v })} placeholder="Profesionales de 25-40 que buscan..." />
+                                            <TextareaField label="Ventaja Competitiva" pending value={data.competitiveAdvantage || ''} onChange={v => setData({ ...data, competitiveAdvantage: v })} placeholder="Somos los unicos en..." />
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <TextareaField label="Dolores del Alumno (antes)" value={data.painPoints?.join('\n') || ''} onChange={v => setData({ ...data, painPoints: v.split('\n').filter(Boolean) })} />
+                                                <TextareaField label="Beneficios / Transformacion (despues)" value={data.benefits?.join('\n') || ''} onChange={v => setData({ ...data, benefits: v.split('\n').filter(Boolean) })} />
+                                            </div>
+
+                                            {/* Objection Handlers */}
                                             <div>
-                                                <label className="block text-sm font-bold text-gray-700">Garantía de Riesgo Cero</label>
-                                                <textarea
-                                                    className="input w-full h-20"
-                                                    placeholder="Ej: Si no te encanta en 30 días, te devolvemos el 100%..."
-                                                    value={data.guarantee || ''}
-                                                    onChange={e => setData({ ...data, guarantee: e.target.value })}
-                                                />
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="label-sm">Manejo de Objeciones</label>
+                                                    <button onClick={() => setData(prev => ({ ...prev, objectionHandlers: [...(prev.objectionHandlers || []), { objection: '', response: '' }] }))} className="text-xs text-blue-600 hover:underline">+ Agregar</button>
+                                                </div>
+                                                {data.objectionHandlers?.map((oh, idx) => (
+                                                    <div key={idx} className="flex gap-3 items-start p-3 bg-gray-50 rounded-lg border mb-2">
+                                                        <div className="flex-1 space-y-1.5">
+                                                            <input className="input w-full text-sm font-bold" placeholder="Objecion..." value={oh.objection}
+                                                                onChange={e => { const u = [...(data.objectionHandlers || [])]; u[idx] = { ...u[idx], objection: e.target.value }; setData({ ...data, objectionHandlers: u }); }} />
+                                                            <textarea className="input w-full h-14 text-sm" placeholder="Respuesta..." value={oh.response}
+                                                                onChange={e => { const u = [...(data.objectionHandlers || [])]; u[idx] = { ...u[idx], response: e.target.value }; setData({ ...data, objectionHandlers: u }); }} />
+                                                        </div>
+                                                        <button onClick={() => setData(prev => ({ ...prev, objectionHandlers: prev.objectionHandlers?.filter((_, i) => i !== idx) }))} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
+                                                    </div>
+                                                ))}
                                             </div>
+
+                                            {/* Success Stories */}
                                             <div>
-                                                <label className="block text-sm font-bold text-gray-700">Bonos (Uno por línea)</label>
-                                                <textarea
-                                                    className="input w-full h-20"
-                                                    placeholder="- Ebook de Regalo&#10;- Plantilla Excel"
-                                                    value={data.bonuses?.join('\n') || ''}
-                                                    onChange={e => setData({ ...data, bonuses: e.target.value.split('\n') })}
-                                                />
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="label-sm">Casos de Exito</label>
+                                                    <button onClick={() => setData(prev => ({ ...prev, successStories: [...(prev.successStories || []), { name: '', quote: '', result: '' }] }))} className="text-xs text-blue-600 hover:underline">+ Agregar</button>
+                                                </div>
+                                                {data.successStories?.map((s, idx) => (
+                                                    <div key={idx} className="p-3 bg-gray-50 rounded-lg border mb-2">
+                                                        <div className="flex justify-between mb-2">
+                                                            <span className="text-xs font-bold text-green-600">Caso #{idx + 1}</span>
+                                                            <button onClick={() => setData(prev => ({ ...prev, successStories: prev.successStories?.filter((_, i) => i !== idx) }))} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-2 mb-1.5">
+                                                            <input className="input w-full text-sm" placeholder="Nombre" value={s.name} onChange={e => { const u = [...(data.successStories || [])]; u[idx] = { ...u[idx], name: e.target.value }; setData({ ...data, successStories: u }); }} />
+                                                            <input className="input w-full text-sm" placeholder="Resultado" value={s.result || ''} onChange={e => { const u = [...(data.successStories || [])]; u[idx] = { ...u[idx], result: e.target.value }; setData({ ...data, successStories: u }); }} />
+                                                        </div>
+                                                        <textarea className="input w-full h-12 text-sm" placeholder="Testimonio..." value={s.quote} onChange={e => { const u = [...(data.successStories || [])]; u[idx] = { ...u[idx], quote: e.target.value }; setData({ ...data, successStories: u }); }} />
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
+                                    </EditorSection>
 
-                                {/* Deep Psychology */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">😩 Dolores (Antes)</h3>
-                                        <p className="text-xs text-gray-500 mb-2">¿Qué problemas tiene tu alumno ideal hoy?</p>
-                                        <textarea
-                                            className="input w-full h-32 bg-red-50 border-red-100 focus:border-red-300"
-                                            placeholder="- Siento que pierdo el tiempo...&#10;- No logro vender..."
-                                            value={data.painPoints?.join('\n') || ''}
-                                            onChange={e => setData({ ...data, painPoints: e.target.value.split('\n') })}
-                                        />
-                                    </div>
-
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-blue-600"><Sparkles size={20} /> Transformación (Después)</h3>
-                                        <p className="text-xs text-gray-500 mb-2">¿Qué logrará tras tomar el curso?</p>
-                                        <textarea
-                                            className="input w-full h-32 bg-blue-50 border-blue-100 focus:border-blue-300"
-                                            placeholder="- Certificado Validado&#10;- Aumento de sueldo..."
-                                            value={data.benefits?.join('\n') || ''}
-                                            onChange={e => setData({ ...data, benefits: e.target.value.split('\n') })}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Authority & Social Proof */}
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <h3 className="font-bold text-lg mb-4">🏆 Prueba Social</h3>
-                                    <textarea
-                                        className="input w-full h-24"
-                                        placeholder="Pegar testimonios cortos o menciones en prensa (uno por línea)..."
-                                        value={data.socialProof?.join('\n') || ''}
-                                        onChange={e => setData({ ...data, socialProof: e.target.value.split('\n') })}
-                                    />
-                                </div>
-
-                                {/* Sales Strategy */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🎯 Call to Action</h3>
-                                        <textarea
-                                            className="input w-full h-20"
-                                            placeholder="Ej: Inscríbete ahora y transforma tu carrera profesional..."
-                                            value={data.callToAction || ''}
-                                            onChange={e => setData({ ...data, callToAction: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2">🧑‍🎓 Perfil del Estudiante Ideal</h3>
-                                        <textarea
-                                            className="input w-full h-20"
-                                            placeholder="Ej: Profesionales de 25-40 años que buscan especializarse en marketing digital..."
-                                            value={data.idealStudentProfile || ''}
-                                            onChange={e => setData({ ...data, idealStudentProfile: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">💎 Ventaja Competitiva</h3>
-                                    <p className="text-xs text-gray-500 mb-2">¿Qué hace este producto diferente a los demás? ¿Por qué elegirte a ti?</p>
-                                    <textarea
-                                        className="input w-full h-24"
-                                        placeholder="Ej: Somos la única universidad en Latam que ofrece esta certificación con modalidad 100% online y con profesores activos en la industria..."
-                                        value={data.competitiveAdvantage || ''}
-                                        onChange={e => setData({ ...data, competitiveAdvantage: e.target.value })}
-                                    />
-                                </div>
-
-                                {/* Objection Handlers */}
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div>
-                                            <h3 className="font-bold text-lg">🛡️ Manejo de Objeciones</h3>
-                                            <p className="text-xs text-gray-500 mt-1">Respuestas preparadas para las objeciones más comunes de tus prospectos</p>
+                                    {/* Section: Social / FAQs */}
+                                    <EditorSection title="Prueba Social y FAQs" id="social" open={openSections.social} toggle={toggleSection}>
+                                        <div className="space-y-4">
+                                            <TextareaField label="Prueba Social (uno por linea)" value={data.socialProof?.join('\n') || ''} onChange={v => setData({ ...data, socialProof: v.split('\n').filter(Boolean) })} placeholder="Testimonios, menciones en prensa..." />
+                                            <div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="label-sm">Preguntas Frecuentes</label>
+                                                    <button onClick={() => setData(prev => ({ ...prev, faqs: [...(prev.faqs || []), { question: '', answer: '' }] }))} className="text-xs text-blue-600 hover:underline">+ Agregar</button>
+                                                </div>
+                                                {data.faqs?.map((faq, idx) => (
+                                                    <div key={idx} className="flex gap-3 items-start p-3 bg-gray-50 rounded-lg border mb-2">
+                                                        <div className="flex-1 space-y-1.5">
+                                                            <input className="input w-full text-sm font-bold" placeholder="Pregunta..." value={faq.question}
+                                                                onChange={e => { const u = [...(data.faqs || [])]; u[idx] = { ...u[idx], question: e.target.value }; setData({ ...data, faqs: u }); }} />
+                                                            <textarea className="input w-full h-14 text-sm" placeholder="Respuesta..." value={faq.answer}
+                                                                onChange={e => { const u = [...(data.faqs || [])]; u[idx] = { ...u[idx], answer: e.target.value }; setData({ ...data, faqs: u }); }} />
+                                                        </div>
+                                                        <button onClick={() => setData(prev => ({ ...prev, faqs: prev.faqs?.filter((_, i) => i !== idx) }))} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={() => setData(prev => ({ ...prev, objectionHandlers: [...(prev.objectionHandlers || []), { objection: '', response: '' }] }))}
-                                            className="text-sm text-blue-600 hover:underline font-bold"
-                                        >
-                                            + Agregar Objeción
-                                        </button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {data.objectionHandlers?.map((oh, idx) => (
-                                            <div key={idx} className="flex gap-4 items-start p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                <span className="font-bold text-orange-400 mt-2 text-xs">OBJ{idx + 1}</span>
-                                                <div className="flex-1 space-y-2">
-                                                    <input
-                                                        className="input w-full font-bold"
-                                                        placeholder='Ej: "Es muy caro para mí"'
-                                                        value={oh.objection}
-                                                        onChange={e => {
-                                                            const updated = [...(data.objectionHandlers || [])];
-                                                            updated[idx] = { ...updated[idx], objection: e.target.value };
-                                                            setData({ ...data, objectionHandlers: updated });
-                                                        }}
-                                                    />
-                                                    <textarea
-                                                        className="input w-full h-16 text-sm"
-                                                        placeholder="Respuesta sugerida para el vendedor/agente..."
-                                                        value={oh.response}
-                                                        onChange={e => {
-                                                            const updated = [...(data.objectionHandlers || [])];
-                                                            updated[idx] = { ...updated[idx], response: e.target.value };
-                                                            setData({ ...data, objectionHandlers: updated });
-                                                        }}
-                                                    />
-                                                </div>
-                                                <button
-                                                    onClick={() => setData(prev => ({ ...prev, objectionHandlers: prev.objectionHandlers?.filter((_, i) => i !== idx) }))}
-                                                    className="text-gray-400 hover:text-red-500"
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {(!data.objectionHandlers || data.objectionHandlers.length === 0) && (
-                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay objeciones registradas. Agrega las más comunes para que el agente de ventas las maneje.</p>
-                                        )}
-                                    </div>
+                                    </EditorSection>
                                 </div>
+                            )}
 
-                                {/* Success Stories */}
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div>
-                                            <h3 className="font-bold text-lg">⭐ Casos de Éxito</h3>
-                                            <p className="text-xs text-gray-500 mt-1">Historias reales de alumnos o clientes satisfechos</p>
-                                        </div>
-                                        <button
-                                            onClick={() => setData(prev => ({ ...prev, successStories: [...(prev.successStories || []), { name: '', quote: '', result: '' }] }))}
-                                            className="text-sm text-blue-600 hover:underline font-bold"
-                                        >
-                                            + Agregar Caso
-                                        </button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {data.successStories?.map((story, idx) => (
-                                            <div key={idx} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">Caso #{idx + 1}</span>
-                                                    <button
-                                                        onClick={() => setData(prev => ({ ...prev, successStories: prev.successStories?.filter((_, i) => i !== idx) }))}
-                                                        className="text-gray-400 hover:text-red-500"
-                                                    >
-                                                        <X size={16} />
-                                                    </button>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <input
-                                                        className="input w-full"
-                                                        placeholder="Nombre del alumno"
-                                                        value={story.name}
-                                                        onChange={e => {
-                                                            const updated = [...(data.successStories || [])];
-                                                            updated[idx] = { ...updated[idx], name: e.target.value };
-                                                            setData({ ...data, successStories: updated });
-                                                        }}
-                                                    />
-                                                    <input
-                                                        className="input w-full"
-                                                        placeholder="Resultado obtenido"
-                                                        value={story.result || ''}
-                                                        onChange={e => {
-                                                            const updated = [...(data.successStories || [])];
-                                                            updated[idx] = { ...updated[idx], result: e.target.value };
-                                                            setData({ ...data, successStories: updated });
-                                                        }}
-                                                    />
-                                                </div>
-                                                <textarea
-                                                    className="input w-full h-16 text-sm mt-2"
-                                                    placeholder="Testimonio o cita del alumno..."
-                                                    value={story.quote}
-                                                    onChange={e => {
-                                                        const updated = [...(data.successStories || [])];
-                                                        updated[idx] = { ...updated[idx], quote: e.target.value };
-                                                        setData({ ...data, successStories: updated });
-                                                    }}
-                                                />
-                                            </div>
-                                        ))}
-                                        {(!data.successStories || data.successStories.length === 0) && (
-                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay casos de éxito aún. Agrega testimonios reales para potenciar la venta.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* FAQs */}
-                                <div className="bg-white p-6 rounded-xl border border-gray-200">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-lg">❓ Preguntas Frecuentes</h3>
-                                        <button
-                                            onClick={() => setData(prev => ({ ...prev, faqs: [...(prev.faqs || []), { question: '', answer: '' }] }))}
-                                            className="text-sm text-blue-600 hover:underline font-bold"
-                                        >
-                                            + Agregar Pregunta
-                                        </button>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {data.faqs?.map((faq, idx) => (
-                                            <div key={idx} className="flex gap-4 items-start p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                <span className="font-bold text-gray-400 mt-2">Q{idx + 1}</span>
-                                                <div className="flex-1 space-y-2">
-                                                    <input
-                                                        className="input w-full font-bold"
-                                                        placeholder="Pregunta..."
-                                                        value={faq.question}
-                                                        onChange={e => {
-                                                            const newFaqs = [...(data.faqs || [])];
-                                                            newFaqs[idx].question = e.target.value;
-                                                            setData({ ...data, faqs: newFaqs });
-                                                        }}
-                                                    />
-                                                    <textarea
-                                                        className="input w-full h-20 text-sm"
-                                                        placeholder="Respuesta..."
-                                                        value={faq.answer}
-                                                        onChange={e => {
-                                                            const newFaqs = [...(data.faqs || [])];
-                                                            newFaqs[idx].answer = e.target.value;
-                                                            setData({ ...data, faqs: newFaqs });
-                                                        }}
-                                                    />
-                                                </div>
-                                                <button
-                                                    onClick={() => setData(prev => ({ ...prev, faqs: prev.faqs?.filter((_, i) => i !== idx) }))}
-                                                    className="text-gray-400 hover:text-red-500"
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        {(!data.faqs || data.faqs.length === 0) && (
-                                            <p className="text-gray-400 text-center text-sm italic py-4">No hay preguntas frecuentes aún.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* AI Assistant Sidebar */}
-            <div className={`w-96 bg-white border-l border-gray-200 flex flex-col transition-all duration-300 transform ${isChatOpen ? 'translate-x-0' : 'translate-x-full absolute right-0 h-full shadow-2xl'}`}>
-                <div className="p-4 border-b border-gray-200 bg-blue-50 flex justify-between items-center">
-                    <h3 className="font-bold text-blue-900 flex items-center gap-2">
-                        <Wand2 size={16} /> Asistente de Contenido
-                    </h3>
-                    <button onClick={() => setIsChatOpen(false)}><X size={18} className="text-blue-400 hover:text-blue-700" /></button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-                    {chatMessages.length === 0 && (
-                        <div className="text-center text-gray-400 text-sm mt-10 p-4">
-                            <p>¡Hola! Soy tu editor personal.</p>
-                            <p className="mt-2">Pídeme cosas como:</p>
-                            <ul className="mt-2 space-y-2 text-blue-600 cursor-pointer">
-                                <li className="hover:underline" onClick={() => setChatInput("Mejora la descripción para que sea más vendedora")}>"Mejora la descripción"</li>
-                                <li className="hover:underline" onClick={() => setChatInput("Agrega un módulo de IA al temario")}>"Agrega un módulo sobre IA"</li>
-                                <li className="hover:underline" onClick={() => setChatInput("Cambia el precio a 299 USD y pon una oferta")}>"Cambia precio a 299"</li>
-                            </ul>
-                        </div>
-                    )}
-                    {chatMessages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border text-gray-800 shadow-sm'}`}>
-                                {msg.content}
+            {/* ── AI Sidebar (editor mode only) ── */}
+            {activeTab === 'editor' && (
+                <div className={`w-80 bg-white border-l border-gray-200 flex flex-col transition-all duration-300 transform ${isChatOpen ? 'translate-x-0' : 'translate-x-full absolute right-0 h-full shadow-2xl'}`}>
+                    <div className="p-3 border-b border-gray-200 bg-blue-50 flex justify-between items-center">
+                        <h3 className="font-bold text-sm text-blue-900 flex items-center gap-1.5"><Wand2 size={14} /> Asistente IA</h3>
+                        <button onClick={() => setIsChatOpen(false)}><X size={16} className="text-blue-400 hover:text-blue-700" /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+                        {chatMessages.length === 0 && (
+                            <div className="text-center text-gray-400 text-xs mt-10 p-3">
+                                <p>Pideme cosas como:</p>
+                                <ul className="mt-2 space-y-1 text-blue-600 cursor-pointer">
+                                    <li className="hover:underline" onClick={() => setChatInput("Mejora la descripcion")}>Mejora la descripcion</li>
+                                    <li className="hover:underline" onClick={() => setChatInput("Agrega un modulo sobre IA")}>Agrega un modulo</li>
+                                    <li className="hover:underline" onClick={() => setChatInput("Cambia el precio a 299 USD")}>Cambia precio a 299</li>
+                                </ul>
                             </div>
+                        )}
+                        {chatMessages.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[90%] p-2.5 rounded-lg text-xs ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border text-gray-800 shadow-sm'}`}>
+                                    {msg.content}
+                                </div>
+                            </div>
+                        ))}
+                        {applyingChange && <div className="flex gap-1.5 items-center text-xs text-gray-500 ml-2"><Loader size={10} className="animate-spin" /> Aplicando...</div>}
+                    </div>
+                    <div className="p-3 border-t bg-white">
+                        <div className="relative">
+                            <input className="w-full pl-3 pr-8 py-2 bg-gray-100 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Instruccion..." value={chatInput} onChange={e => setChatInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleChatAction()} disabled={applyingChange} />
+                            <button onClick={handleChatAction} disabled={!chatInput.trim() || applyingChange}
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:bg-blue-100 rounded-full disabled:opacity-50">
+                                <Send size={14} />
+                            </button>
                         </div>
-                    ))}
-                    {applyingChange && (
-                        <div className="flex gap-2 items-center text-xs text-gray-500 ml-4">
-                            <Loader size={12} className="animate-spin" /> Aplicando cambios...
-                        </div>
-                    )}
-                </div>
-
-                <div className="p-4 border-t border-gray-200 bg-white">
-                    <div className="relative">
-                        <input
-                            className="w-full pl-4 pr-10 py-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                            placeholder="Escribe tu instrucción..."
-                            value={chatInput}
-                            onChange={e => setChatInput(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleChatAction()}
-                            disabled={applyingChange}
-                        />
-                        <button
-                            onClick={handleChatAction}
-                            disabled={!chatInput.trim() || applyingChange}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50"
-                        >
-                            <Send size={18} />
-                        </button>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }
 
+// ─── Reusable sub-components ─────────────────────────────────────────
+
+function EditorSection({ title, id, open, toggle, children }: { title: string; id: string; open: boolean; toggle: (id: string) => void; children: React.ReactNode }) {
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <button onClick={() => toggle(id)} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                <h3 className="font-bold text-sm text-gray-800">{title}</h3>
+                {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+            </button>
+            {open && <div className="px-5 pb-5 border-t border-gray-100 pt-4">{children}</div>}
+        </div>
+    );
+}
+
+function InputField({ label, value, onChange, type = 'text', placeholder = '', pending = false }: { label: string; value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string; pending?: boolean }) {
+    const isEmpty = value === '' || value === 0 || value === undefined || value === null;
+    return (
+        <div>
+            <label className="label-sm flex items-center gap-1.5">
+                {label}
+                {pending && isEmpty && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">PENDIENTE</span>}
+            </label>
+            <input type={type} className={`input w-full ${pending && isEmpty ? 'border-red-300 bg-red-50/30' : ''}`} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+        </div>
+    );
+}
+
+function TextareaField({ label, value, onChange, placeholder = '', cls = '', pending = false }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; cls?: string; pending?: boolean }) {
+    const isEmpty = !value || value.trim() === '';
+    return (
+        <div className={cls}>
+            <label className="label-sm flex items-center gap-1.5">
+                {label}
+                {pending && isEmpty && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">PENDIENTE</span>}
+            </label>
+            <textarea className={`input w-full h-20 ${pending && isEmpty ? 'border-red-300 bg-red-50/30' : ''}`} placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)} />
+        </div>
+    );
+}

@@ -3,7 +3,6 @@ import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import AiAgentsPage from './pages/AiAgentsPage';
 import Courses from './pages/Courses';
 import CourseUpload from './pages/CourseUpload';
 import CourseDetail from './pages/CourseDetail';
@@ -44,7 +43,7 @@ export default function App() {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/agentes" element={<AiAgentsPage />} />
+            <Route path="/agentes" element={<Navigate to="/" replace />} />
             <Route path="/courses" element={<Courses />} />
             <Route path="/courses/upload" element={<CourseUpload />} />
             <Route path="/courses/new" element={<CourseUpload />} />

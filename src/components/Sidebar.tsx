@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch, Filter } from 'lucide-react';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`;
@@ -31,47 +31,46 @@ export default function Sidebar() {
                 <NavLink to="/" end className={navClass}>
                     <LayoutDashboard size={18} /> Inicio
                 </NavLink>
-                <NavLink to="/agentes" className={navClass}>
-                    <Bot size={18} /> Mis Agentes
-                </NavLink>
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Académico
+                    Catalogo
                 </div>
                 <NavLink to="/courses" className={navClass}>
-                    <BookOpen size={18} /> Mi Catálogo
+                    <BookOpen size={18} /> Mi Portafolio
                 </NavLink>
                 <NavLink to="/courses/upload" className={navClass}>
-                    <FolderPlus size={18} /> Subir & Analizar
+                    <FolderPlus size={18} /> Subir Producto
                 </NavLink>
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Ventas
+                    Comercial
                 </div>
                 <NavLink to="/crm" className={navClass}>
                     <GitBranch size={18} /> Embudo & Campos
                 </NavLink>
                 <NavLink to="/team" className={navClass}>
-                    <Users size={18} /> Mi Equipo
+                    <Users size={18} /> Equipo de Ventas
                 </NavLink>
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Próximamente
-                </div>
-                <SoonItem icon={Globe} label="Mi Página de Venta" />
-                <SoonItem icon={Bot} label="Content IA" />
-                <SoonItem icon={BookOpen} label="Educational IA" />
-                <SoonItem icon={BarChart2} label="KPIs & Reportes" />
-
-                <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
-                    Configuración
+                    Configuracion
                 </div>
                 <NavLink to="/profile" className={navClass}>
-                    <Building2 size={18} /> Perfil Institución
+                    <Building2 size={18} /> Mi Institucion
                 </NavLink>
                 <NavLink to="/settings" className={navClass}>
                     <Settings size={18} /> API & Sistema
                 </NavLink>
+
+                <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Proximamente
+                </div>
+                <SoonItem icon={Bot} label="Agentes de Venta" />
+                <SoonItem icon={Filter} label="Preguntas Filtro" />
+                <SoonItem icon={Globe} label="Pagina de Venta" />
+                <SoonItem icon={Bot} label="Content IA" />
+                <SoonItem icon={BookOpen} label="Educational IA" />
+                <SoonItem icon={BarChart2} label="KPIs & Reportes" />
             </nav>
 
             <div className="p-4 border-t border-gray-200 bg-white">
