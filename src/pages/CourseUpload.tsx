@@ -416,7 +416,7 @@ export default function CourseUpload() {
         setStatus('analyzing');
         setErrorMessage('');
         try {
-            let resultJson = '';
+            let parsed: any = null;
             if (selectedFile) {
                 const file = selectedFile;
                 const content = await new Promise<string>((resolve) => {
@@ -424,14 +424,14 @@ export default function CourseUpload() {
                     reader.onload = (e) => resolve(e.target?.result as string);
                     reader.readAsDataURL(file);
                 });
-                resultJson = await analyzeFileContent(content, file.name, data.type);
+                parsed = await analyzeFileContent(content, file.name, data.type);
             } else if (youtubeUrl) {
-                resultJson = await analyzeRawText(`Analiza este recurso: ${youtubeUrl}\n\nContexto adicional: ${text}`, data.type);
+                parsed = await analyzeRawText(`Analiza este recurso: ${youtubeUrl}\n\nContexto adicional: ${text}`, data.type);
             } else {
-                resultJson = await analyzeRawText(text, data.type);
+                parsed = await analyzeRawText(text, data.type);
             }
-
-            const parsed = JSON.parse(resultJson);
+            // analyzeFileContent/analyzeRawText already return parsed objects (via cleanJson)
+            if (typeof parsed === 'string') parsed = JSON.parse(parsed);
 
             let attachmentToAdd: any = null;
             if (selectedFile) {
