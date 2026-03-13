@@ -354,7 +354,7 @@ router.post('/', async (req: Request, res: Response) => {
             result = await prisma.application.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else {
             result = await prisma.course.create({
-                data: { ...commonData, syllabusModules: syllabus?.length ? { create: syllabus } : undefined } as any,
+                data: { ...commonData, syllabusModules: syllabus?.length ? { create: syllabus.map(({ id, ...m }: any) => m) } : undefined } as any,
                 include: { syllabusModules: true, attachments: true, faqs: true }
             });
         }
@@ -385,7 +385,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
             if (syllabus && modelName === 'course') {
                 await tx.syllabusModule.deleteMany({ where: { courseId: id } });
-                await tx.syllabusModule.createMany({ data: syllabus.map((m: any, i: number) => ({ ...m, courseId: id, sortOrder: i })) });
+                await tx.syllabusModule.createMany({ data: syllabus.map(({ id: _id, ...m }: any, i: number) => ({ ...m, courseId: id, sortOrder: i })) });
             }
             if (courses && modelName === 'program') {
                 await tx.programCourse.deleteMany({ where: { programId: id } });
