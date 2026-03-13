@@ -52,7 +52,8 @@ export default function FilterQuestionsPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [optionsText, setOptionsText] = useState('');
-    const [filterType, setFilterType] = useState('all');
+    // @ts-ignore - reserved for future filter UI
+    const [filterType, _setFilterType] = useState('all');
 
     useEffect(() => {
         load();
@@ -126,10 +127,6 @@ export default function FilterQuestionsPage() {
         await filterQuestionsService.update(q.id, { isActive: !q.isActive });
         setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, isActive: !x.isActive } : x));
     };
-
-    const filteredQuestions = filterType === 'all'
-        ? questions
-        : questions.filter(q => q.productType === filterType || q.productType === 'all');
 
     const grouped = PRODUCT_TYPES.slice(1).reduce<Record<string, FilterQuestion[]>>((acc, pt) => {
         const qs = questions.filter(q => q.productType === pt.value);

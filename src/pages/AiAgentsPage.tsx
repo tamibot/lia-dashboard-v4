@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bot, Play, Save, Loader, RefreshCw, AlertTriangle, Check } from 'lucide-react';
+import { Play, Save, Loader, RefreshCw, AlertTriangle, Check } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { agentService } from '../lib/services/agent.service';
 import { profileService } from '../lib/services/profile.service';
@@ -90,7 +90,7 @@ export default function AiAgentsPage() {
         setSaving(true);
         try {
             const tone = selectedPersonality.tone;
-            const payload = { name, role, personality, avatar, tone, systemPrompt, isActive: true, language: 'es' };
+            const payload = { name, role, personality: personality as AiAgent['personality'], avatar, tone, systemPrompt, isActive: true, language: 'es' };
             if (agent) {
                 const updated = await agentService.update(agent.id, payload);
                 setAgent(updated);
@@ -109,16 +109,16 @@ export default function AiAgentsPage() {
 
     const currentAgent: AiAgent = {
         id: agent?.id || 'preview',
-        orgId: '',
         name,
         role,
-        personality: personality as any,
+        personality: personality as AiAgent['personality'],
         tone: selectedPersonality.tone,
         avatar,
         systemPrompt,
         isActive: true,
         language: 'es',
         expertise: [],
+        createdAt: agent?.createdAt || new Date().toISOString(),
     };
 
     if (loading) {
