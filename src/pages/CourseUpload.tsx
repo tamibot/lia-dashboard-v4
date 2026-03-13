@@ -479,6 +479,17 @@ export default function CourseUpload() {
                 parsed.frequency = parsed.period;
             }
 
+            // Normalize modality from Gemini to valid Prisma enum values
+            if (parsed.modality) {
+                const m = String(parsed.modality).toLowerCase();
+                const modalityMap: Record<string, string> = {
+                    virtual: 'online', remoto: 'online', remote: 'online', online: 'online',
+                    presencial: 'presencial', 'in-person': 'presencial',
+                    hibrido: 'hibrido', híbrido: 'hibrido', hybrid: 'hibrido',
+                };
+                parsed.modality = modalityMap[m] ?? 'online';
+            }
+
             const mergedData = { ...data, ...parsed };
 
             setData(prev => {

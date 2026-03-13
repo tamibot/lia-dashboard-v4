@@ -252,6 +252,26 @@ router.post('/', async (req: Request, res: Response) => {
         if (filteredData.applicationFee !== undefined) filteredData.applicationFee = Number(filteredData.applicationFee) || null;
         if (filteredData.advisoryHours !== undefined) filteredData.advisoryHours = parseInt(filteredData.advisoryHours) || null;
 
+        // Normalize enum fields (Gemini may return English or capitalized variants)
+        if (filteredData.modality !== undefined) {
+            const m = String(filteredData.modality).toLowerCase();
+            const modalityMap: Record<string, string> = {
+                virtual: 'online', remoto: 'online', remote: 'online', 'en linea': 'online', 'en línea': 'online', online: 'online',
+                presencial: 'presencial', 'in-person': 'presencial', inperson: 'presencial', 'on-site': 'presencial',
+                hibrido: 'hibrido', híbrido: 'hibrido', hybrid: 'hibrido', híbrida: 'hibrido',
+            };
+            filteredData.modality = modalityMap[m] ?? 'online';
+        }
+        if (filteredData.status !== undefined) {
+            const s = String(filteredData.status).toLowerCase();
+            const statusMap: Record<string, string> = {
+                borrador: 'borrador', draft: 'borrador', borrrador: 'borrador',
+                activo: 'activo', active: 'activo', published: 'activo', publicado: 'activo',
+                archivado: 'archivado', archived: 'archivado', inactive: 'archivado',
+            };
+            filteredData.status = statusMap[s] ?? 'borrador';
+        }
+
         // Coerce DateTime fields (Prisma needs ISO 8601, not bare date strings)
         const dateFields = ['startDate', 'endDate', 'eventDate', 'deadline', 'earlyBirdDeadline'];
         for (const field of dateFields) {
@@ -382,6 +402,26 @@ router.put('/:id', async (req: Request, res: Response) => {
 
             // Filter to valid fields for this model
             const safeData = filterByModel(data, modelName);
+
+            // Normalize enum fields
+            if (safeData.modality !== undefined) {
+                const m = String(safeData.modality).toLowerCase();
+                const modalityMap: Record<string, string> = {
+                    virtual: 'online', remoto: 'online', remote: 'online', online: 'online',
+                    presencial: 'presencial', 'in-person': 'presencial', inperson: 'presencial',
+                    hibrido: 'hibrido', híbrido: 'hibrido', hybrid: 'hibrido',
+                };
+                safeData.modality = modalityMap[m] ?? 'online';
+            }
+            if (safeData.status !== undefined) {
+                const s = String(safeData.status).toLowerCase();
+                const statusMap: Record<string, string> = {
+                    borrador: 'borrador', draft: 'borrador',
+                    activo: 'activo', active: 'activo', published: 'activo', publicado: 'activo',
+                    archivado: 'archivado', archived: 'archivado',
+                };
+                safeData.status = statusMap[s] ?? 'borrador';
+            }
 
             return txModel.update({
                 where: { id },
