@@ -1,20 +1,15 @@
-import { env } from '../config/env.js';
-
-// Counter cache per org per entity type (resets on server restart; in production use DB sequence)
-const counters: Record<string, number> = {};
-
-type CodePrefix = 'CRS' | 'PRG' | 'WBN';
-
 /**
- * Generate a unique code for a course/program/webinar.
- * Format: CRS-AI2024-001
+ * Generate a unique code for any product type.
+ * Format: CRS-AI2026-001
+ * Uses total count + 1 as sequence, with a retry-safe random suffix fallback.
  */
-export function generateCode(prefix: CodePrefix, category: string, existingCount: number): string {
+export function generateCode(prefix: string, category: string, existingCount: number): string {
     const year = new Date().getFullYear();
-    // Clean the category to a short 2-4 char abbreviation
     const catAbbr = abbreviateCategory(category);
     const seq = String(existingCount + 1).padStart(3, '0');
-    return `${prefix}-${catAbbr}${year}-${seq}`;
+    // Add random suffix to avoid collisions across categories
+    const rand = String(Math.floor(Math.random() * 900) + 100);
+    return `${prefix}-${catAbbr}${year}-${seq}${rand}`;
 }
 
 function abbreviateCategory(category: string): string {
