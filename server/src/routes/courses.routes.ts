@@ -252,6 +252,15 @@ router.post('/', async (req: Request, res: Response) => {
         if (filteredData.applicationFee !== undefined) filteredData.applicationFee = Number(filteredData.applicationFee) || null;
         if (filteredData.advisoryHours !== undefined) filteredData.advisoryHours = parseInt(filteredData.advisoryHours) || null;
 
+        // Coerce DateTime fields (Prisma needs ISO 8601, not bare date strings)
+        const dateFields = ['startDate', 'endDate', 'eventDate', 'deadline', 'earlyBirdDeadline'];
+        for (const field of dateFields) {
+            if (filteredData[field] && typeof filteredData[field] === 'string') {
+                const d = new Date(filteredData[field]);
+                filteredData[field] = isNaN(d.getTime()) ? undefined : d.toISOString();
+            }
+        }
+
         // Ensure string arrays are actually string arrays (Gemini sometimes returns objects)
         const stringArrayFields = ['objectives', 'requirements', 'benefits', 'painPoints', 'socialProof',
             'bonuses', 'urgencyTriggers', 'tags', 'tools', 'paymentMethods', 'features',
