@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
 import { agentService } from '../lib/services/agent.service';
 import { profileService } from '../lib/services/profile.service';
-import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle, Bot } from 'lucide-react';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle, Bot, Search, FolderOpen } from 'lucide-react';
 import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
 import type { FilterState } from '../components/AdvancedCourseFilters';
 import SalesPlayground from '../components/SalesPlayground';
+import Pagination from '../components/Pagination';
 import type { AiAgent, OrgProfile } from '../lib/types';
 
 // Simple deterministic color from title (pastel)
@@ -45,9 +46,16 @@ function statusColor(status: string) {
 
 type TabKey = 'cursos' | 'programas' | 'webinars' | 'talleres' | 'subscripciones' | 'asesorias' | 'postulaciones';
 
+const TAB_FROM_TYPE: Record<string, TabKey> = {
+    curso: 'cursos', programa: 'programas', webinar: 'webinars',
+    taller: 'talleres', subscripcion: 'subscripciones', asesoria: 'asesorias', postulacion: 'postulaciones'
+};
+
 export default function CoursesPage() {
     const navigate = useNavigate();
-    const [tab, setTab] = useState<TabKey>('cursos');
+    const [searchParams] = useSearchParams();
+    const initialTab = TAB_FROM_TYPE[searchParams.get('tab') || ''] || 'cursos';
+    const [tab, setTab] = useState<TabKey>(initialTab);
     const [view, setView] = useState<'list' | 'grid'>('list');
     const [filters, setFilters] = useState<FilterState>({
         search: '',
@@ -70,6 +78,9 @@ export default function CoursesPage() {
     const [playgroundAgent, setPlaygroundAgent] = useState<AiAgent | null>(null);
     const [showPlayground, setShowPlayground] = useState(false);
     const [orgProfile, setOrgProfile] = useState<OrgProfile | null>(null);
+    const [quickSearch, setQuickSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 12;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -183,12 +194,44 @@ export default function CoursesPage() {
         talleres: 'Taller', subscripciones: 'Suscripción', asesorias: 'Asesoría', postulaciones: 'Postulación'
     };
 
+    // Reset page when tab or filters change
+    useEffect(() => { setPage(1); }, [tab, filters]);
+
+    // Apply quick search on top of filtered items
+    const applyQuickSearch = (items: any[]) => {
+        if (!quickSearch) return items;
+        const q = quickSearch.toLowerCase();
+        return items.filter(i =>
+            (i.title || '').toLowerCase().includes(q) ||
+            (i.code || '').toLowerCase().includes(q)
+        );
+    };
+
     if (isLoading) {
         return (
-            <div className="page-content flex-center" style={{ height: '60vh' }}>
-                <div className="text-center">
-                    <div className="spinner mb-4" style={{ width: '40px', height: '40px', margin: '0 auto' }}></div>
-                    <p>Cargando tu catálogo...</p>
+            <div className="page-content">
+                <div className="flex-between mb-6">
+                    <div>
+                        <div className="skeleton h-7 w-40 mb-2" />
+                        <div className="skeleton h-4 w-64" />
+                    </div>
+                    <div className="skeleton h-10 w-36 rounded-lg" />
+                </div>
+                <div className="skeleton h-10 w-full mb-4" />
+                <div className="skeleton h-12 w-full mb-6" />
+                <div className="card">
+                    {[1,2,3,4,5].map(i => (
+                        <div key={i} className="flex items-center gap-4 py-4 border-b border-gray-100 last:border-0">
+                            <div className="skeleton w-9 h-9 rounded-lg" />
+                            <div className="flex-1">
+                                <div className="skeleton h-4 w-48 mb-2" />
+                                <div className="skeleton h-3 w-24" />
+                            </div>
+                            <div className="skeleton h-5 w-16 rounded-full" />
+                            <div className="skeleton h-5 w-12" />
+                            <div className="skeleton h-5 w-16 rounded-full" />
+                        </div>
+                    ))}
                 </div>
             </div>
         );
@@ -221,6 +264,18 @@ export default function CoursesPage() {
                     <p style={{ color: '#b91c1c', fontSize: '14px' }}>{error}</p>
                 </div>
             )}
+
+            {/* Quick search bar */}
+            <div className="relative mb-4">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                    type="text"
+                    placeholder="Buscar por nombre o codigo..."
+                    value={quickSearch}
+                    onChange={e => setQuickSearch(e.target.value)}
+                    className="input w-full pl-10 pr-4 py-2.5 text-sm"
+                />
+            </div>
 
             <AdvancedCourseFilters
                 onFilterChange={setFilters}
@@ -270,24 +325,37 @@ export default function CoursesPage() {
                 </div>
             </div>
 
-            {filteredItems.length === 0 ? (
-                <div className="empty-state-card">
-                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
-                    <h3>No hay registros</h3>
-                    <p style={{ margin: '8px 0 16px' }}>
-                        {filters.search ? 'No se encontraron resultados para tu búsqueda.' : `Aún no tienes ${emptyLabel[tab]}.`}
-                    </p>
-                    <button className="btn btn-primary" onClick={() => navigate('/courses/upload')}>
-                        <Plus size={16} /> Crear {createLabel[tab]}
-                    </button>
-                </div>
-            ) : view === 'list' ? (
+            {(() => {
+                const searchedItems = applyQuickSearch(filteredItems);
+                const totalItems = searchedItems.length;
+                const paginatedItems = searchedItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+                if (totalItems === 0) return (
+                    <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                        <FolderOpen size={48} className="text-gray-300 mx-auto mb-4" />
+                        <h3 className="font-bold text-gray-700 text-lg mb-1">
+                            {(filters.search || quickSearch) ? 'Sin resultados' : 'Sin registros'}
+                        </h3>
+                        <p className="text-sm text-gray-400 mb-5 max-w-sm mx-auto">
+                            {(filters.search || quickSearch)
+                                ? 'No se encontraron productos que coincidan con tu busqueda. Intenta con otros terminos.'
+                                : `Aun no tienes ${emptyLabel[tab]}. Crea tu primer registro para comenzar.`}
+                        </p>
+                        {!(filters.search || quickSearch) && (
+                            <button className="btn btn-primary gap-2" onClick={() => navigate('/courses/upload')}>
+                                <Plus size={16} /> Crear {createLabel[tab]}
+                            </button>
+                        )}
+                    </div>
+                );
+
+                return view === 'list' ? (
                 <div className="card">
                     <table className="data-table">
                         <thead>
                             <tr>
                                 <th style={{ width: '40%' }}>Nombre</th>
-                                <th>Categoría</th>
+                                <th>Categoria</th>
                                 <th>Modalidad</th>
                                 <th>Precio</th>
                                 <th>Cupos</th>
@@ -296,7 +364,7 @@ export default function CoursesPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredItems.map((item: any) => {
+                            {paginatedItems.map((item: any) => {
                                 const st = statusColor(item.status);
                                 const accent = titleColor(item.title);
                                 return (
@@ -337,11 +405,13 @@ export default function CoursesPage() {
                             })}
                         </tbody>
                     </table>
+                    <Pagination currentPage={page} totalItems={totalItems} pageSize={PAGE_SIZE} onPageChange={setPage} />
                 </div>
             ) : (
                 /* ====== GRID VIEW — Clean Cards ====== */
+                <div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                    {filteredItems.map((item: any) => {
+                    {paginatedItems.map((item: any) => {
                         const st = statusColor(item.status);
                         const accent = titleColor(item.title);
                         const syllabusCount = Array.isArray(item.syllabus) ? item.syllabus.length : 0;
@@ -456,7 +526,10 @@ export default function CoursesPage() {
                         );
                     })}
                 </div>
-            )}
+                <Pagination currentPage={page} totalItems={totalItems} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                </div>
+            );
+            })()}
 
             {/* General Catalog Agent Playground */}
             {showPlayground && playgroundAgent && (

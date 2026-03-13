@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, Building2, ChevronDown, Settings } from 'lucide-react';
+import { Bell, User, LogOut, Building2, ChevronDown, Settings, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSidebar } from '../context/SidebarContext';
 
 const PAGE_TITLES: Record<string, string> = {
     '/': 'Dashboard',
@@ -14,6 +15,7 @@ const PAGE_TITLES: Record<string, string> = {
     '/team': 'Equipo de Ventas',
     '/settings': 'API & Sistema',
     '/account': 'Mi Cuenta',
+    '/filter-questions': 'Preguntas Filtro',
 };
 
 function getPageTitle(path: string): string {
@@ -29,6 +31,7 @@ export default function TopBar() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { toggle } = useSidebar();
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -52,11 +55,20 @@ export default function TopBar() {
         : 'U';
 
     return (
-        <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-40 flex items-center justify-between px-6 md:px-8 gap-4">
-            {/* Page title */}
-            <h2 className="text-base font-bold text-gray-900 tracking-tight">
-                {getPageTitle(location.pathname)}
-            </h2>
+        <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 gap-4">
+            {/* Left: hamburger + title */}
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={toggle}
+                    className="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+                    aria-label="Menu"
+                >
+                    <Menu size={20} />
+                </button>
+                <h2 className="text-base font-bold text-gray-900 tracking-tight">
+                    {getPageTitle(location.pathname)}
+                </h2>
+            </div>
 
             {/* Right side */}
             <div className="flex items-center gap-2">

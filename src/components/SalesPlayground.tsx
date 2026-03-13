@@ -39,6 +39,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const [fullCatalog, setFullCatalog] = useState<any>(null);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Fetch the REAL catalog from the backend so the agent doesn't invent courses
     const [catalogLoading, setCatalogLoading] = useState(true);
@@ -68,6 +69,9 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const orgName = orgProfile?.name || (fullCatalog as any)?.orgName || null;
 
     useEffect(() => {
+        // Reset conversation state when agent or context changes
+        setStatus('chatting');
+        setInput('');
         const fromOrg = orgName ? ` de **${orgName}**` : '';
         setMessages([{
             role: 'assistant',
@@ -77,9 +81,14 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         }]);
     }, [agent.name, orgName]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Auto-scroll: scroll after messages change AND after a short delay for render
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        const timer = setTimeout(() => {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [messages, loading]);
 
     const sendMessage = async (overrideMsg?: string, isSimulation = false, simulationLabel = '') => {
         const msg = overrideMsg || input;

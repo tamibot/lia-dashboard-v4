@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Phone, Lock, Save, ShieldCheck, Building2, LogOut, Eye, EyeOff } from 'lucide-react';
+import { Mail, Phone, Lock, Save, ShieldCheck, Building2, LogOut, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { api } from '../lib/api';
 
 export default function AccountPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
     const [showPwd, setShowPwd] = useState(false);
     const [formData, setFormData] = useState({
         name: user?.name || '',
@@ -24,12 +26,49 @@ export default function AccountPage() {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
+
+        // Validate password fields if trying to change password
+        if (formData.newPassword || formData.confirmPassword) {
+            if (!formData.currentPassword) {
+                setError('Ingresa tu contraseña actual para cambiarla.');
+                return;
+            }
+            if (formData.newPassword !== formData.confirmPassword) {
+                setError('Las contraseñas nuevas no coinciden.');
+                return;
+            }
+            if (formData.newPassword.length < 6) {
+                setError('La nueva contraseña debe tener al menos 6 caracteres.');
+                return;
+            }
+        }
+
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            // Update profile info
+            await api.put('/auth/account', {
+                name: formData.name,
+                phone: formData.phone,
+            });
+
+            // Change password if provided
+            if (formData.newPassword && formData.currentPassword) {
+                await api.put('/auth/password', {
+                    currentPassword: formData.currentPassword,
+                    newPassword: formData.newPassword,
+                });
+                setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+            }
+
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
-        }, 800);
+        } catch (err: any) {
+            const msg = err?.data?.error || err?.message || 'Error al guardar los cambios.';
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleLogout = () => {
@@ -187,6 +226,12 @@ export default function AccountPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                                <AlertCircle size={15} className="flex-shrink-0" /> {error}
+                            </div>
+                        )}
 
                         <div className="pt-2">
                             <button

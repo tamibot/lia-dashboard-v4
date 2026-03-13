@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Lock, Mail, Eye, EyeOff, Loader } from 'lucide-react';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -104,7 +104,7 @@ export default function Login() {
                         disabled={isLoading}
                         className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-wait text-white text-sm font-bold rounded-xl shadow-md shadow-blue-200 transition-all hover:-translate-y-px mt-2"
                     >
-                        {isLoading ? 'Iniciando...' : <> Iniciar Sesión <ArrowRight size={15} /></>}
+                        {isLoading ? <><Loader size={15} className="animate-spin" /> Iniciando...</> : <> Iniciar Sesión <ArrowRight size={15} /></>}
                     </button>
                 </form>
             </div>

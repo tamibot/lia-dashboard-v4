@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
 import { profileService } from '../lib/services/profile.service';
 import { agentService } from '../lib/services/agent.service';
+import { useToast } from '../context/ToastContext';
 import {
     generateLanding, generateEmailSequence, generateWhatsAppSequence, generateMarketing,
     analyzeCourseData, generateContentIdeas, refineContent,
@@ -65,6 +66,7 @@ const ALL_TOOLS: ToolDef[] = [
 ];
 
 export default function CourseDetailPage() {
+    const { toast } = useToast();
     const { type: urlType, id } = useParams<{ type: string; id: string }>();
     const navigate = useNavigate();
     const [item, setItem] = useState<any>(null);
@@ -133,7 +135,7 @@ export default function CourseDetailPage() {
 
     // Run a tool
     async function runTool(toolId: string) {
-        if (!profile) { alert('Completa tu perfil de organización primero'); return; }
+        if (!profile) { toast('Completa tu perfil de organizacion primero', 'info'); return; }
         setActiveTool(toolId);
         setLoading(true);
         setContent('');

@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Play, Save, Loader, RefreshCw, AlertTriangle, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Play, Save, Loader, RefreshCw, AlertTriangle, Check, ListFilter } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { agentService } from '../lib/services/agent.service';
 import { profileService } from '../lib/services/profile.service';
 import SalesPlayground from '../components/SalesPlayground';
+import { useToast } from '../context/ToastContext';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 // ── Personality presets ───────────────────────────────────────────────
 const PERSONALITIES = [
@@ -40,6 +43,7 @@ const PERSONALITIES = [
 const AVATARS = ['🤖', '👩‍💼', '👨‍💼', '🎓', '⚡', '💼', '🚀', '⭐', '🧠', '🦋'];
 
 export default function AiAgentsPage() {
+    const { toast } = useToast();
     const [agent, setAgent] = useState<AiAgent | null>(null);
     const [profile, setProfile] = useState<OrgProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -47,6 +51,8 @@ export default function AiAgentsPage() {
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState(false);
     const [playground, setPlayground] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const loadedRef = useRef(false);
 
     // Form
     const [name, setName] = useState('LIA');
@@ -54,6 +60,13 @@ export default function AiAgentsPage() {
     const [personality, setPersonality] = useState('enthusiastic');
     const [avatar, setAvatar] = useState('🤖');
     const [systemPrompt, setSystemPrompt] = useState('');
+
+    useUnsavedChanges(isDirty);
+
+    // Track changes after initial load
+    useEffect(() => {
+        if (loadedRef.current) setIsDirty(true);
+    }, [name, role, personality, avatar, systemPrompt]);
 
     const selectedPersonality = PERSONALITIES.find(p => p.value === personality) || PERSONALITIES[0];
 
@@ -80,6 +93,7 @@ export default function AiAgentsPage() {
             setError(true);
         } finally {
             setLoading(false);
+            loadedRef.current = true;
         }
     };
 
@@ -99,9 +113,11 @@ export default function AiAgentsPage() {
                 setAgent(created);
             }
             setSaved(true);
+            setIsDirty(false);
             setTimeout(() => setSaved(false), 3000);
+            toast('Agente guardado correctamente');
         } catch {
-            alert('Error al guardar. Inténtalo de nuevo.');
+            toast('Error al guardar. Intentalo de nuevo.', 'error');
         } finally {
             setSaving(false);
         }
@@ -123,8 +139,19 @@ export default function AiAgentsPage() {
 
     if (loading) {
         return (
-            <div className="flex-1 flex items-center justify-center">
-                <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+            <div className="page-content max-w-3xl">
+                <div className="flex justify-between items-start mb-8">
+                    <div>
+                        <div className="skeleton h-7 w-48 mb-2" />
+                        <div className="skeleton h-4 w-72" />
+                    </div>
+                    <div className="skeleton h-10 w-36 rounded-lg" />
+                </div>
+                <div className="space-y-5">
+                    <div className="card"><div className="skeleton h-32 w-full" /></div>
+                    <div className="card"><div className="skeleton h-40 w-full" /></div>
+                    <div className="card"><div className="skeleton h-24 w-full" /></div>
+                </div>
             </div>
         );
     }
@@ -271,6 +298,21 @@ export default function AiAgentsPage() {
                             : <><Save size={15} /> Guardar Configuración</>
                     }
                 </button>
+
+                {/* Related: Filter Questions */}
+                <Link
+                    to="/filter-questions"
+                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
+                >
+                    <div className="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <ListFilter size={16} className="text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">Preguntas Filtro</p>
+                        <p className="text-[11px] text-gray-400">Configura las preguntas de calificación que el agente hará a los prospectos</p>
+                    </div>
+                    <span className="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Configurar →</span>
+                </Link>
             </div>
 
             {/* Playground */}

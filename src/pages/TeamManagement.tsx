@@ -7,6 +7,7 @@ import {
 import { teamService } from '../lib/services/team.service';
 import { courseService } from '../lib/services/course.service';
 import type { Team, TeamMember, TeamProductAssignment } from '../lib/types';
+import { useToast } from '../context/ToastContext';
 
 // All 7 product types the platform supports
 const PRODUCT_TYPES = [
@@ -33,6 +34,7 @@ const emptyMember = (): TeamMember => ({
 });
 
 export default function TeamManagement() {
+    const { toast } = useToast();
     const [teams, setTeams] = useState<Team[]>([]);
     const [products, setProducts] = useState<ProductOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +114,7 @@ export default function TeamManagement() {
                 setTeams(prev => prev.filter(t => t.id !== id));
             } catch (err: any) {
                 console.error('Error deleting team:', err);
-                alert('No se pudo eliminar el equipo. Intenta de nuevo.');
+                toast('No se pudo eliminar el equipo. Intenta de nuevo.', 'error');
             } finally {
                 setIsSaving(false);
             }
@@ -120,7 +122,7 @@ export default function TeamManagement() {
     };
 
     const handleSave = async () => {
-        if (!name) return alert('El nombre del equipo es requerido');
+        if (!name) { toast('El nombre del equipo es requerido', 'info'); return; }
 
         try {
             setIsSaving(true);
@@ -141,7 +143,7 @@ export default function TeamManagement() {
             resetForm();
         } catch (err: any) {
             console.error('Error saving team:', err);
-            alert('No se pudo guardar el equipo. Intenta de nuevo.');
+            toast('No se pudo guardar el equipo. Intenta de nuevo.', 'error');
         } finally {
             setIsSaving(false);
         }

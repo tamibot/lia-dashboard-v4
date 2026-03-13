@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, GripVertical, Filter, ToggleLeft, ToggleRight, ChevronDown, Save, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Plus, Trash2, GripVertical, Filter, ToggleLeft, ToggleRight, Edit, Save, X } from 'lucide-react';
 import { filterQuestionsService, type FilterQuestion } from '../lib/services/filterQuestions.service';
+import { useToast } from '../context/ToastContext';
 
 const PRODUCT_TYPES = [
     { value: 'all', label: 'Todos los productos' },
@@ -8,17 +9,17 @@ const PRODUCT_TYPES = [
     { value: 'programa', label: 'Programas' },
     { value: 'webinar', label: 'Webinars' },
     { value: 'taller', label: 'Talleres' },
-    { value: 'asesoria', label: 'Asesorías' },
+    { value: 'asesoria', label: 'Asesorias' },
     { value: 'subscripcion', label: 'Suscripciones' },
     { value: 'postulacion', label: 'Postulaciones' },
 ];
 
 const QUESTION_TYPES = [
     { value: 'text', label: 'Texto libre' },
-    { value: 'select', label: 'Selección única' },
-    { value: 'multiselect', label: 'Selección múltiple' },
-    { value: 'radio', label: 'Opción radio' },
-    { value: 'yesno', label: 'Sí / No' },
+    { value: 'select', label: 'Seleccion unica' },
+    { value: 'multiselect', label: 'Seleccion multiple' },
+    { value: 'radio', label: 'Opcion radio' },
+    { value: 'yesno', label: 'Si / No' },
 ];
 
 const EMPTY_FORM: Omit<FilterQuestion, 'id' | 'createdAt'> = {
@@ -45,6 +46,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function FilterQuestionsPage() {
+    const { toast } = useToast();
     const [questions, setQuestions] = useState<FilterQuestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -52,8 +54,9 @@ export default function FilterQuestionsPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
     const [optionsText, setOptionsText] = useState('');
-    // @ts-ignore - reserved for future filter UI
-    const [filterType, _setFilterType] = useState('all');
+    const [filterType, setFilterType] = useState('all');
+    const dragItemRef = useRef<string | null>(null);
+    const dragOverRef = useRef<string | null>(null);
 
     useEffect(() => {
         load();
@@ -110,43 +113,101 @@ export default function FilterQuestionsPage() {
             }
             await load();
             setShowForm(false);
+            toast(editingId ? 'Pregunta actualizada' : 'Pregunta creada');
         } catch (e) {
             console.error(e);
+            toast('Error al guardar la pregunta', 'error');
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('¿Eliminar esta pregunta?')) return;
-        await filterQuestionsService.delete(id);
-        setQuestions(prev => prev.filter(q => q.id !== id));
+        if (!confirm('Eliminar esta pregunta?')) return;
+        try {
+            await filterQuestionsService.delete(id);
+            setQuestions(prev => prev.filter(q => q.id !== id));
+            toast('Pregunta eliminada');
+        } catch {
+            toast('Error al eliminar', 'error');
+        }
     };
 
     const handleToggleActive = async (q: FilterQuestion) => {
-        await filterQuestionsService.update(q.id, { isActive: !q.isActive });
-        setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, isActive: !x.isActive } : x));
+        try {
+            await filterQuestionsService.update(q.id, { isActive: !q.isActive });
+            setQuestions(prev => prev.map(x => x.id === q.id ? { ...x, isActive: !x.isActive } : x));
+            toast(q.isActive ? 'Pregunta desactivada' : 'Pregunta activada');
+        } catch {
+            toast('Error al actualizar', 'error');
+        }
     };
 
+    // Drag & drop handlers
+    const handleDragStart = useCallback((id: string) => {
+        dragItemRef.current = id;
+    }, []);
+
+    const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
+        e.preventDefault();
+        dragOverRef.current = id;
+    }, []);
+
+    const handleDrop = useCallback(async () => {
+        const dragId = dragItemRef.current;
+        const dropId = dragOverRef.current;
+        if (!dragId || !dropId || dragId === dropId) return;
+
+        const updated = [...questions];
+        const dragIdx = updated.findIndex(q => q.id === dragId);
+        const dropIdx = updated.findIndex(q => q.id === dropId);
+        if (dragIdx === -1 || dropIdx === -1) return;
+
+        const [moved] = updated.splice(dragIdx, 1);
+        updated.splice(dropIdx, 0, moved);
+
+        // Update sort orders
+        const reordered = updated.map((q, i) => ({ ...q, sortOrder: i }));
+        setQuestions(reordered);
+
+        // Persist order changes
+        try {
+            await Promise.all(
+                reordered.map((q, i) =>
+                    q.sortOrder !== questions.find(orig => orig.id === q.id)?.sortOrder
+                        ? filterQuestionsService.update(q.id, { sortOrder: i })
+                        : Promise.resolve()
+                )
+            );
+            toast('Orden actualizado');
+        } catch {
+            toast('Error al reordenar', 'error');
+        }
+
+        dragItemRef.current = null;
+        dragOverRef.current = null;
+    }, [questions, toast]);
+
+    const visibleQuestions = filterType === 'all' ? questions : questions.filter(q => q.productType === filterType || q.productType === 'all');
     const grouped = PRODUCT_TYPES.slice(1).reduce<Record<string, FilterQuestion[]>>((acc, pt) => {
-        const qs = questions.filter(q => q.productType === pt.value);
+        const qs = visibleQuestions.filter(q => q.productType === pt.value);
         if (qs.length > 0) acc[pt.value] = qs;
         return acc;
     }, {});
-    const globalQuestions = questions.filter(q => q.productType === 'all');
+    const globalQuestions = visibleQuestions.filter(q => q.productType === 'all');
 
     return (
         <div className="page-content max-w-5xl">
             {/* Header */}
-            <div className="flex justify-between items-start mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
                 <div>
                     <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Preguntas Filtro</h2>
                     <p className="text-sm text-gray-500 mt-1">
-                        Preguntas de calificación que el agente de IA hace a los prospectos antes de vender.
+                        Preguntas de calificacion que el agente de IA hace a los prospectos antes de vender.
                         Pueden ser <span className="font-semibold text-gray-700">obligatorias</span> u <span className="font-semibold text-gray-700">opcionales</span>.
                     </p>
                 </div>
-                <button onClick={openCreate} className="btn btn-primary gap-2">
+                <button onClick={openCreate} className="btn btn-primary gap-2 flex-shrink-0">
                     <Plus size={16} /> Nueva Pregunta
                 </button>
             </div>
@@ -155,22 +216,52 @@ export default function FilterQuestionsPage() {
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-start gap-3">
                 <Filter size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-800">
-                    <strong>¿Cómo funcionan?</strong> Estas preguntas aparecen cuando un prospecto inicia conversación con el agente de ventas.
-                    El agente las usa para <strong>calificar al lead</strong> y personalizar la presentación del producto.
-                    Puedes asignarlas a todos los productos o a uno específico.
+                    <strong>Como funcionan?</strong> Estas preguntas aparecen cuando un prospecto inicia conversacion con el agente de ventas.
+                    El agente las usa para <strong>calificar al lead</strong> y personalizar la presentacion del producto.
+                    Puedes asignarlas a todos los productos o a uno especifico. <strong>Arrastra</strong> para reordenar.
                 </div>
             </div>
 
+            {/* Filter by product type */}
+            {questions.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                    <span className="text-xs font-semibold text-gray-500">Filtrar por tipo:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                        {PRODUCT_TYPES.map(pt => (
+                            <button
+                                key={pt.value}
+                                onClick={() => setFilterType(pt.value)}
+                                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all ${
+                                    filterType === pt.value
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                                }`}
+                            >
+                                {pt.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {loading ? (
-                <div className="flex items-center justify-center py-16 text-gray-400">
-                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3" />
-                    Cargando preguntas...
+                <div className="space-y-3">
+                    {[1,2,3,4].map(i => (
+                        <div key={i} className="card flex items-center gap-4">
+                            <div className="skeleton w-4 h-4" />
+                            <div className="flex-1">
+                                <div className="skeleton h-4 w-3/4 mb-2" />
+                                <div className="skeleton h-3 w-1/3" />
+                            </div>
+                            <div className="skeleton h-6 w-16" />
+                        </div>
+                    ))}
                 </div>
             ) : questions.length === 0 ? (
-                <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl">
-                    <Filter size={32} className="text-gray-300 mx-auto mb-3" />
-                    <h3 className="font-bold text-gray-700 mb-1">Sin preguntas filtro aún</h3>
-                    <p className="text-sm text-gray-400 mb-4">Crea tu primera pregunta de calificación para que el agente la use con tus prospectos.</p>
+                <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                    <Filter size={48} className="text-gray-300 mx-auto mb-4" />
+                    <h3 className="font-bold text-gray-700 text-lg mb-1">Sin preguntas filtro aun</h3>
+                    <p className="text-sm text-gray-400 mb-5 max-w-sm mx-auto">Crea tu primera pregunta de calificacion para que el agente la use con tus prospectos.</p>
                     <button onClick={openCreate} className="btn btn-primary gap-2">
                         <Plus size={15} /> Crear primera pregunta
                     </button>
@@ -182,7 +273,13 @@ export default function FilterQuestionsPage() {
                         <div>
                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Todos los productos</p>
                             <div className="space-y-2">
-                                {globalQuestions.map(q => <QuestionCard key={q.id} q={q} onEdit={openEdit} onDelete={handleDelete} onToggle={handleToggleActive} />)}
+                                {globalQuestions.map(q => (
+                                    <QuestionCard
+                                        key={q.id} q={q}
+                                        onEdit={openEdit} onDelete={handleDelete} onToggle={handleToggleActive}
+                                        onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+                                    />
+                                ))}
                             </div>
                         </div>
                     )}
@@ -194,7 +291,13 @@ export default function FilterQuestionsPage() {
                                 {PRODUCT_TYPES.find(p => p.value === type)?.label}
                             </p>
                             <div className="space-y-2">
-                                {qs.map(q => <QuestionCard key={q.id} q={q} onEdit={openEdit} onDelete={handleDelete} onToggle={handleToggleActive} />)}
+                                {qs.map(q => (
+                                    <QuestionCard
+                                        key={q.id} q={q}
+                                        onEdit={openEdit} onDelete={handleDelete} onToggle={handleToggleActive}
+                                        onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+                                    />
+                                ))}
                             </div>
                         </div>
                     ))}
@@ -217,7 +320,7 @@ export default function FilterQuestionsPage() {
                                 <label className="label-sm">Pregunta <span className="text-red-500">*</span></label>
                                 <input
                                     className="input w-full"
-                                    placeholder="Ej: ¿Cuál es tu nivel de experiencia en marketing digital?"
+                                    placeholder="Ej: Cual es tu nivel de experiencia en marketing digital?"
                                     value={form.question}
                                     onChange={e => setForm({ ...form, question: e.target.value })}
                                     autoFocus
@@ -245,7 +348,7 @@ export default function FilterQuestionsPage() {
 
                             {['select', 'multiselect', 'radio'].includes(form.type) && (
                                 <div>
-                                    <label className="label-sm">Opciones (una por línea)</label>
+                                    <label className="label-sm">Opciones (una por linea)</label>
                                     <textarea
                                         className="input w-full h-24 text-sm"
                                         placeholder={"Principiante\nIntermedio\nAvanzado"}
@@ -259,7 +362,7 @@ export default function FilterQuestionsPage() {
                                 <label className="label-sm">Texto de ayuda (placeholder)</label>
                                 <input
                                     className="input w-full"
-                                    placeholder="Ej: Describe tu situación actual..."
+                                    placeholder="Ej: Describe tu situacion actual..."
                                     value={form.placeholder || ''}
                                     onChange={e => setForm({ ...form, placeholder: e.target.value })}
                                 />
@@ -293,18 +396,27 @@ export default function FilterQuestionsPage() {
     );
 }
 
-function QuestionCard({ q, onEdit, onDelete, onToggle }: {
+function QuestionCard({ q, onEdit, onDelete, onToggle, onDragStart, onDragOver, onDrop }: {
     q: FilterQuestion;
     onEdit: (q: FilterQuestion) => void;
     onDelete: (id: string) => void;
     onToggle: (q: FilterQuestion) => void;
+    onDragStart: (id: string) => void;
+    onDragOver: (e: React.DragEvent, id: string) => void;
+    onDrop: () => void;
 }) {
     const typeLabel = PRODUCT_TYPES.find(p => p.value === q.productType)?.label || q.productType;
     const typeColor = TYPE_COLORS[q.productType] || 'bg-gray-50 text-gray-600 border-gray-100';
     const qTypeLabel = QUESTION_TYPES.find(t => t.value === q.type)?.label || q.type;
 
     return (
-        <div className={`card flex items-start gap-4 transition-all ${!q.isActive ? 'opacity-50' : ''}`}>
+        <div
+            className={`card flex items-start gap-4 transition-all ${!q.isActive ? 'opacity-50' : ''}`}
+            draggable
+            onDragStart={() => onDragStart(q.id)}
+            onDragOver={(e) => onDragOver(e, q.id)}
+            onDrop={onDrop}
+        >
             <GripVertical size={16} className="text-gray-300 mt-0.5 flex-shrink-0 cursor-grab" />
             <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-2 flex-wrap">
@@ -325,8 +437,8 @@ function QuestionCard({ q, onEdit, onDelete, onToggle }: {
                 <button onClick={() => onToggle(q)} className={`p-1.5 rounded-lg transition-colors ${q.isActive ? 'text-green-600 hover:bg-green-50' : 'text-gray-300 hover:bg-gray-100'}`} title={q.isActive ? 'Activa' : 'Inactiva'}>
                     {q.isActive ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                 </button>
-                <button onClick={() => onEdit(q)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <ChevronDown size={15} />
+                <button onClick={() => onEdit(q)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
+                    <Edit size={15} />
                 </button>
                 <button onClick={() => onDelete(q.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                     <Trash2 size={15} />

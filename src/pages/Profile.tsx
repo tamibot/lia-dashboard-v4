@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { profileService } from '../lib/services/profile.service';
 import { analyzeBrand } from '../lib/gemini';
 import type { OrgProfile, BrandingConfig } from '../lib/types';
 import { Save, Building2, GraduationCap, Laptop, Sparkles, Loader, Palette, Type, Mic, Instagram, Facebook, Linkedin, Video, Globe, MapPin, Clock, Plus, Trash2, RefreshCw, AlertTriangle, Image, History, Award, CreditCard, School, Phone, MessageCircle, Mail } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 const GOOGLE_FONTS = [
     'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
@@ -34,13 +36,25 @@ const emptyProfile: OrgProfile = {
 };
 
 export default function ProfilePage() {
+    const { toast } = useToast();
     const [data, setData] = useState<OrgProfile>(emptyProfile);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
     const [brandAnalyzing, setBrandAnalyzing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [brandText, setBrandText] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
+    const loadedRef = useRef(false);
     // @ts-ignore
     const [tab, setTab] = useState<'general' | 'branding'>('general');
+
+    useUnsavedChanges(isDirty);
+
+    // Track dirty state after initial load
+    useEffect(() => {
+        if (loadedRef.current) setIsDirty(true);
+    }, [data]);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -69,6 +83,7 @@ export default function ProfilePage() {
                 setError(true);
             } finally {
                 setLoading(false);
+                setTimeout(() => { loadedRef.current = true; }, 100);
             }
         };
 
@@ -97,21 +112,25 @@ export default function ProfilePage() {
 
     async function handleSave() {
         try {
-            setBrandAnalyzing(true);
+            setIsSaving(true);
+            setSaveSuccess(false);
             // Strip read-only fields that Prisma doesn't like in update
             const { id, orgId, slug, domain, apiKey, plan, settings, createdAt, updatedAt, ...cleanData } = data as any;
             await profileService.update(cleanData);
-            alert('Perfil guardado correctamente ✅');
+            setSaveSuccess(true);
+            setIsDirty(false);
+            setTimeout(() => setSaveSuccess(false), 3000);
+            toast('Perfil guardado correctamente');
         } catch (err) {
             console.error(err);
-            alert('Error al guardar el perfil ❌');
+            toast('Error al guardar el perfil. Intenta de nuevo.', 'error');
         } finally {
-            setBrandAnalyzing(false);
+            setIsSaving(false);
         }
     }
 
     async function handleBrandExtraction() {
-        if (!brandText.trim()) return alert('Por favor pega algún texto sobre tu marca.');
+        if (!brandText.trim()) { toast('Por favor pega algun texto sobre tu marca.', 'info'); return; }
         setBrandAnalyzing(true);
         try {
             const jsonStr = await analyzeBrand(brandText);
@@ -127,10 +146,10 @@ export default function ProfilePage() {
                     visualIdentity: extracted.visualIdentity || prev.branding.visualIdentity
                 }
             }));
-            alert('¡Identidad extraída con éxito! Revisa los campos actualizados.');
+            toast('Identidad extraida con exito! Revisa los campos actualizados.');
         } catch (err) {
             console.error(err);
-            alert('Error al extraer identidad. Intenta de nuevo.');
+            toast('Error al extraer identidad. Intenta de nuevo.', 'error');
         } finally {
             setBrandAnalyzing(false);
         }
@@ -595,8 +614,10 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
-                    <button className="btn btn-primary btn-lg w-full flex justify-center sticky bottom-6 shadow-xl" onClick={handleSave}>
-                        <Save size={18} /> Guardar Perfil Institucional
+                    <button className="btn btn-primary btn-lg w-full flex justify-center sticky bottom-6 shadow-xl" onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <><Loader size={18} className="animate-spin" /> Guardando...</>
+                            : saveSuccess ? <><Save size={18} /> Guardado</>
+                            : <><Save size={18} /> Guardar Perfil Institucional</>}
                     </button>
                 </div>
             )}
@@ -750,8 +771,10 @@ export default function ProfilePage() {
                             </div>
                             <BrandPreview />
 
-                            <button className="btn btn-primary btn-lg w-full mt-6" onClick={handleSave}>
-                                <Save size={18} /> Guardar Marca
+                            <button className="btn btn-primary btn-lg w-full mt-6" onClick={handleSave} disabled={isSaving}>
+                                {isSaving ? <><Loader size={18} className="animate-spin" /> Guardando...</>
+                                    : saveSuccess ? <><Save size={18} /> Guardado</>
+                                    : <><Save size={18} /> Guardar Marca</>}
                             </button>
                         </div>
                     </div>

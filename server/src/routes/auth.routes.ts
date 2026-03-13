@@ -175,4 +175,72 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
     }
 });
 
+// PUT /api/auth/account — Update name/phone
+router.put('/account', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.userId;
+        const { name, phone } = req.body;
+
+        const updated = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(name !== undefined && { name }),
+                ...(phone !== undefined && { phone }),
+            },
+        });
+
+        res.json({
+            id: updated.id,
+            email: updated.email,
+            name: updated.name,
+            phone: updated.phone,
+            role: updated.role,
+        });
+    } catch (err) {
+        console.error('Account update error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// PUT /api/auth/password — Change password
+router.put('/password', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.userId;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            res.status(400).json({ error: 'Current and new passwords are required' });
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            res.status(400).json({ error: 'New password must be at least 6 characters' });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!valid) {
+            res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+            return;
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, 12);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash },
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Password change error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;

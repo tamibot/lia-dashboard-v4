@@ -8,6 +8,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from '../lib/gemini';
 import { courseService } from '../lib/services/course.service';
+import { useToast } from '../context/ToastContext';
 import type { Attachment, ContactInfo } from '../lib/types';
 
 // ─── Field labels for data-collection chips ───────────────────────────
@@ -321,6 +322,7 @@ function getNextQuestion(d: CourseData): string | null {
 
 // ─── Component ────────────────────────────────────────────────────────
 export default function CourseUpload() {
+    const { toast } = useToast();
     const navigate = useNavigate();
     const { id } = useParams();
     const [status, setStatus] = useState<AnalysisStatus>('idle');
@@ -818,7 +820,7 @@ export default function CourseUpload() {
 
     // ─── Save handler ─────────────────────────────────────────────────
     const handleSave = async () => {
-        if (!data.title) { alert('Por favor, ingresa un titulo'); return; }
+        if (!data.title) { toast('Por favor, ingresa un titulo', 'info'); return; }
         try {
             setStatus('analyzing');
             const payload = buildPayload(data);
@@ -827,7 +829,7 @@ export default function CourseUpload() {
             navigate('/courses');
         } catch (error: any) {
             console.error("Error saving:", error);
-            alert("Error al guardar: " + (error.message || "Intenta de nuevo"));
+            toast("Error al guardar: " + (error.message || "Intenta de nuevo"), 'error');
             setStatus('error');
         }
     };
@@ -1178,18 +1180,31 @@ export default function CourseUpload() {
                                             <div ref={chatEndRef} />
                                         </div>
                                         <div className="p-4 bg-white border-t border-gray-200">
-                                            <div className="relative max-w-2xl mx-auto">
-                                                <input
-                                                    className="w-full pl-4 pr-12 py-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                    placeholder="Responde aqui..."
-                                                    value={chatInput} onChange={e => setChatInput(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleChatAction()}
+                                            <div className="flex items-center gap-2 max-w-2xl mx-auto">
+                                                <button
+                                                    onClick={() => {
+                                                        setChatInput('No tengo esa información por ahora, siguiente pregunta');
+                                                        setTimeout(() => handleChatAction(), 50);
+                                                    }}
                                                     disabled={applyingChange}
-                                                />
-                                                <button onClick={handleChatAction} disabled={!chatInput.trim() || applyingChange}
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50">
-                                                    <Send size={18} />
+                                                    className="px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full border border-gray-200 transition-colors whitespace-nowrap disabled:opacity-50"
+                                                    title="Saltar esta pregunta"
+                                                >
+                                                    Omitir
                                                 </button>
+                                                <div className="relative flex-1">
+                                                    <input
+                                                        className="w-full pl-4 pr-12 py-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Responde aqui..."
+                                                        value={chatInput} onChange={e => setChatInput(e.target.value)}
+                                                        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleChatAction()}
+                                                        disabled={applyingChange}
+                                                    />
+                                                    <button onClick={handleChatAction} disabled={!chatInput.trim() || applyingChange}
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors disabled:opacity-50">
+                                                        <Send size={18} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

@@ -149,9 +149,17 @@ export async function validateConnection(): Promise<boolean> {
 
 export const validateApiKey = validateGeminiKey;
 
+// === Timeout helper ===
+function withTimeout<T>(promise: Promise<T>, ms: number, label = 'Request'): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout after ${ms / 1000}s`)), ms))
+    ]);
+}
+
 // === Core AI Function (with model fallback + OpenAI backup) ===
 
-async function ask(prompt: string, system: string, retries = 2): Promise<string> {
+async function ask(prompt: string, system: string, retries = 1): Promise<string> {
     await ensureKeysLoaded();
     const client = getClient();
 
@@ -159,13 +167,17 @@ async function ask(prompt: string, system: string, retries = 2): Promise<string>
     for (const model of GEMINI_MODELS) {
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-                const response = await client.models.generateContent({
-                    model,
-                    contents: prompt,
-                    config: {
-                        systemInstruction: system,
-                    }
-                });
+                const response = await withTimeout(
+                    client.models.generateContent({
+                        model,
+                        contents: prompt,
+                        config: {
+                            systemInstruction: system,
+                        }
+                    }),
+                    45000, // 45 second timeout per attempt
+                    `Gemini ${model}`
+                );
                 const text = response.text;
                 if (text) return text;
             } catch (err: unknown) {
@@ -177,9 +189,9 @@ async function ask(prompt: string, system: string, retries = 2): Promise<string>
                     break;
                 }
 
-                if ((msg.includes('429') || msg.includes('503') || msg.includes('quota') || msg.includes('resource_exhausted') || msg.includes('overloaded')) && attempt < retries) {
-                    // Exponential backoff: 2s, 4s, 8s
-                    const waitTime = Math.pow(2, attempt + 1) * 1000;
+                if ((msg.includes('429') || msg.includes('503') || msg.includes('quota') || msg.includes('resource_exhausted') || msg.includes('overloaded') || msg.includes('timeout')) && attempt < retries) {
+                    // Quick backoff: 1s, 2s
+                    const waitTime = (attempt + 1) * 1000;
                     const reason = msg.includes('503') || msg.includes('overloaded') ? 'Overloaded' : 'Rate limit';
                     console.warn(`${reason} on ${model}, waiting ${waitTime}ms before retry...`);
                     await new Promise(r => setTimeout(r, waitTime));
@@ -197,14 +209,18 @@ async function ask(prompt: string, system: string, retries = 2): Promise<string>
         try {
             console.warn('All Gemini models failed. Falling back to OpenAI...');
             const openai = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-            const result = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: system },
-                    { role: 'user', content: prompt }
-                ],
-                max_tokens: 4096,
-            });
+            const result = await withTimeout(
+                openai.chat.completions.create({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        { role: 'system', content: system },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 4096,
+                }),
+                30000, // 30 second timeout for OpenAI
+                'OpenAI'
+            );
             const text = result.choices?.[0]?.message?.content;
             if (text) return text;
         } catch (err) {

@@ -12,7 +12,10 @@ import TeamManagement from './pages/TeamManagement';
 import Account from './pages/Account';
 import CRM from './pages/CRM';
 import AiAgentsPage from './pages/AiAgentsPage';
+import FilterQuestions from './pages/FilterQuestions';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { SidebarProvider } from './context/SidebarContext';
 
 // Protected Route Wrapper
 const ProtectedRoute = () => {
@@ -21,21 +24,24 @@ const ProtectedRoute = () => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 ml-[240px] flex flex-col min-w-0">
-        <TopBar />
-        <div className="flex-1 overflow-y-auto">
-          <Outlet />
+    <SidebarProvider>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 md:ml-[240px] flex flex-col min-w-0">
+          <TopBar />
+          <div className="flex-1 overflow-y-auto">
+            <Outlet />
+          </div>
         </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
@@ -51,6 +57,7 @@ export default function App() {
             <Route path="/courses/edit/:id" element={<CourseUpload />} />
             <Route path="/courses/detail/:type/:id" element={<CourseDetail />} />
             <Route path="/crm" element={<CRM />} />
+            <Route path="/filter-questions" element={<FilterQuestions />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/team" element={<TeamManagement />} />
             <Route path="/settings" element={<Settings />} />
@@ -60,6 +67,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }
