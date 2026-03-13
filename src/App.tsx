@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import TeamManagement from './pages/TeamManagement';
 import Account from './pages/Account';
 import CRM from './pages/CRM';
+import AiAgentsPage from './pages/AiAgentsPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected Route Wrapper
@@ -43,7 +44,7 @@ export default function App() {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/agentes" element={<Navigate to="/" replace />} />
+            <Route path="/agentes" element={<AiAgentsPage />} />
             <Route path="/courses" element={<Courses />} />
             <Route path="/courses/upload" element={<CourseUpload />} />
             <Route path="/courses/new" element={<CourseUpload />} />

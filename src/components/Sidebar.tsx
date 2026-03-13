@@ -63,9 +63,15 @@ export default function Sidebar() {
                 </NavLink>
 
                 <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Comercial IA
+                </div>
+                <NavLink to="/agentes" className={navClass}>
+                    <Bot size={18} /> Agentes de Venta
+                </NavLink>
+
+                <div className="mt-4 px-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
                     Proximamente
                 </div>
-                <SoonItem icon={Bot} label="Agentes de Venta" />
                 <SoonItem icon={Filter} label="Preguntas Filtro" />
                 <SoonItem icon={Globe} label="Pagina de Venta" />
                 <SoonItem icon={Bot} label="Content IA" />

@@ -568,8 +568,9 @@ export default function CourseUpload() {
                 : msg;
 
             const context = JSON.stringify(data);
-            const responseJson = await completeField(context, contextPrompt);
-            const response = JSON.parse(responseJson);
+            const responseRaw = await completeField(context, contextPrompt);
+            // completeField already returns a parsed object via cleanJson
+            const response = typeof responseRaw === 'string' ? JSON.parse(responseRaw) : responseRaw;
 
             if (response.updates) {
                 const newData = { ...data, ...response.updates };
