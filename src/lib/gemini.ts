@@ -29,6 +29,13 @@ function getClient(): GoogleGenAI {
     return genAI;
 }
 
+/** Ensures API keys are loaded from server before making AI calls */
+async function ensureKeysLoaded(): Promise<void> {
+    if (!settingsService.getGeminiKeySync() && !settingsService.getOpenAIKeySync()) {
+        await settingsService.getApiKeys().catch(() => {});
+    }
+}
+
 export function resetClient(): void {
     genAI = null;
     currentApiKey = null;
@@ -145,6 +152,7 @@ export const validateApiKey = validateGeminiKey;
 // === Core AI Function (with model fallback + OpenAI backup) ===
 
 async function ask(prompt: string, system: string, retries = 2): Promise<string> {
+    await ensureKeysLoaded();
     const client = getClient();
 
     // Try each Gemini model with retries
@@ -805,6 +813,7 @@ export async function analyzeFileContent(content: string, fileName: string, type
     const isBase64 = content.startsWith('data:');
 
     if (isBase64) {
+        await ensureKeysLoaded();
         const base64Data = content.split(',')[1];
         const mimeType = content.split(';')[0].split(':')[1];
         const client = getClient();
