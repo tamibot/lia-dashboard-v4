@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
 import { profileService } from '../lib/services/profile.service';
+import { agentService } from '../lib/services/agent.service';
 import {
     generateLanding, generateEmailSequence, generateWhatsAppSequence, generateMarketing,
     analyzeCourseData, generateContentIdeas, refineContent,
@@ -78,6 +79,7 @@ export default function CourseDetailPage() {
     const [copied, setCopied] = useState(false);
     const [expandSyllabus, setExpandSyllabus] = useState(false);
     const [showSalesTest, setShowSalesTest] = useState(false);
+    const [salesAgent, setSalesAgent] = useState<AiAgent | null>(null);
     const [activeTab, setActiveTab] = useState<'info' | 'ai'>('info');
 
     // Fetch Data
@@ -86,10 +88,13 @@ export default function CourseDetailPage() {
             if (!id) return;
             try {
                 setFetchStatus('loading');
-                const [itemData, profileData] = await Promise.all([
+                const [itemData, profileData, agentsData] = await Promise.all([
                     courseService.getById(id, urlType),
-                    profileService.get()
+                    profileService.get(),
+                    agentService.getAll().catch(() => []),
                 ]);
+
+                if (agentsData.length > 0) setSalesAgent(agentsData[0]);
 
                 if (itemData) {
                     setItem(itemData);
@@ -914,14 +919,14 @@ export default function CourseDetailPage() {
             {/* ====== SALES PLAYGROUND MODAL ====== */}
             {showSalesTest && (
                 <SalesPlayground
-                    agent={{
+                    agent={salesAgent || {
                         id: 'sales-default',
-                        name: 'Asistente de Ventas',
-                        role: 'Estratega Comercial',
+                        name: 'LIA',
+                        role: 'Asistente de Ventas',
                         personality: 'enthusiastic',
-                        avatar: '🚀',
-                        tone: 'Persuasivo, empático y enfocado en resultados.',
-                        systemPrompt: 'Tu objetivo es vender este curso. Resalta los beneficios y maneja objeciones.'
+                        avatar: '🤖',
+                        tone: 'Cálida, usa emojis frecuentemente, tutea siempre, muy persuasiva y directa al cierre.',
+                        systemPrompt: '',
                     } as AiAgent}
                     courseContext={item}
                     orgProfile={profile}

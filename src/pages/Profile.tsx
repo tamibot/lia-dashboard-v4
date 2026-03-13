@@ -222,63 +222,59 @@ export default function ProfilePage() {
                             <Building2 size={20} className="text-primary" /> Información Básica
                         </h3>
 
-                        <div className="form-group grid-3" style={{ gap: '10px', marginBottom: '20px' }}>
+                        <div className="grid grid-cols-3 gap-3 mb-5">
                             {[
-                                { id: 'universidad', label: 'Universidad', icon: Building2 },
-                                { id: 'instituto', label: 'Instituto', icon: GraduationCap },
-                                { id: 'infoproductor', label: 'Infoproductor', icon: Laptop },
+                                { id: 'universidad', label: 'Universidad', icon: Building2, desc: 'Educación superior' },
+                                { id: 'instituto', label: 'Instituto', icon: GraduationCap, desc: 'Formación técnica' },
+                                { id: 'infoproductor', label: 'Infoproductor', icon: Laptop, desc: 'Cursos digitales' },
                             ].map(t => (
                                 <button
                                     key={t.id}
                                     type="button"
                                     onClick={() => handleChange('type', t.id as any)}
-                                    className={`btn ${data.type === t.id ? 'btn-primary shadow-lg scale-105' : 'btn-outline border-slate-200'}`}
-                                    style={{
-                                        justifyContent: 'center',
-                                        flexDirection: 'column',
-                                        padding: '15px',
-                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        background: data.type === t.id ? 'var(--primary)' : 'white',
-                                        color: data.type === t.id ? 'white' : 'var(--text-main)',
-                                        border: data.type === t.id ? 'none' : '1px solid #E2E8F0'
-                                    }}
+                                    className={`flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 transition-all duration-200 ${
+                                        data.type === t.id
+                                            ? 'border-blue-500 bg-blue-600 text-white shadow-lg scale-[1.03]'
+                                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                                    }`}
                                 >
-                                    <t.icon size={20} style={{ marginBottom: '5px', color: data.type === t.id ? 'white' : 'inherit' }} />
-                                    <span style={{ fontWeight: data.type === t.id ? 700 : 500 }}>{t.label}</span>
+                                    <t.icon size={24} className={data.type === t.id ? 'text-white' : 'text-blue-600'} />
+                                    <span className={`text-sm ${data.type === t.id ? 'font-bold' : 'font-semibold'}`}>{t.label}</span>
+                                    <span className={`text-[10px] ${data.type === t.id ? 'text-blue-100' : 'text-gray-400'}`}>{t.desc}</span>
                                 </button>
                             ))}
                         </div>
 
                         <div className="form-group">
                             <label>Nombre de la Institución</label>
-                            <input className="form-input" value={data.name} onChange={e => handleChange('name', e.target.value)} placeholder="Ej: Universidad Tech Latam" />
+                            <input className="form-input" value={data.name} onChange={e => handleChange('name', e.target.value)} placeholder="Ej: Innovation Institute of Technology" />
                         </div>
 
                         <div className="form-group">
                             <label>Eslogan / Proposición de Valor</label>
-                            <input className="form-input" value={data.tagline || ''} onChange={e => handleChange('tagline', e.target.value)} placeholder="Ej: Innovación para el futuro" />
+                            <input className="form-input" value={data.tagline || ''} onChange={e => handleChange('tagline', e.target.value)} placeholder="Ej: Transformamos profesionales con educación de vanguardia" />
                         </div>
 
                         <div className="form-group">
                             <label>Descripción Institucional</label>
-                            <textarea className="form-textarea" rows={3} value={data.description} onChange={e => handleChange('description', e.target.value)} placeholder="¿Qué hacen y cuál es su misión?" />
+                            <textarea className="form-textarea" rows={3} value={data.description} onChange={e => handleChange('description', e.target.value)} placeholder="Ej: Somos un instituto de educación superior con 15 años formando líderes en tecnología, negocios y marketing digital. Nuestra misión es democratizar la educación de calidad con metodologías innovadoras y docentes de primer nivel." />
                         </div>
 
                         <div className="grid-2" style={{ gap: '20px' }}>
                             <div className="form-group">
                                 <label>Público Objetivo</label>
-                                <input className="form-input" value={data.targetAudience} onChange={e => handleChange('targetAudience', e.target.value)} placeholder="Ej: Jóvenes de 18-25 años" />
+                                <input className="form-input" value={data.targetAudience} onChange={e => handleChange('targetAudience', e.target.value)} placeholder="Ej: Profesionales de 25-45 años que buscan especializarse en marketing digital y tecnología" />
                             </div>
                             <div className="form-group">
                                 <label>Sitio Web Principal</label>
-                                <input className="form-input" value={data.website} onChange={e => handleChange('website', e.target.value)} placeholder="https://www.ejemplo.com" />
+                                <input className="form-input" value={data.website} onChange={e => handleChange('website', e.target.value)} placeholder="https://www.mi-instituto.edu.pe" />
                             </div>
                         </div>
 
                         <div className="grid-3" style={{ gap: '20px', marginTop: '10px' }}>
                             <div className="form-group">
                                 <label className="flex items-center gap-2"><Mail size={14} /> Email de Contacto</label>
-                                <input className="form-input" type="email" value={data.contactEmail || ''} onChange={e => handleChange('contactEmail', e.target.value)} placeholder="info@institucion.com" />
+                                <input className="form-input" type="email" value={data.contactEmail || ''} onChange={e => handleChange('contactEmail', e.target.value)} placeholder="admisiones@mi-instituto.edu.pe" />
                             </div>
                             <div className="form-group">
                                 <label className="flex items-center gap-2"><Phone size={14} /> Teléfono Principal</label>
@@ -304,7 +300,7 @@ export default function ProfilePage() {
                                 rows={6}
                                 value={data.history || ''}
                                 onChange={e => handleChange('history', e.target.value)}
-                                placeholder="Pega aquí la historia de tu institución, misión y visión detallada..."
+                                placeholder="Ej: Fundados en 2010 en Lima, Perú, nacimos con la visión de transformar la educación superior en Latinoamérica. Comenzamos con 3 programas y 50 alumnos, y hoy contamos con más de 5,000 egresados en 12 países. Nuestra metodología combina aprendizaje práctico con mentoría personalizada de profesionales activos en la industria..."
                             />
                         </div>
                     </div>
@@ -328,7 +324,7 @@ export default function ProfilePage() {
                                 <div key={idx} className="flex gap-3">
                                     <input
                                         className="form-input flex-1"
-                                        placeholder="Ej: Certificación ISO 9001, Licenciamiento SUNEDU..."
+                                        placeholder="Ej: Licenciamiento SUNEDU, Certificación ISO 9001:2015, Acreditación SINEACE, Partner oficial Google..."
                                         value={cert}
                                         onChange={e => {
                                             const newCerts = [...(data.certificates || [])];

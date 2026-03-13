@@ -1,8 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
+
+// ── Simple inline markdown renderer (bold + line breaks) ──────────────
+function renderMd(text: string): ReactNode {
+    const lines = text.split('\n');
+    return lines.map((line, li) => {
+        const parts = line.split(/(\*\*[^*\n]+\*\*)/g);
+        const rendered = parts.map((part, pi) =>
+            part.startsWith('**') && part.endsWith('**')
+                ? <strong key={pi} className="font-bold">{part.slice(2, -2)}</strong>
+                : <span key={pi}>{part}</span>
+        );
+        return (
+            <span key={li}>
+                {rendered}
+                {li < lines.length - 1 && <br />}
+            </span>
+        );
+    });
+}
 
 interface SalesPlaygroundProps {
     agent: AiAgent;
@@ -45,14 +65,17 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
             });
     }, [orgProfile]);
 
+    const orgName = orgProfile?.name || (fullCatalog as any)?.orgName || null;
+
     useEffect(() => {
+        const fromOrg = orgName ? ` de **${orgName}**` : '';
         setMessages([{
             role: 'assistant',
             content: courseContext
-                ? `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Veo que te interesa **${courseContext.title}**. ¿Qué te gustaría saber?`
-                : `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Cuéntame: ¿qué tipo de formación estás buscando hoy? Puedo ayudarte con cursos, programas, webinars y más. 😊`
+                ? `👋 ¡Hola! Soy **${agent.name}**${fromOrg}. Veo que te interesa **${courseContext.title}** — ¡excelente elección! 🚀 Este programa puede transformar completamente tu carrera. ¿Empezamos?`
+                : `👋 ¡Hola! Soy **${agent.name}**${fromOrg}. Estoy aquí para ayudarte a encontrar el programa perfecto para ti. ¿Qué área quieres dominar? 🎯`
         }]);
-    }, [agent.name, agent.role]); // Reduced deps to avoid resets
+    }, [agent.name, orgName]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -123,6 +146,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
 
                 {/* Course Context Mini Card */}
                 {courseContext && (
+                    <>
                     <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-white border border-blue-200 flex items-center justify-center text-xl overflow-hidden">
@@ -137,6 +161,25 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                             <p className="text-xs text-blue-600 font-bold">{courseContext.currency} {courseContext.price || 'Gratis'}</p>
                         </div>
                     </div>
+                    {courseContext.attachments?.length > 0 && (
+                        <div className="px-4 py-2 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                            <span className="text-[10px] text-blue-500 font-semibold whitespace-nowrap">Adjuntos:</span>
+                            {courseContext.attachments.map((att: any) => (
+                                <a
+                                    key={att.id}
+                                    href={att.url !== '#' ? att.url : undefined}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-blue-200 rounded-lg text-[11px] text-blue-700 hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                >
+                                    {att.type === 'pdf' ? <FileText size={12} className="text-red-500" /> : <Download size={12} />}
+                                    {att.name}
+                                    {att.size && <span className="text-blue-400">({att.size})</span>}
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                    </>
                 )}
 
                 {/* Chat Area */}
@@ -175,7 +218,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                                 ? 'bg-blue-600 text-white rounded-tr-none'
                                 : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                                 }`}>
-                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                <div className="text-sm leading-relaxed">{renderMd(msg.content)}</div>
                                 <p className={`text-[10px] mt-2 opacity-50 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
                                     {msg.role === 'user' ? 'Tú (Alumno)' : agent.name}
                                 </p>

@@ -61,6 +61,7 @@ model Organization {
   contacts         Contact[]
   funnels          Funnel[]
   extractionFields ExtractionField[]
+  filterQuestions  FilterQuestion[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1054,6 +1055,31 @@ model ExtractionField {
 
   @@index([orgId])
   @@map("crm_extraction_fields")
+}
+
+// ==============================
+// FILTER QUESTIONS (Preguntas de calificación para prospectos)
+// ==============================
+model FilterQuestion {
+  id          String  @id @default(uuid())
+  orgId       String  @map("org_id")
+  question    String
+  fieldKey    String  @map("field_key")
+  type        String  @default("text") // text | select | multiselect | radio | yesno
+  options     String[] @default([])
+  isRequired  Boolean @default(false) @map("is_required")
+  isActive    Boolean @default(true) @map("is_active")
+  productType String  @default("all") @map("product_type") // all | curso | webinar | programa | taller | asesoria | postulacion | subscripcion
+  sortOrder   Int     @default(0) @map("sort_order")
+  placeholder String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@map("filter_questions")
 }
 
 enum ContactOrigin {

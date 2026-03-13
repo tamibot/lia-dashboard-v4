@@ -551,6 +551,13 @@ const PROMPTS = {
     - Campos SUBSCRIPCION: frequency, period, features (array), advisoryHours (número), whatsappGroup, communityAccess, maxUsers (número).
     - Si el usuario menciona objeciones, devuelve objectionHandlers: [{objection: "...", response: "..."}].
     - Si el usuario menciona casos de éxito, devuelve successStories: [{name: "...", quote: "...", result: "..."}].
+    - MUY IMPORTANTE — Cuando el usuario indica que NO tiene la información ("no tengo", "no sé", "no lo tengo aún", "pendiente", "sin datos", etc.), DE TODAS FORMAS actualiza el campo con un marcador PENDIENTE para que el asistente pueda avanzar:
+      • successStories → [{"name": "PENDIENTE", "quote": "Sin casos de éxito por ahora", "result": ""}]
+      • objectionHandlers → [{"objection": "PENDIENTE", "response": "Por definir"}]
+      • urgencyTriggers, benefits, bonuses u otros arrays de strings → ["PENDIENTE"]
+      • Campos de texto (instructor, callToAction, etc.) → "PENDIENTE"
+      • Campos numéricos (price, maxStudents, etc.) → deja como null
+      En el "message", incluye una RECOMENDACIÓN específica sobre qué información sería ideal para ese campo y cómo obtenerla o crearla.
     - Si no puedes extraer un update válido, devuelve "updates": null y en "message" responde la pregunta del usuario de forma útil.
     - Genera contenido persuasivo y comercialmente fuerte.
     - Responde en español. Solo JSON, sin marcadores de código.`,
@@ -1030,32 +1037,28 @@ export async function chatWithAgent(
     fullCatalog?: { courses?: any[], programs?: any[], webinars?: any[] } | null,
 ): Promise<string> {
 
-    // PRE-STEP: Grounding Query Generation
+    // PRE-STEP: Grounding — skip if we already have a focused course (saves one AI round-trip)
     let filteredCatalog = fullCatalog;
-    try {
-        const sqlQuery = await ask(
-            `MENSAJE DEL USUARIO: ${userMsg}`,
-            PROMPTS.SQL_CATALOG_QUERY
-        );
-        console.log('AI generated grounding query:', sqlQuery);
-
-        if (fullCatalog) {
+    if (!courseContext && fullCatalog) {
+        try {
+            const sqlQuery = await ask(
+                `MENSAJE DEL USUARIO: ${userMsg}`,
+                PROMPTS.SQL_CATALOG_QUERY
+            );
             const allItems = [
                 ...(fullCatalog.courses || []).map(c => ({ ...c, itemType: 'curso' })),
                 ...(fullCatalog.programs || []).map(p => ({ ...p, itemType: 'programa' })),
                 ...(fullCatalog.webinars || []).map(w => ({ ...w, itemType: 'webinar' }))
             ];
-
             const results = filterCatalogItems(allItems, sqlQuery);
             filteredCatalog = {
                 courses: results.filter(r => r.itemType === 'curso'),
                 programs: results.filter(r => r.itemType === 'programa'),
                 webinars: results.filter(r => r.itemType === 'webinar')
             };
-            console.log(`Grounding results: ${results.length} items matched.`);
+        } catch (e) {
+            console.warn('Grounding query step failed, using full catalog as fallback.', e);
         }
-    } catch (e) {
-        console.warn('Grounding query step failed, using full catalog as fallback.', e);
     }
 
     // === Build the verified catalog block ===
@@ -1135,59 +1138,64 @@ Horarios: ${orgProfile.operatingHours ? orgProfile.operatingHours.map((h: any) =
 Métodos de pago: ${orgProfile.paymentMethods ? orgProfile.paymentMethods.map((pm: any) => `${pm.name} (${pm.type})`).join(', ') : 'No especificado'}
     ` : '';
 
-    const systemPrompt = `Eres ${agent.name}, un agente de ventas educativas de élite con años de experiencia convirtiendo prospectos en estudiantes comprometidos.
+    const orgName = orgProfile?.name || '';
+    const systemPrompt = `Eres **${agent.name}**${orgName ? `, agente de ventas de **${orgName}**` : ''}.
 ROL: ${agent.role}
-PERSONALIDAD: ${agent.personality || 'profesional'}
-TONO: ${agent.tone || 'Cálido, empático y persuasivo'}
+PERSONALIDAD: ${agent.personality || 'carismático, directo y persuasivo'}
+TONO: ${agent.tone || 'Cálido, entusiasta y orientado al cierre'}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 METODOLOGÍA DE VENTAS (OBLIGATORIA)
+🎯 ESTILO DE VENTA — MUY IMPORTANTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FASE 1 — DIAGNÓSTICO (primeras 2-3 respuestas si no se sabe el contexto):
-Antes de presentar cualquier curso, haz 2-3 preguntas clave para entender:
-  • ¿Cuál es su situación actual y qué quiere lograr?
-  • ¿Qué ha intentado antes? ¿Qué no funcionó?
-  • ¿Para cuándo necesita ese resultado?
-Solo después de tener estas respuestas, haz una recomendación personalizada y específica.
+Eres un CLOSER, no un consultor. Tu objetivo es CERRAR la inscripción.
 
-FASE 2 — PRESENTACIÓN ORIENTADA A TRANSFORMACIÓN:
-Nunca presentes un curso listando características. Presenta SIEMPRE la transformación:
+SI TIENES EL CURSO PRINCIPAL DEFINIDO:
+→ NO hagas preguntas diagnósticas. Ya sabes lo que vendes.
+→ Abre con el beneficio principal + precio + CTA directo.
+→ Ej: "¡Este curso puede llevarte de X a Y en Z semanas por solo $299! ¿Arrancamos?"
+→ Tu segunda respuesta ya debe incluir el precio si no lo diste antes.
+
+SI ES CATÁLOGO GENERAL (sin curso específico):
+→ Haz MÁXIMO UNA pregunta rápida (nunca 2 seguidas).
+→ Luego RECOMIENDA de inmediato el más relevante con precio y beneficio.
+→ No esperes tener toda la info — actúa con lo que tienes.
+
+PRESENTACIÓN: Vende la TRANSFORMACIÓN, no las características:
   ❌ "El curso tiene 6 módulos y 40 horas"
-  ✅ "En 6 semanas vas a pasar de [situación actual del prospecto] a [resultado concreto del curso]"
-Usa datos específicos del curso: precio, duración, instructor, módulos, certificación.
+  ✅ "En 6 semanas pasas de [situación actual] a [resultado] 🚀"
 
-FASE 3 — MANEJO DE OBJECIONES (cuando el prospecto duda):
-  • Si dice "es muy caro" → usa el manejo de objeciones del curso + framea como inversión con ROI concreto
-  • Si dice "no tengo tiempo" → muestra la flexibilidad del formato y carga horaria real
-  • Si dice "déjame pensarlo" → activa UN gatillo de urgencia relevante + comparte un caso de éxito
-  • Si compara con competencia → destaca la ventaja competitiva del curso
+MANEJO DE OBJECIONES (responde sin dudar):
+  • "Muy caro" → Framea como inversión: "¿Cuánto vale para ti [resultado concreto]?"
+  • "No tengo tiempo" → Muestra flexibilidad: horario, acceso, carga horaria real
+  • "Déjame pensarlo" → Activa urgencia + caso de éxito + propón siguiente paso
+  • "No me interesa" → Descubre la objeción real con UNA pregunta, luego rebate
 
-FASE 4 — CIERRE Y SEGUIMIENTO:
-  • Cuando el interés es alto, propone el siguiente paso concreto: "¿Te agendo una llamada con nuestro equipo o prefieres inscribirte ahora?"
-  • Si no responde un rato, manda un follow-up breve y curioso que genere FOMO
-  • Usa prueba social antes del cierre: menciona cuántos estudiantes ya lo tomaron, resultados reales
+CIERRE AGRESIVO:
+  • No esperes que el prospecto decida solo — propón el siguiente paso en cada mensaje
+  • Usa emojis estratégicamente para dar energía ✅💡🎯🚀
+  • Usa **negrita** para destacar precios, beneficios clave y CTAs
+  • Máximo 3-4 líneas por respuesta. Nunca monólogos largos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔴 REGLAS ABSOLUTAS — NUNCA ROMPER ESTAS:
+🔴 REGLAS ABSOLUTAS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. JAMÁS inventes ni menciones un curso, programa o webinar que NO aparezca en el catálogo real proporcionado abajo.
-2. SI EL CATÁLOGO DICE "Catálogo vacío", informa que no tienes cursos para ese criterio y ofrece el catálogo general.
-3. Basa TODA información en los datos reales: catálogo, institución y curso principal.
-4. Si alguien pide hablar con un humano o agendar llamada → di exactamente: "Te paso con el equipo de ventas para coordinar los detalles finales."
-5. Si el usuario quiere comprar/inscribirse → di exactamente: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
-6. Respuestas cortas y conversacionales. Máximo 3-4 líneas por mensaje. Sin listas largas ni bloques de texto.
-7. Si hay una simulación marcada como [SIMULACION: ...], responde al escenario descrito como si fuera real, en primera persona como el agente.
+1. JAMÁS inventes ni menciones un curso que NO esté en el catálogo real.
+2. Si el catálogo dice "vacío", ofrece el catálogo general disponible.
+3. Si piden hablar con humano → di: "Te paso con el equipo de ventas para coordinar los detalles finales."
+4. Si quieren comprar → di: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
+5. Si hay [SIMULACION: ...], responde al escenario como si fuera real.
+6. Siempre usa **negrita** y emojis relevantes — hace la conversación más viva y legible.
 
-CATÁLOGO DE PRODUCTOS DISPONIBLES (FILTRADO):
+CATÁLOGO DISPONIBLE:
 ${catalogBlock}
 
 ${orgInfo}
 ${courseInfo}
 
-HISTORIAL DE CONVERSACIÓN:
+HISTORIAL:
 ${history.map(h => `${h.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${h.content}`).join('\n')}
 
-INSTRUCCIÓN FINAL: Sé directo, humano y orientado a resultados. Cada mensaje debe acercar al prospecto un paso más a la inscripción. Si no tienes el dato exacto, di la verdad y ofrece una alternativa real del catálogo.`;
+INSTRUCCIÓN: Sé directo, entusiasta y orientado al cierre. Cada mensaje debe acercar al prospecto UN PASO MÁS a inscribirse. ¡Cierra!`;
 
     try {
         return await ask(userMsg, systemPrompt);

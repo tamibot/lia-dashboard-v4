@@ -17,6 +17,7 @@ import publicRoutes from './routes/public.routes.js';
 import contactsRoutes from './routes/contacts.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
 import crmRoutes from './routes/crm.routes.js';
+import filterQuestionsRoutes from './routes/filter-questions.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,6 +69,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/crm', crmRoutes);
+app.use('/api/filter-questions', filterQuestionsRoutes);
 
 // ===== 404 Handler for API =====
 app.use('/api/{*path}', (_req, res) => {

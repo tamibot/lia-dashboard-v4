@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { courseService } from '../lib/services/course.service';
 import { agentService } from '../lib/services/agent.service';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bot, Plus, BookOpen, GraduationCap, Video, Wrench, Repeat, MessageCircle, FileText, Play } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bot, BookOpen, GraduationCap, Video, Wrench, Repeat, MessageCircle, FileText, Play, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { AiAgent } from '../lib/types';
 import SalesPlayground from '../components/SalesPlayground';
@@ -28,7 +28,6 @@ const StatCard = ({
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0, talleres: 0, subscripciones: 0, asesorias: 0, postulaciones: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [agents, setAgents] = useState<AiAgent[]>([]);
@@ -89,8 +88,8 @@ export default function DashboardPage() {
                         <Bot size={20} />
                     </div>
                     <div>
-                        <h4 className="font-bold text-gray-900 text-sm">Mis Agentes</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">Crear o administrar bots de ventas</p>
+                        <h4 className="font-bold text-gray-900 text-sm">Agente LIA</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">Configurar tu vendedor IA 24/7</p>
                     </div>
                 </Link>
 
@@ -115,86 +114,48 @@ export default function DashboardPage() {
                 </Link>
             </div>
 
-            {/* Agents section */}
+            {/* Agent LIA section */}
             <div className="flex justify-between items-center mb-3">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    {agents.length > 0 ? 'Tus Agentes IA' : 'Agentes IA'}
-                </p>
-                {agents.length > 0 && (
-                    <Link to="/agentes" className="text-xs text-blue-600 hover:underline font-medium">
-                        Administrar →
-                    </Link>
-                )}
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Tu Agente de Ventas</p>
+                <Link to="/agentes" className="text-xs text-blue-600 hover:underline font-medium">
+                    Configurar →
+                </Link>
             </div>
 
-            {agents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {agents.slice(0, 5).map(agent => (
-                        <div key={agent.id} className="card hover:shadow-md transition-all flex items-center gap-4 group">
-                            <div className="w-11 h-11 bg-gray-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                                {agent.avatar || '🤖'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-sm text-gray-900 truncate">{agent.name}</h4>
-                                <p className="text-[10px] text-gray-400 truncate mt-0.5">{agent.role}</p>
-                            </div>
+            {(() => {
+                const agent = agents[0];
+                return agent ? (
+                    <div className="card hover:shadow-md transition-all flex items-center gap-4 max-w-xl">
+                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
+                            {agent.avatar || '🤖'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-sm text-gray-900">{agent.name}</h4>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{agent.role} · <span className="text-green-600 font-semibold">Activo 24/7</span></p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             <button
                                 onClick={() => setPlaygroundAgent(agent)}
-                                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
                             >
                                 <Play size={11} className="fill-current" /> Probar
                             </button>
+                            <Link to="/agentes" className="px-3 py-2 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                Editar
+                            </Link>
                         </div>
-                    ))}
-
-                    {/* Link to all agents if more than 5 */}
-                    {agents.length > 5 && (
-                        <Link to="/agentes" className="card flex items-center justify-center gap-2 text-blue-600 hover:bg-blue-50 transition-colors font-semibold text-sm">
-                            <Plus size={16} /> {agents.length - 5} más...
-                        </Link>
-                    )}
-
-                    {/* Create new agent shortcut */}
-                    <Link to="/agentes" className="border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2 p-4 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all">
-                        <Plus size={16} />
-                        <span className="text-xs font-bold">Nuevo Agente</span>
-                    </Link>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="card hover:shadow-md transition-all group">
-                        <div className="flex items-center gap-3 mb-3">
-                            <span className="text-xl w-9 h-9 flex items-center justify-center bg-amber-50 rounded-xl">🎓</span>
-                            <div>
-                                <h4 className="font-bold text-sm text-gray-900">Asistente de Admisiones</h4>
-                                <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide mt-0.5">Sugerido</p>
-                            </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">Ayuda a tus prospectos a elegir el mejor programa para su perfil.</p>
-                        <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/agentes')}>Crear este Agente</button>
                     </div>
-
-                    <div className="card hover:shadow-md transition-all group">
-                        <div className="flex items-center gap-3 mb-3">
-                            <span className="text-xl w-9 h-9 flex items-center justify-center bg-blue-50 rounded-xl">⚡</span>
-                            <div>
-                                <h4 className="font-bold text-sm text-gray-900">Agente de Ventas 24/7</h4>
-                                <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide mt-0.5">Sugerido</p>
-                            </div>
+                ) : (
+                    <Link to="/agentes" className="card hover:shadow-md transition-all flex items-center gap-4 max-w-xl border-2 border-dashed border-blue-200 bg-blue-50/30">
+                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🤖</div>
+                        <div className="flex-1">
+                            <h4 className="font-bold text-sm text-gray-900">Configura tu agente LIA</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">Define la personalidad y comportamiento de tu vendedor IA 24/7</p>
                         </div>
-                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">Responde preguntas y cierra ventas de tus cursos de forma automática.</p>
-                        <button className="btn btn-outline btn-sm w-full text-xs" onClick={() => navigate('/agentes')}>Crear este Agente</button>
-                    </div>
-
-                    <Link to="/agentes" className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center p-6 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-                            <Plus size={20} />
-                        </div>
-                        <span className="text-xs font-bold">Crear nuevo agente</span>
-                        <span className="text-[10px] mt-1 opacity-70">Personalizalo a tu medida</span>
+                        <span className="text-blue-600 font-bold text-xs">Configurar →</span>
                     </Link>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Playground modal */}
             {playgroundAgent && (

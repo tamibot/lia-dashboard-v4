@@ -128,6 +128,13 @@ const INITIAL_STATE: CourseData = {
 type AnalysisStatus = 'idle' | 'analyzing' | 'success' | 'error';
 type Tab = 'type-select' | 'upload' | 'guided' | 'editor';
 
+const ANALYSIS_STEPS = [
+    'Leyendo el contenido...',
+    'Extrayendo información con IA...',
+    'Analizando estructura comercial...',
+    'Preparando asistente guiado...',
+];
+
 const TYPE_OPTIONS = [
     { value: 'curso', label: 'Curso', icon: GraduationCap, color: 'blue', desc: 'Formacion estructurada con temario, modulos y certificacion' },
     { value: 'programa', label: 'Programa', icon: Award, color: 'purple', desc: 'Diplomado o especializacion de largo plazo con multiples cursos' },
@@ -306,7 +313,7 @@ function getNextQuestion(d: CourseData): string | null {
     if (!d.idealStudentProfile) return 'Describe en detalle a tu cliente ideal. ¿Que situacion vive hoy y que resultado busca?';
     if ((d.benefits?.length || 0) === 0) return '¿Cuales son los principales beneficios o transformaciones que obtendra el alumno?';
     if ((d.objectionHandlers?.length || 0) === 0) return 'Piensa en las 2-3 objeciones mas comunes que escuchas (ej: "es caro", "no tengo tiempo"). ¿Cuales son y como las respondes?';
-    if ((d.urgencyTriggers?.length || 0) === 0) return '¿Tienes algun gatillo de urgencia? (ej: cupos limitados, precio sube pronto, fecha limite)';
+    if ((d.urgencyTriggers?.length || 0) === 0) return '¿Tienes algun gatillo de urgencia? (ej: cupos limitados, precio sube pronto, fecha limite). Si no tienes, escribe "no tengo aun".';
     if ((d.successStories?.length || 0) === 0) return '¿Tienes algun caso de exito o testimonio? Dame nombre, resultado obtenido y una cita. Si no tienes, escribe "no tengo aun".';
 
     return null; // All done!
@@ -327,7 +334,17 @@ export default function CourseUpload() {
     const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
     const [chatInput, setChatInput] = useState('');
     const [applyingChange, setApplyingChange] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(true);
+
+    const [analysisStep, setAnalysisStep] = useState(0);
+
+    // Progress through analysis steps while analyzing
+    useEffect(() => {
+        if (status !== 'analyzing') { setAnalysisStep(0); return; }
+        const timings = [0, 4000, 10000, 18000];
+        const timers = timings.map((t, i) => setTimeout(() => setAnalysisStep(i), t));
+        return () => timers.forEach(clearTimeout);
+    }, [status]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -598,10 +615,10 @@ export default function CourseUpload() {
                 setData(prev => ({ ...prev, ...response.updates }));
                 setChatMessages(prev => [...prev, { role: 'assistant', content: `${response.message}` }]);
 
-                // Show chips for fields that were just saved
+                // Show chips for fields that were just saved (only recognized FIELD_LABELS keys)
                 const savedKeys = Object.keys(response.updates).filter(k => {
                     const v = response.updates[k];
-                    return v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0);
+                    return k in FIELD_LABELS && v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0);
                 });
                 if (savedKeys.length > 0) {
                     const chipContent = savedKeys.map(k => FIELD_LABELS[k] || k).join('|');
@@ -828,10 +845,10 @@ export default function CourseUpload() {
 
     // ─── Render ───────────────────────────────────────────────────────
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-full bg-gray-50 overflow-hidden">
             <div className="flex-1 flex flex-col overflow-hidden relative transition-all duration-300">
                 {/* ── Header ── */}
-                <div className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center z-10">
+                <div className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center z-20 sticky top-0">
                     <div className="flex items-center gap-3">
                         <button onClick={() => navigate('/courses')} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
                         <div>
@@ -864,7 +881,7 @@ export default function CourseUpload() {
                 </div>
 
                 {/* ── Steps bar ── */}
-                <div className="bg-white border-b border-gray-100 px-6 flex items-center gap-1 overflow-x-auto">
+                <div className="bg-white border-b border-gray-100 px-6 flex items-center gap-1 overflow-x-auto sticky top-[57px] z-10">
                     {[
                         { id: 'type-select' as Tab, label: 'Tipo', step: 1 },
                         { id: 'upload' as Tab, label: 'Contenido', step: 2 },
@@ -889,6 +906,42 @@ export default function CourseUpload() {
                         );
                     })}
                 </div>
+
+                {/* ── Analysis loading overlay ── */}
+                {status === 'analyzing' && (
+                    <div className="absolute inset-0 bg-white/96 backdrop-blur-sm z-30 flex flex-col items-center justify-center gap-6 px-8">
+                        <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-100">
+                            <Wand2 size={30} className="text-blue-600 animate-pulse" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">Analizando con IA</h3>
+                            <p className="text-sm text-gray-500">Este proceso puede tardar entre 15 y 30 segundos</p>
+                        </div>
+                        <div className="w-72 space-y-2.5">
+                            {ANALYSIS_STEPS.map((label, i) => (
+                                <div key={i} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-500 ${
+                                    i < analysisStep ? 'bg-green-50 text-green-700' :
+                                    i === analysisStep ? 'bg-blue-50 text-blue-700 shadow-sm' :
+                                    'text-gray-300'
+                                }`}>
+                                    {i < analysisStep
+                                        ? <Check size={15} className="flex-shrink-0" />
+                                        : i === analysisStep
+                                            ? <Loader size={15} className="animate-spin flex-shrink-0" />
+                                            : <span className="w-3.5 h-3.5 rounded-full border-2 border-current flex-shrink-0" />
+                                    }
+                                    <span className={`text-sm ${i === analysisStep ? 'font-semibold' : ''}`}>{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="w-64 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                                style={{ width: `${((analysisStep + 1) / ANALYSIS_STEPS.length) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Content ── */}
                 <div className="flex-1 overflow-y-auto">
@@ -988,7 +1041,7 @@ export default function CourseUpload() {
                                                 )}
                                             </button>
                                             <button
-                                                onClick={() => { setStatus('success'); setActiveTab('guided'); setChatMessages([{ role: 'assistant', content: `Vamos a crear tu ${TYPE_LABELS[data.type]} desde cero. Te hare algunas preguntas para completar la informacion.` }, { role: 'assistant', content: getNextQuestion(data) || 'Dame el titulo de tu producto.' }]); }}
+                                                onClick={() => { setStatus('success'); setActiveTab('guided'); setIsChatOpen(true); setChatMessages([{ role: 'assistant', content: `Vamos a crear tu ${TYPE_LABELS[data.type]} desde cero. Te hare algunas preguntas para completar la informacion.` }, { role: 'assistant', content: getNextQuestion(data) || 'Dame el titulo de tu producto.' }]); }}
                                                 className="btn btn-ghost py-3 text-sm"
                                             >
                                                 Crear desde cero
@@ -1083,7 +1136,7 @@ export default function CourseUpload() {
 
                                         {/* Go to editor button */}
                                         <button
-                                            onClick={() => setActiveTab('editor')}
+                                            onClick={() => { setActiveTab('editor'); setIsChatOpen(true); }}
                                             className={`mt-4 btn w-full gap-2 ${percent >= 40 ? 'btn-primary' : 'btn-ghost border border-gray-200'}`}
                                         >
                                             <ArrowRight size={16} />

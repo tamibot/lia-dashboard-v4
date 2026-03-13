@@ -77,7 +77,6 @@ export default function Sidebar() {
                 </NavLink>
 
                 <SectionLabel label="Próximamente" />
-                <SoonItem icon={Filter} label="Preguntas Filtro" />
                 <SoonItem icon={Globe} label="Página de Venta" />
                 <SoonItem icon={Bot} label="Content IA" />
                 <SoonItem icon={BookOpen} label="Educational IA" />
