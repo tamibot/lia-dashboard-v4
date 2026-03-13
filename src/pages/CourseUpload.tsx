@@ -615,9 +615,9 @@ export default function CourseUpload() {
         };
         if (d.registrationLink) base.registrationLink = d.registrationLink;
         if (d.promotions) base.promotions = d.promotions;
-        if (d.location) base.location = d.location;
+        if ((d as any).location) base.location = (d as any).location;
         if (d.tools?.length) base.tools = d.tools;
-        if (d.tags?.length) base.tags = d.tags;
+        if ((d as any).tags?.length) base.tags = (d as any).tags;
 
         // Type-specific field mapping
         switch (type) {
