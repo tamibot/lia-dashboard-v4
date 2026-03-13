@@ -105,19 +105,19 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
             <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col animate-slide-in-right">
 
                 {/* Header */}
-                <div className="p-5 border-b flex justify-between items-center bg-white sticky top-0 z-10 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <span className="text-3xl bg-gray-100 w-12 h-12 flex items-center justify-center rounded-xl">{agent.avatar}</span>
+                <div className="px-5 py-4 border-b flex justify-between items-center bg-white sticky top-0 z-10 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl bg-gray-100 w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0">{agent.avatar}</span>
                         <div>
-                            <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                                Roleplay: {agent.name}
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">LIVE</span>
+                            <h3 className="font-bold text-base text-gray-900 flex items-center gap-2 leading-tight">
+                                {agent.name}
+                                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold tracking-wide">LIVE</span>
                             </h3>
-                            <p className="text-xs text-gray-500">{agent.role}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{agent.role} · Playground de prueba</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                        <X size={24} />
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
+                        <X size={20} />
                     </button>
                 </div>
 
@@ -140,9 +140,9 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                 )}
 
                 {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-6">
+                <div className="flex-1 overflow-y-auto p-5 bg-gray-50 space-y-4">
                     {/* Catalog Context Indicator */}
-                    <div className="flex justify-center -mt-2 mb-4">
+                    <div className="flex justify-center mb-2">
                         {catalogLoading ? (
                             <span className="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 flex items-center gap-2 shadow-sm">
                                 <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping"></span>
@@ -220,9 +220,9 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                 </div>
 
                 {/* Input Area */}
-                <div className="p-5 bg-white border-t space-y-4">
+                <div className="p-4 bg-white border-t space-y-3">
                     {/* Quick chips for testing */}
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                         {(courseContext ? [
                             "¿De qué trata el curso?",
                             "¿Cuál es el precio?",
@@ -247,7 +247,8 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                     </div>
 
                     {/* Simulation buttons */}
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    <div className="pt-2 border-t border-dashed border-gray-200">
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                         <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider self-center whitespace-nowrap mr-1">Simular:</span>
                         <button onClick={() => triggerSimulation('visto15')} disabled={loading || status !== 'chatting'}
                             className="whitespace-nowrap px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs rounded-full border border-amber-200 transition-colors flex items-center gap-1 disabled:opacity-40">
@@ -269,6 +270,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                             className="whitespace-nowrap px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200 transition-colors flex items-center gap-1 disabled:opacity-40">
                             <UserCheck size={10} /> Pasar con asesor
                         </button>
+                    </div>
                     </div>
 
                     <div className="relative">

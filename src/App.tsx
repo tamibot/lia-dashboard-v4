@@ -23,7 +23,7 @@ const ProtectedRoute = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-[260px] flex flex-col min-w-0">
+      <div className="flex-1 ml-[240px] flex flex-col min-w-0">
         <TopBar />
         <div className="flex-1 overflow-y-auto">
           <Outlet />

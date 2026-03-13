@@ -1,78 +1,65 @@
 import { useLocation } from 'react-router-dom';
-import { Search, Bell, Menu, User } from 'lucide-react';
+import { Bell, User } from 'lucide-react';
+
+const PAGE_TITLES: Record<string, string> = {
+    '/': 'Dashboard',
+    '/agentes': 'Agentes IA',
+    '/courses': 'Catálogo Académico',
+    '/courses/upload': 'Subir Información',
+    '/courses/new': 'Nuevo Registro',
+    '/crm': 'Embudo & Campos',
+    '/profile': 'Mi Institución',
+    '/team': 'Equipo de Ventas',
+    '/settings': 'API & Sistema',
+    '/account': 'Mi Cuenta',
+};
+
+function getPageTitle(path: string): string {
+    if (PAGE_TITLES[path]) return PAGE_TITLES[path];
+    if (path.startsWith('/courses/edit')) return 'Editar Registro';
+    if (path.startsWith('/courses/detail')) return 'Detalle Académico';
+    if (path.startsWith('/courses')) return 'Catálogo Académico';
+    if (path.startsWith('/agentes')) return 'Agentes IA';
+    return 'LIA Dashboard';
+}
 
 export default function TopBar() {
     const location = useLocation();
 
-    const getPageTitle = () => {
-        const path = location.pathname;
-        if (path === '/') return 'Dashboard';
-        if (path.startsWith('/agentes')) return 'Mis Agentes';
-        if (path.startsWith('/courses/upload') || path.startsWith('/courses/new')) return 'Subir Información';
-        if (path.startsWith('/courses/edit')) return 'Editar Registro';
-        if (path.startsWith('/courses/detail')) return 'Detalle Académico';
-        if (path.startsWith('/courses')) return 'Catálogo Académico';
-        if (path.startsWith('/profile')) return 'Perfil Institución';
-        if (path.startsWith('/team')) return 'Mi Equipo';
-        if (path.startsWith('/settings')) return 'API & Sistema';
-        if (path.startsWith('/crm')) return 'Embudo & Campos de Extracción';
-        if (path.startsWith('/account')) return 'Mi Cuenta';
-        return 'LIA Dashboard';
-    };
-
     return (
-        <div style={{
-            height: '64px',
-            background: 'white',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 32px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 40
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <button className="btn-icon" style={{ display: 'none' }}><Menu size={20} /></button>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>{getPageTitle()}</h2>
-            </div>
+        <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-40 flex items-center justify-between px-6 md:px-8 gap-4">
+            {/* Page title */}
+            <h2 className="text-base font-bold text-gray-900 tracking-tight">
+                {getPageTitle(location.pathname)}
+            </h2>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div className="search-box" style={{ position: 'relative', width: '280px' }}>
-                    <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input
-                        type="text"
-                        placeholder="Buscar cursos, alumnos..."
-                        className="form-input"
-                        style={{ paddingLeft: '34px', height: '36px', fontSize: '13px' }}
-                    />
-                </div>
-
-                <button className="btn-icon" style={{ position: 'relative' }}>
+            {/* Right side */}
+            <div className="flex items-center gap-3">
+                {/* Notifications */}
+                <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors" aria-label="Notificaciones">
                     <Bell size={18} />
-                    <span style={{ position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px', background: 'var(--error)', borderRadius: '50%', border: '2px solid white' }}></span>
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
                 </button>
 
-                <div style={{ height: '24px', width: '1px', background: 'var(--border)' }}></div>
+                <div className="w-px h-6 bg-gray-200" />
 
-                <div
-                    className="dropdown"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                {/* User */}
+                <button
                     onClick={() => window.location.href = '/account'}
+                    className="flex items-center gap-2.5 pl-1 pr-2 py-1.5 rounded-xl hover:bg-gray-100 transition-colors"
                 >
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 600 }}>Mi Cuenta</div>
-                        <div style={{ fontSize: '10px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                            <span style={{ width: '6px', height: '6px', background: 'var(--success)', borderRadius: '50%' }}></span>
+                    <div className="text-right hidden sm:block">
+                        <p className="text-xs font-semibold text-gray-800 leading-none">Mi Cuenta</p>
+                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1 justify-end">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
                             Conectado
-                        </div>
+                        </p>
                     </div>
-                    <div style={{ width: '32px', height: '32px', background: 'var(--brand-light)', color: 'var(--brand)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <User size={16} />
+                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User size={15} />
                     </div>
-                </div>
+                </button>
             </div>
-        </div>
+        </header>
     );
 }
