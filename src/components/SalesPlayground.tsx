@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X, Phone, CheckCircle } from 'lucide-react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
@@ -48,7 +48,9 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     useEffect(() => {
         setMessages([{
             role: 'assistant',
-            content: `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Veo que te interesa ${courseContext?.title || 'nuestros programas'}. ¿Qué te gustaría saber hoy?`
+            content: courseContext
+                ? `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Veo que te interesa **${courseContext.title}**. ¿Qué te gustaría saber?`
+                : `👋 ¡Hola! Soy ${agent.name}, ${agent.role}. Cuéntame: ¿qué tipo de formación estás buscando hoy? Puedo ayudarte con cursos, programas, webinars y más. 😊`
         }]);
     }, [agent.name, agent.role]); // Reduced deps to avoid resets
 
@@ -56,20 +58,24 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    const sendMessage = async (overrideMsg?: string) => {
+    const sendMessage = async (overrideMsg?: string, isSimulation = false, simulationLabel = '') => {
         const msg = overrideMsg || input;
         if (!msg.trim() || loading || status !== 'chatting') return;
 
         setInput('');
-        setMessages(prev => [...prev, { role: 'user', content: msg }]);
+
+        if (isSimulation) {
+            // Show simulation event chip first
+            setMessages(prev => [...prev, { role: 'simulation', content: simulationLabel }]);
+        } else {
+            setMessages(prev => [...prev, { role: 'user', content: msg }]);
+        }
         setLoading(true);
 
         try {
             const response = await chatWithAgent(agent, messages, msg, courseContext, orgProfile, fullCatalog);
             setMessages(prev => [...prev, { role: 'assistant', content: response }]);
 
-            // Logic to detect closure or transfer (Simulated by simple keyword detection or AI response flags)
-            // In a real app, the AI would return a structured field.
             if (response.toLowerCase().includes('agendado') || response.toLowerCase().includes('asesor') || response.toLowerCase().includes('paso con el equipo')) {
                 setStatus('transferred');
             } else if (response.toLowerCase().includes('inscripción completada') || response.toLowerCase().includes('pago exitoso') || response.toLowerCase().includes('¡bienvenido al curso!')) {
@@ -80,6 +86,18 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         } finally {
             setLoading(false);
         }
+    };
+
+    const triggerSimulation = (type: 'visto15' | 'visto1h' | 'visto5h' | 'negativa' | 'asesor') => {
+        const simulations = {
+            visto15: { label: '⏱ Dejó en visto 15 minutos', msg: '[SIMULACION:VISTO_15MIN] El prospecto dejó en visto por 15 minutos. Reengánchalo.' },
+            visto1h: { label: '⏰ Dejó en visto 1 hora', msg: '[SIMULACION:VISTO_1H] El prospecto estuvo 1 hora sin responder. Haz seguimiento cálido.' },
+            visto5h: { label: '🕐 Dejó en visto 5 horas', msg: '[SIMULACION:VISTO_5H] Pasaron 5 horas sin respuesta. Reactiva con urgencia o nuevo ángulo.' },
+            negativa: { label: '👎 Respuesta negativa', msg: '[SIMULACION:NEGATIVA] El prospecto dijo que no está interesado. Maneja la objeción y rescata el lead.' },
+            asesor: { label: '🙋 Quiere hablar con asesor', msg: '[SIMULACION:ASESOR] El prospecto quiere hablar con una persona. Haz el handoff de forma profesional.' },
+        };
+        const sim = simulations[type];
+        sendMessage(sim.msg, true, sim.label);
     };
 
     return (
@@ -144,6 +162,14 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                     </div>
 
                     {messages.map((msg, idx) => (
+                        msg.role === 'simulation' ? (
+                            <div key={idx} className="flex justify-center animate-fade-in">
+                                <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                                    <Clock size={10} className="text-amber-500" />
+                                    {msg.content}
+                                </span>
+                            </div>
+                        ) : (
                         <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                             <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm relative transition-all hover:shadow-md ${msg.role === 'user'
                                 ? 'bg-blue-600 text-white rounded-tr-none'
@@ -155,6 +181,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                                 </p>
                             </div>
                         </div>
+                        )
                     ))}
                     {loading && (
                         <div className="flex justify-start animate-fade-in flex-col gap-2">
@@ -196,13 +223,19 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                 <div className="p-5 bg-white border-t space-y-4">
                     {/* Quick chips for testing */}
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        {[
+                        {(courseContext ? [
                             "¿De qué trata el curso?",
                             "¿Cuál es el precio?",
                             "¿Tienen facilidades de pago?",
                             "Lo quiero comprar ahora",
                             "Quiero hablar con un humano"
-                        ].map(chip => (
+                        ] : [
+                            "¿Qué cursos tienen?",
+                            "Busco algo virtual y flexible",
+                            "¿Qué programas hay?",
+                            "¿Tienen cursos de tecnología?",
+                            "Quiero hablar con un asesor"
+                        ]).map(chip => (
                             <button
                                 key={chip}
                                 onClick={() => sendMessage(chip)}
@@ -211,6 +244,31 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                                 {chip}
                             </button>
                         ))}
+                    </div>
+
+                    {/* Simulation buttons */}
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider self-center whitespace-nowrap mr-1">Simular:</span>
+                        <button onClick={() => triggerSimulation('visto15')} disabled={loading || status !== 'chatting'}
+                            className="whitespace-nowrap px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs rounded-full border border-amber-200 transition-colors flex items-center gap-1 disabled:opacity-40">
+                            <Clock size={10} /> Visto 15min
+                        </button>
+                        <button onClick={() => triggerSimulation('visto1h')} disabled={loading || status !== 'chatting'}
+                            className="whitespace-nowrap px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs rounded-full border border-amber-200 transition-colors flex items-center gap-1 disabled:opacity-40">
+                            <Clock size={10} /> Visto 1h
+                        </button>
+                        <button onClick={() => triggerSimulation('visto5h')} disabled={loading || status !== 'chatting'}
+                            className="whitespace-nowrap px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs rounded-full border border-amber-200 transition-colors flex items-center gap-1 disabled:opacity-40">
+                            <Clock size={10} /> Visto 5h
+                        </button>
+                        <button onClick={() => triggerSimulation('negativa')} disabled={loading || status !== 'chatting'}
+                            className="whitespace-nowrap px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs rounded-full border border-red-200 transition-colors flex items-center gap-1 disabled:opacity-40">
+                            <ThumbsDown size={10} /> Resp. negativa
+                        </button>
+                        <button onClick={() => triggerSimulation('asesor')} disabled={loading || status !== 'chatting'}
+                            className="whitespace-nowrap px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200 transition-colors flex items-center gap-1 disabled:opacity-40">
+                            <UserCheck size={10} /> Pasar con asesor
+                        </button>
                     </div>
 
                     <div className="relative">

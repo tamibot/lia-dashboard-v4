@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
-import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle } from 'lucide-react';
+import { agentService } from '../lib/services/agent.service';
+import { profileService } from '../lib/services/profile.service';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle, Bot } from 'lucide-react';
 import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
 import type { FilterState } from '../components/AdvancedCourseFilters';
+import SalesPlayground from '../components/SalesPlayground';
+import type { AiAgent, OrgProfile } from '../lib/types';
 
 // Simple deterministic color from title (pastel)
 function titleColor(title: string): string {
@@ -63,19 +67,24 @@ export default function CoursesPage() {
     const [postulaciones, setPostulaciones] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [playgroundAgent, setPlaygroundAgent] = useState<AiAgent | null>(null);
+    const [showPlayground, setShowPlayground] = useState(false);
+    const [orgProfile, setOrgProfile] = useState<OrgProfile | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setIsLoading(true);
-                const [c, p, w, t, su, as_, po] = await Promise.all([
+                const [c, p, w, t, su, as_, po, agents, prof] = await Promise.all([
                     courseService.getAll('curso').catch(err => { console.error('Error fetching cursos:', err); return []; }),
                     courseService.getAll('programa').catch(err => { console.error('Error fetching programas:', err); return []; }),
                     courseService.getAll('webinar').catch(err => { console.error('Error fetching webinars:', err); return []; }),
                     courseService.getAll('taller').catch(err => { console.error('Error fetching talleres:', err); return []; }),
                     courseService.getAll('subscripcion').catch(err => { console.error('Error fetching subscripciones:', err); return []; }),
                     courseService.getAll('asesoria').catch(err => { console.error('Error fetching asesorias:', err); return []; }),
-                    courseService.getAll('postulacion').catch(err => { console.error('Error fetching postulaciones:', err); return []; })
+                    courseService.getAll('postulacion').catch(err => { console.error('Error fetching postulaciones:', err); return []; }),
+                    agentService.getAll().catch(() => []),
+                    profileService.get().catch(() => null),
                 ]);
                 setCursos(c);
                 setProgramas(p);
@@ -84,6 +93,8 @@ export default function CoursesPage() {
                 setSubscripciones(su);
                 setAsesorias(as_);
                 setPostulaciones(po);
+                if (agents.length > 0) setPlaygroundAgent(agents[0]);
+                if (prof) setOrgProfile(prof);
             } catch (err: any) {
                 console.error("Error fetching courses:", err);
                 setError("No se pudieron cargar los datos. Por favor, intenta de nuevo.");
@@ -190,9 +201,19 @@ export default function CoursesPage() {
                     <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Mi Catálogo</h2>
                     <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Gestiona toda tu oferta académica.</p>
                 </div>
-                <button onClick={() => navigate('/courses/upload')} className="btn btn-primary text-white">
-                    <Plus size={18} /> Nuevo Registro
-                </button>
+                <div className="flex gap-3">
+                    {playgroundAgent && (
+                        <button
+                            onClick={() => setShowPlayground(true)}
+                            className="btn btn-secondary flex items-center gap-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                        >
+                            <Bot size={18} /> Probar Agente
+                        </button>
+                    )}
+                    <button onClick={() => navigate('/courses/upload')} className="btn btn-primary text-white">
+                        <Plus size={18} /> Nuevo Registro
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -435,6 +456,16 @@ export default function CoursesPage() {
                         );
                     })}
                 </div>
+            )}
+
+            {/* General Catalog Agent Playground */}
+            {showPlayground && playgroundAgent && (
+                <SalesPlayground
+                    agent={playgroundAgent}
+                    courseContext={undefined}
+                    orgProfile={orgProfile || undefined}
+                    onClose={() => setShowPlayground(false)}
+                />
             )}
         </div>
     );

@@ -10,6 +10,27 @@ import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from
 import { courseService } from '../lib/services/course.service';
 import type { Attachment, ContactInfo } from '../lib/types';
 
+// ─── Field labels for data-collection chips ───────────────────────────
+const FIELD_LABELS: Record<string, string> = {
+    title: 'Título', subtitle: 'Subtítulo', description: 'Descripción',
+    targetAudience: 'Audiencia', instructor: 'Instructor', instructorBio: 'Bio del instructor',
+    speaker: 'Speaker', speakerBio: 'Bio del speaker', coordinator: 'Coordinador',
+    advisor: 'Asesor', price: 'Precio', currency: 'Moneda', earlyBirdPrice: 'Precio early bird',
+    earlyBirdDeadline: 'Fecha early bird', modality: 'Modalidad', duration: 'Duración',
+    hours: 'Horas totales', startDate: 'Fecha inicio', endDate: 'Fecha fin',
+    schedule: 'Horario', eventDate: 'Fecha del evento', eventTime: 'Hora del evento',
+    registrationLink: 'Link de registro', certification: 'Certificación',
+    prerequisites: 'Requisitos previos', maxStudents: 'Cupos máximos',
+    objectives: 'Objetivos', syllabus: 'Temario', requirements: 'Requisitos',
+    benefits: 'Beneficios', painPoints: 'Problemas que resuelve', guarantee: 'Garantía',
+    socialProof: 'Testimonios', bonuses: 'Bonos', urgencyTriggers: 'Urgencia',
+    objectionHandlers: 'Manejo de objeciones', successStories: 'Casos de éxito',
+    callToAction: 'CTA', idealStudentProfile: 'Perfil ideal', competitiveAdvantage: 'Ventaja competitiva',
+    faqs: 'FAQs', promotions: 'Promociones', paymentMethods: 'Métodos de pago',
+    category: 'Categoría', tags: 'Etiquetas', tools: 'Herramientas',
+    platform: 'Plataforma', frequency: 'Frecuencia', period: 'Período',
+};
+
 // ─── Types ───────────────────────────────────────────────────────────
 interface CourseData {
     type: 'curso' | 'programa' | 'webinar' | 'taller' | 'subscripcion' | 'asesoria' | 'postulacion';
@@ -577,6 +598,16 @@ export default function CourseUpload() {
                 setData(prev => ({ ...prev, ...response.updates }));
                 setChatMessages(prev => [...prev, { role: 'assistant', content: `${response.message}` }]);
 
+                // Show chips for fields that were just saved
+                const savedKeys = Object.keys(response.updates).filter(k => {
+                    const v = response.updates[k];
+                    return v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0);
+                });
+                if (savedKeys.length > 0) {
+                    const chipContent = savedKeys.map(k => FIELD_LABELS[k] || k).join('|');
+                    setChatMessages(prev => [...prev, { role: 'data-chips', content: chipContent }]);
+                }
+
                 // Auto-ask next question in guided mode
                 if (activeTab === 'guided') {
                     const nextQ = getNextQuestion(newData as CourseData);
@@ -1064,6 +1095,15 @@ export default function CourseUpload() {
                                     <div className="flex-1 flex flex-col bg-gray-50">
                                         <div className="flex-1 overflow-y-auto p-5 space-y-3">
                                             {chatMessages.map((msg, i) => (
+                                                msg.role === 'data-chips' ? (
+                                                    <div key={i} className="flex justify-start flex-wrap gap-1.5 pl-1">
+                                                        {msg.content.split('|').map(label => (
+                                                            <span key={label} className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                <Check size={9} /> {label} guardado
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
                                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                                     <div className={`max-w-[75%] p-3 rounded-2xl text-sm leading-relaxed ${
                                                         msg.role === 'user'
@@ -1075,6 +1115,7 @@ export default function CourseUpload() {
                                                         ))}
                                                     </div>
                                                 </div>
+                                                )
                                             ))}
                                             {applyingChange && (
                                                 <div className="flex items-center gap-2 text-xs text-gray-400 ml-2">
