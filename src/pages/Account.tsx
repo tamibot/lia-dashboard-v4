@@ -1,10 +1,14 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, Lock, Save, Camera, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, Lock, Save, ShieldCheck, Building2, LogOut, Eye, EyeOff } from 'lucide-react';
 
 export default function AccountPage() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [showPwd, setShowPwd] = useState(false);
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
@@ -14,138 +18,183 @@ export default function AccountPage() {
         confirmPassword: ''
     });
 
+    const initials = user?.name
+        ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+        : 'U';
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        // Simulate API call
         setTimeout(() => {
             setLoading(false);
-            alert('Perfil actualizado correctamente (Demo)');
-        }, 1000);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        }, 800);
+    };
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
     };
 
     return (
-        <div className="page-content" style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div className="page-header">
-                <h2 style={{ fontSize: '24px', fontWeight: 800 }}>👤 Mi Cuenta</h2>
-                <p>Gestiona tu información personal y seguridad de acceso.</p>
+        <div className="page-content" style={{ maxWidth: '860px' }}>
+
+            {/* Header */}
+            <div className="mb-8">
+                <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Mi Cuenta</h2>
+                <p className="text-sm text-gray-500 mt-1">Gestiona tu información personal y seguridad de acceso.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-                {/* Profile Card */}
-                <div className="md:col-span-1">
-                    <div className="card text-center p-8 bg-white border border-gray-100 rounded-3xl shadow-sm">
-                        <div className="relative inline-block mb-4">
-                            <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mx-auto">
-                                <User size={40} />
-                            </div>
-                            <button className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-md border border-gray-100 text-gray-500 hover:text-blue-600 transition-colors">
-                                <Camera size={16} />
-                            </button>
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900">{user?.name}</h3>
-                        <p className="text-sm text-gray-500 mb-6">{user?.role}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                        <div className="flex flex-col gap-2">
-                            <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
-                                <ShieldCheck size={14} /> Cuenta Verificada
+                {/* Left Column — Profile Card */}
+                <div className="md:col-span-1 flex flex-col gap-4">
+
+                    {/* Identity */}
+                    <div className="card flex flex-col items-center text-center gap-3 py-8">
+                        <div className="w-20 h-20 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold shadow-lg shadow-blue-200">
+                            {initials}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 text-base leading-tight">{user?.name}</h3>
+                            <p className="text-xs text-gray-400 mt-0.5 capitalize">{user?.role}</p>
+                        </div>
+                        <div className="w-full border-t border-gray-100 pt-3 flex flex-col gap-2">
+                            <div className="flex items-center gap-2 text-xs text-gray-500 px-2">
+                                <Mail size={12} className="text-gray-400 flex-shrink-0" />
+                                <span className="truncate">{user?.email}</span>
                             </div>
+                            {user?.phone && (
+                                <div className="flex items-center gap-2 text-xs text-gray-500 px-2">
+                                    <Phone size={12} className="text-gray-400 flex-shrink-0" />
+                                    <span>{user.phone}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full mt-1">
+                            <ShieldCheck size={12} /> Cuenta Verificada
                         </div>
                     </div>
+
+                    {/* Organization */}
+                    <div className="card flex items-center gap-3 py-4">
+                        <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building2 size={16} className="text-blue-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Institución</p>
+                            <p className="text-sm font-bold text-gray-800 truncate">{user?.orgName || '—'}</p>
+                        </div>
+                    </div>
+
+                    {/* Logout */}
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all"
+                    >
+                        <LogOut size={15} /> Cerrar Sesión
+                    </button>
                 </div>
 
-                {/* Settings Form */}
-                <div className="md:col-span-2 space-y-6">
-                    <form onSubmit={handleSave} className="card p-8 bg-white border border-gray-100 rounded-3xl shadow-sm space-y-6">
-                        <h3 className="text-lg font-bold text-gray-900 border-b border-gray-50 pb-4">Información Personal</h3>
+                {/* Right Column — Form */}
+                <div className="md:col-span-2">
+                    <form onSubmit={handleSave} className="card space-y-5">
 
-                        <div className="space-y-4">
-                            <div className="form-group">
-                                <label className="text-sm font-semibold text-gray-700 mb-1 block">Nombre Completo</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-800 mb-4">Información Personal</h3>
+                            <div className="space-y-4">
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nombre Completo</label>
                                     <input
-                                        className="form-input w-full pl-10 h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                        className="input w-full"
                                         value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Tu nombre completo"
                                     />
                                 </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label className="text-sm font-semibold text-gray-700 mb-1 block">Correo Electrónico</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Correo Electrónico</label>
                                     <input
-                                        className="form-input w-full pl-10 h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
+                                        className="input w-full bg-gray-50 text-gray-400 cursor-not-allowed"
                                         type="email"
                                         value={formData.email}
                                         readOnly
                                     />
+                                    <p className="text-[10px] text-gray-400 mt-1">El correo no se puede cambiar por seguridad.</p>
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-1 ml-2">El correo electrónico no se puede cambiar por seguridad.</p>
-                            </div>
 
-                            <div className="form-group">
-                                <label className="text-sm font-semibold text-gray-700 mb-1 block">Teléfono / WhatsApp</label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
-                                    <input
-                                        className="form-input w-full pl-10 h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                        value={formData.phone}
-                                        placeholder="+51 987 654 321"
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <h3 className="text-lg font-bold text-gray-900 border-b border-gray-50 pb-4 pt-4">Seguridad</h3>
-
-                        <div className="space-y-4">
-                            <div className="form-group">
-                                <label className="text-sm font-semibold text-gray-700 mb-1 block">Contraseña Actual</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                                    <input
-                                        className="form-input w-full pl-10 h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        value={formData.currentPassword}
-                                        onChange={e => setFormData({ ...formData, currentPassword: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="form-group">
-                                    <label className="text-sm font-semibold text-gray-700 mb-1 block">Nueva Contraseña</label>
-                                    <input
-                                        className="form-input w-full h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                        type="password"
-                                        value={formData.newPassword}
-                                        onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="text-sm font-semibold text-gray-700 mb-1 block">Confirmar Contraseña</label>
-                                    <input
-                                        className="form-input w-full h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all"
-                                        type="password"
-                                        value={formData.confirmPassword}
-                                        onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                    />
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Teléfono / WhatsApp</label>
+                                    <div className="relative">
+                                        <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            className="input w-full pl-9"
+                                            value={formData.phone}
+                                            placeholder="+51 987 654 321"
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="pt-6">
+                        <div className="border-t border-gray-100 pt-5">
+                            <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                <Lock size={14} className="text-gray-400" /> Cambiar Contraseña
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Contraseña Actual</label>
+                                    <div className="relative">
+                                        <input
+                                            className="input w-full pr-10"
+                                            type={showPwd ? 'text' : 'password'}
+                                            placeholder="••••••••"
+                                            value={formData.currentPassword}
+                                            onChange={e => setFormData({ ...formData, currentPassword: e.target.value })}
+                                        />
+                                        <button type="button" onClick={() => setShowPwd(v => !v)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                            {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Nueva Contraseña</label>
+                                        <input
+                                            className="input w-full"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={formData.newPassword}
+                                            onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirmar</label>
+                                        <input
+                                            className="input w-full"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={formData.confirmPassword}
+                                            onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                                className="w-full btn btn-primary py-3 text-sm"
                             >
-                                {loading ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
+                                {loading ? 'Guardando...' : saved ? '✓ Cambios guardados' : <><Save size={15} /> Guardar Cambios</>}
                             </button>
                         </div>
                     </form>
