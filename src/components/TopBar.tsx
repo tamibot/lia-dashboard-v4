@@ -17,6 +17,7 @@ const PAGE_TITLES: Record<string, string> = {
     '/account': 'Mi Cuenta',
     '/filter-questions': 'Preguntas Filtro',
     '/integrations': 'Integraciones',
+    '/kpi': 'KPIs & Reportes',
 };
 
 function getPageTitle(path: string): string {

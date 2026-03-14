@@ -14,6 +14,7 @@ import CRM from './pages/CRM';
 import AiAgentsPage from './pages/AiAgentsPage';
 import FilterQuestions from './pages/FilterQuestions';
 import GhlIntegration from './pages/GhlIntegration';
+import KpiReports from './pages/KpiReports';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SidebarProvider } from './context/SidebarContext';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/team" element={<TeamManagement />} />
             <Route path="/integrations" element={<GhlIntegration />} />
+            <Route path="/kpi" element={<KpiReports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/account" element={<Account />} />
             {/* Catch-all redirect to Dashboard */}

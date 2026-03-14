@@ -5,8 +5,32 @@ import { useToast } from '../context/ToastContext';
 import {
     Link2, Unlink, RefreshCw, Users, GitBranch,
     CheckCircle2, AlertTriangle, Loader2, ExternalLink, Download,
-    ListChecks, Key, Save
+    ListChecks, Key, Save, ClipboardCheck, Check, X as XIcon
 } from 'lucide-react';
+
+const REQUIRED_STAGES = [
+    'Nuevo Lead',
+    'Primer Contacto',
+    'Calificado',
+    'Presentacion Realizada',
+    'Propuesta Enviada',
+    'Negociacion',
+    'Inscrito',
+    'Perdido',
+];
+
+const REQUIRED_FIELDS = [
+    { name: 'Producto de Interes', key: 'contact.producto_de_interes' },
+    { name: 'Tipo de Producto', key: 'contact.tipo_de_producto' },
+    { name: 'Presupuesto', key: 'contact.presupuesto' },
+    { name: 'Modalidad Preferida', key: 'contact.modalidad_preferida' },
+    { name: 'Nivel Educativo', key: 'contact.nivel_educativo' },
+    { name: 'Ocupacion Actual', key: 'contact.ocupacion_actual' },
+    { name: 'Horario Preferido', key: 'contact.horario_preferido' },
+    { name: 'Fuente de Referencia', key: 'contact.fuente_de_referencia' },
+    { name: 'Fecha de Interes', key: 'contact.fecha_de_interes' },
+    { name: 'Notas del Asesor', key: 'contact.notas_del_asesor' },
+];
 
 export default function GhlIntegration() {
     const { toast } = useToast();
@@ -21,6 +45,12 @@ export default function GhlIntegration() {
     const [settingUpFields, setSettingUpFields] = useState(false);
     const [privateKey, setPrivateKey] = useState('');
     const [savingKey, setSavingKey] = useState(false);
+    const [checklistData, setChecklistData] = useState<{
+        stages: string[];
+        fields: string[];
+        pipelineName: string;
+    } | null>(null);
+    const [loadingChecklist, setLoadingChecklist] = useState(false);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -123,6 +153,34 @@ export default function GhlIntegration() {
             toast(err?.data?.error || 'Error al guardar API key', 'error');
         } finally {
             setSavingKey(false);
+        }
+    };
+
+    const handleVerifyChecklist = async () => {
+        setLoadingChecklist(true);
+        try {
+            const [pipelinesResp, fieldsResp] = await Promise.all([
+                integrationsService.getPipelines().catch(() => ({ pipelines: [] })),
+                integrationsService.getCustomFields().catch(() => ({ customFields: [] })),
+            ]);
+
+            const pipelines = (pipelinesResp as any).pipelines || [];
+            const targetPipeline = pipelines.find((p: any) =>
+                p.name.toLowerCase().includes('embudo') || p.name.toLowerCase().includes('lia')
+            ) || pipelines[0];
+
+            const stageNames = targetPipeline?.stages?.map((s: any) => s.name) || [];
+            const fieldNames = ((fieldsResp as any).customFields || []).map((f: any) => f.name);
+
+            setChecklistData({
+                stages: stageNames,
+                fields: fieldNames,
+                pipelineName: targetPipeline?.name || 'No encontrado',
+            });
+        } catch (err: any) {
+            toast(err?.data?.error || 'Error al verificar configuracion', 'error');
+        } finally {
+            setLoadingChecklist(false);
         }
     };
 
@@ -374,6 +432,135 @@ export default function GhlIntegration() {
                             Guardar
                         </button>
                     </div>
+                </div>
+            )}
+
+            {/* Configuration Checklist */}
+            {status?.connected && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                <ClipboardCheck size={20} className="text-indigo-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">Verificar Configuracion</h3>
+                                <p className="text-xs text-gray-500">Confirma que tu pipeline y campos estan correctamente configurados en GHL</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleVerifyChecklist}
+                            disabled={loadingChecklist}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                        >
+                            {loadingChecklist ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <RefreshCw size={14} />
+                            )}
+                            {loadingChecklist ? 'Verificando...' : 'Verificar'}
+                        </button>
+                    </div>
+
+                    {checklistData && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Pipeline Stages Checklist */}
+                            <div className="border border-gray-100 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-sm font-bold text-gray-800">Etapas del Pipeline</h4>
+                                    <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                                        {checklistData.pipelineName}
+                                    </span>
+                                </div>
+                                <div className="space-y-1.5">
+                                    {REQUIRED_STAGES.map(stage => {
+                                        const found = checklistData.stages.some(
+                                            s => s.toLowerCase().trim() === stage.toLowerCase().trim()
+                                        );
+                                        return (
+                                            <div key={stage} className="flex items-center gap-2 text-sm">
+                                                {found ? (
+                                                    <Check size={14} className="text-green-500 flex-shrink-0" />
+                                                ) : (
+                                                    <XIcon size={14} className="text-red-400 flex-shrink-0" />
+                                                )}
+                                                <span className={found ? 'text-gray-700' : 'text-red-500'}>
+                                                    {stage}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {(() => {
+                                    const matched = REQUIRED_STAGES.filter(stage =>
+                                        checklistData.stages.some(s => s.toLowerCase().trim() === stage.toLowerCase().trim())
+                                    ).length;
+                                    const allGood = matched === REQUIRED_STAGES.length;
+                                    return (
+                                        <div className={`mt-3 pt-3 border-t text-xs font-semibold flex items-center gap-1.5 ${
+                                            allGood ? 'border-green-100 text-green-700' : 'border-amber-100 text-amber-700'
+                                        }`}>
+                                            {allGood ? (
+                                                <><CheckCircle2 size={13} /> Todas las etapas configuradas</>
+                                            ) : (
+                                                <><AlertTriangle size={13} /> {matched}/{REQUIRED_STAGES.length} etapas encontradas</>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Custom Fields Checklist */}
+                            <div className="border border-gray-100 rounded-lg p-4">
+                                <h4 className="text-sm font-bold text-gray-800 mb-3">Campos Personalizados</h4>
+                                <div className="space-y-1.5">
+                                    {REQUIRED_FIELDS.map(field => {
+                                        const found = checklistData.fields.some(
+                                            f => f.toLowerCase().trim() === field.name.toLowerCase().trim()
+                                        );
+                                        return (
+                                            <div key={field.key} className="flex items-center gap-2 text-sm">
+                                                {found ? (
+                                                    <Check size={14} className="text-green-500 flex-shrink-0" />
+                                                ) : (
+                                                    <XIcon size={14} className="text-red-400 flex-shrink-0" />
+                                                )}
+                                                <span className={found ? 'text-gray-700' : 'text-red-500'}>
+                                                    {field.name}
+                                                </span>
+                                                <span className="text-[10px] text-gray-300 font-mono ml-auto">
+                                                    {field.key}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {(() => {
+                                    const matched = REQUIRED_FIELDS.filter(field =>
+                                        checklistData.fields.some(f => f.toLowerCase().trim() === field.name.toLowerCase().trim())
+                                    ).length;
+                                    const allGood = matched === REQUIRED_FIELDS.length;
+                                    return (
+                                        <div className={`mt-3 pt-3 border-t text-xs font-semibold flex items-center gap-1.5 ${
+                                            allGood ? 'border-green-100 text-green-700' : 'border-amber-100 text-amber-700'
+                                        }`}>
+                                            {allGood ? (
+                                                <><CheckCircle2 size={13} /> Todos los campos configurados</>
+                                            ) : (
+                                                <><AlertTriangle size={13} /> {matched}/{REQUIRED_FIELDS.length} campos encontrados</>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
+                    {!checklistData && !loadingChecklist && (
+                        <p className="text-xs text-gray-400 mt-2">
+                            Haz click en "Verificar" para comprobar que tu pipeline y campos personalizados estan correctamente configurados en GoHighLevel.
+                        </p>
+                    )}
                 </div>
             )}
 

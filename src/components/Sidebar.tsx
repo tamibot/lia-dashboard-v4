@@ -114,11 +114,15 @@ export default function Sidebar() {
                         <Settings size={16} /> API & Sistema
                     </NavLink>
 
+                    <SectionLabel label="Reportes" />
+                    <NavLink to="/kpi" className={navClass}>
+                        <BarChart2 size={16} /> KPIs & Reportes
+                    </NavLink>
+
                     <SectionLabel label="Proximamente" />
                     <SoonItem icon={Globe} label="Pagina de Venta" />
                     <SoonItem icon={Bot} label="Content IA" />
                     <SoonItem icon={BookOpen} label="Educational IA" />
-                    <SoonItem icon={BarChart2} label="KPIs & Reportes" />
                 </nav>
 
                 {/* Footer */}
