@@ -11,4 +11,8 @@ export const env = {
     FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
     UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
     MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB
+    // GHL OAuth2
+    GHL_CLIENT_ID: process.env.GHL_CLIENT_ID || '',
+    GHL_CLIENT_SECRET: process.env.GHL_CLIENT_SECRET || '',
+    GHL_REDIRECT_URI: process.env.GHL_REDIRECT_URI || 'https://app.liabotedu.com/api/integrations/oauth/callback',
 };

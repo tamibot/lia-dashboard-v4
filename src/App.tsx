@@ -13,6 +13,7 @@ import Account from './pages/Account';
 import CRM from './pages/CRM';
 import AiAgentsPage from './pages/AiAgentsPage';
 import FilterQuestions from './pages/FilterQuestions';
+import GhlIntegration from './pages/GhlIntegration';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SidebarProvider } from './context/SidebarContext';
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/filter-questions" element={<FilterQuestions />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/team" element={<TeamManagement />} />
+            <Route path="/integrations" element={<GhlIntegration />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/account" element={<Account />} />
             {/* Catch-all redirect to Dashboard */}

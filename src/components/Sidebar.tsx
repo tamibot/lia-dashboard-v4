@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch, User, ListFilter, X } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch, User, ListFilter, X, Link2 } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useEffect } from 'react';
 
@@ -99,6 +99,11 @@ export default function Sidebar() {
                     </NavLink>
                     <NavLink to="/filter-questions" className={navClass}>
                         <ListFilter size={16} /> Preguntas Filtro
+                    </NavLink>
+
+                    <SectionLabel label="Integraciones" />
+                    <NavLink to="/integrations" className={navClass}>
+                        <Link2 size={16} /> GoHighLevel
                     </NavLink>
 
                     <SectionLabel label="Configuracion" />

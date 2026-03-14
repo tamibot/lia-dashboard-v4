@@ -62,6 +62,7 @@ model Organization {
   funnels          Funnel[]
   extractionFields ExtractionField[]
   filterQuestions  FilterQuestion[]
+  ghlConnection    GhlConnection?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1094,4 +1095,36 @@ enum ContactOrigin {
   whatsapp
   email
   otro
+}
+
+// ==============================
+// GHL CONNECTION (OAuth2 Integration)
+// ==============================
+model GhlConnection {
+  id    String @id @default(uuid())
+  orgId String @unique @map("org_id")
+
+  // OAuth tokens
+  accessToken  String  @map("access_token")
+  refreshToken String  @map("refresh_token")
+  tokenType    String  @default("Bearer") @map("token_type")
+  expiresAt    DateTime @map("expires_at")
+
+  // GHL account info
+  locationId String? @map("location_id")
+  companyId  String? @map("company_id")
+  userId     String? @map("user_id")
+  userType   String  @default("Location") @map("user_type") // Company | Location
+
+  // Sync metadata
+  lastSyncAt    DateTime? @map("last_sync_at")
+  contactsSynced Int      @default(0) @map("contacts_synced")
+  isActive       Boolean  @default(true) @map("is_active")
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ghl_connections")
 }
