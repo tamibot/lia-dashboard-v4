@@ -14,7 +14,7 @@ export function useAutoSave<T>(
     enabled = true
 ) {
     const initialRef = useRef<string | null>(null);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const saveFnRef = useRef(saveFn);
     saveFnRef.current = saveFn;
 

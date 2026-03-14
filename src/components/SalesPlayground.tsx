@@ -39,7 +39,6 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const [fullCatalog, setFullCatalog] = useState<any>(null);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Fetch the REAL catalog from the backend so the agent doesn't invent courses
     const [catalogLoading, setCatalogLoading] = useState(true);
