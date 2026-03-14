@@ -4,7 +4,8 @@ import { integrationsService, type GhlStatus } from '../lib/services/integration
 import { useToast } from '../context/ToastContext';
 import {
     Link2, Unlink, RefreshCw, Users, GitBranch,
-    CheckCircle2, AlertTriangle, Loader2, ExternalLink, Download
+    CheckCircle2, AlertTriangle, Loader2, ExternalLink, Download,
+    Settings2, ListChecks
 } from 'lucide-react';
 
 export default function GhlIntegration() {
@@ -17,6 +18,8 @@ export default function GhlIntegration() {
     const [previewContacts, setPreviewContacts] = useState<any[]>([]);
     const [showPreview, setShowPreview] = useState(false);
     const [loadingPreview, setLoadingPreview] = useState(false);
+    const [settingUpPipeline, setSettingUpPipeline] = useState(false);
+    const [settingUpFields, setSettingUpFields] = useState(false);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -101,6 +104,30 @@ export default function GhlIntegration() {
             toast(err?.data?.error || 'Error al obtener preview', 'error');
         } finally {
             setLoadingPreview(false);
+        }
+    };
+
+    const handleSetupPipeline = async () => {
+        setSettingUpPipeline(true);
+        try {
+            const result = await integrationsService.setupPipeline();
+            toast(result.message || 'Pipeline creado exitosamente');
+        } catch (err: any) {
+            toast(err?.data?.error || 'Error al crear pipeline. Verifica que tengas el scope opportunities.write', 'error');
+        } finally {
+            setSettingUpPipeline(false);
+        }
+    };
+
+    const handleSetupFields = async () => {
+        setSettingUpFields(true);
+        try {
+            const result = await integrationsService.setupFields();
+            toast(result.message || 'Campos creados exitosamente');
+        } catch (err: any) {
+            toast(err?.data?.error || 'Error al crear campos. Verifica que tengas el scope locations/customFields.write', 'error');
+        } finally {
+            setSettingUpFields(false);
         }
     };
 
@@ -223,7 +250,7 @@ export default function GhlIntegration() {
 
             {/* Actions */}
             {status?.connected && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Sync Contacts */}
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <div className="flex items-center gap-3 mb-3">
@@ -263,20 +290,54 @@ export default function GhlIntegration() {
                         </div>
                     </div>
 
-                    {/* Pipelines */}
+                    {/* Setup Pipeline */}
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
                                 <GitBranch size={20} className="text-purple-600" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-gray-900">Pipelines</h3>
-                                <p className="text-xs text-gray-500">Oportunidades y embudos de GHL</p>
+                                <h3 className="font-semibold text-gray-900">Pipeline</h3>
+                                <p className="text-xs text-gray-500">Crear embudo educativo en GHL</p>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-400 italic">
-                            Disponible pronto — los pipelines de GHL se podran visualizar aqui.
-                        </p>
+                        <button
+                            onClick={handleSetupPipeline}
+                            disabled={settingUpPipeline}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                        >
+                            {settingUpPipeline ? (
+                                <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                                <Settings2 size={16} />
+                            )}
+                            {settingUpPipeline ? 'Creando...' : 'Crear Pipeline'}
+                        </button>
+                    </div>
+
+                    {/* Setup Custom Fields */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-5">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                                <ListChecks size={20} className="text-amber-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">Campos Personalizados</h3>
+                                <p className="text-xs text-gray-500">Crear campos de contacto en GHL</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSetupFields}
+                            disabled={settingUpFields}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                        >
+                            {settingUpFields ? (
+                                <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                                <ListChecks size={16} />
+                            )}
+                            {settingUpFields ? 'Creando...' : 'Crear Campos'}
+                        </button>
                     </div>
                 </div>
             )}

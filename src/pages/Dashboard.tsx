@@ -6,7 +6,6 @@ import { Bot, BookOpen, GraduationCap, Video, Wrench, Repeat, MessageCircle, Fil
 import { useAuth } from '../context/AuthContext';
 import type { AiAgent } from '../lib/types';
 import SalesPlayground from '../components/SalesPlayground';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const StatCard = ({
     bg, border, iconBg, iconColor, icon: Icon, label, labelColor, value, valueColor, onClick, isLoading
@@ -91,40 +90,6 @@ export default function DashboardPage() {
                 <StatCard bg="bg-emerald-50" border="border-emerald-100" iconBg="bg-emerald-100" iconColor="text-emerald-600" icon={MessageCircle} label="Asesorías" labelColor="text-emerald-600" value={stats.asesorias} valueColor="text-emerald-900" onClick={() => goToCatalog('asesoria')} isLoading={isLoading} />
                 <StatCard bg="bg-amber-50" border="border-amber-100" iconBg="bg-amber-100" iconColor="text-amber-600" icon={FileText} label="Postulaciones" labelColor="text-amber-600" value={stats.postulaciones} valueColor="text-amber-900" onClick={() => goToCatalog('postulacion')} isLoading={isLoading} />
             </div>
-
-            {/* Catalog Chart */}
-            {!isLoading && (stats.cursos + stats.programas + stats.webinars + stats.talleres + stats.subscripciones + stats.asesorias + stats.postulaciones) > 0 && (
-                <div className="card mb-8">
-                    <h3 className="text-sm font-bold text-gray-800 mb-4">Distribucion del Catalogo</h3>
-                    <ResponsiveContainer width="100%" height={200}>
-                        <BarChart data={[
-                            { name: 'Cursos', value: stats.cursos, color: '#3B82F6' },
-                            { name: 'Programas', value: stats.programas, color: '#8B5CF6' },
-                            { name: 'Webinars', value: stats.webinars, color: '#F97316' },
-                            { name: 'Talleres', value: stats.talleres, color: '#14B8A6' },
-                            { name: 'Suscripciones', value: stats.subscripciones, color: '#F43F5E' },
-                            { name: 'Asesorias', value: stats.asesorias, color: '#10B981' },
-                            { name: 'Postulaciones', value: stats.postulaciones, color: '#F59E0B' },
-                        ].filter(d => d.value > 0)} barSize={32} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '13px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                                cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
-                            />
-                            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                                {[
-                                    { color: '#3B82F6' }, { color: '#8B5CF6' }, { color: '#F97316' },
-                                    { color: '#14B8A6' }, { color: '#F43F5E' }, { color: '#10B981' }, { color: '#F59E0B' },
-                                ].filter((_, i) => [stats.cursos, stats.programas, stats.webinars, stats.talleres, stats.subscripciones, stats.asesorias, stats.postulaciones][i] > 0)
-                                .map((entry, i) => (
-                                    <Cell key={i} fill={entry.color} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            )}
 
             {/* Quick Actions */}
             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Acciones rapidas</p>

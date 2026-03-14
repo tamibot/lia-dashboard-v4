@@ -43,4 +43,13 @@ export const integrationsService = {
     async getOpportunities() {
         return api.get<any>('/integrations/ghl/opportunities');
     },
+    async setupPipeline() {
+        return api.post<any>('/integrations/ghl/setup-pipeline', {});
+    },
+    async setupFields() {
+        return api.post<any>('/integrations/ghl/setup-fields', {});
+    },
+    async getCustomFields() {
+        return api.get<any>('/integrations/ghl/custom-fields');
+    },
 };

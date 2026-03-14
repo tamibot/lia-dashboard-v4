@@ -113,7 +113,7 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         if (!tokenResp.ok) {
             const errText = await tokenResp.text();
             console.error('GHL token exchange failed:', errText);
-            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=token_exchange`);
+            res.redirect(`${env.FRONTEND_URL}/integrations?ghl=error&reason=token_exchange`);
             return;
         }
 
@@ -132,14 +132,14 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         // The state parameter carries the orgId (set during auth redirect).
         const orgId = req.query.state as string;
         if (!orgId) {
-            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=missing_state`);
+            res.redirect(`${env.FRONTEND_URL}/integrations?ghl=error&reason=missing_state`);
             return;
         }
 
         // Verify org exists
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
         if (!org) {
-            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=invalid_org`);
+            res.redirect(`${env.FRONTEND_URL}/integrations?ghl=error&reason=invalid_org`);
             return;
         }
 
@@ -171,10 +171,10 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         });
 
         console.log(`GHL connected for org ${orgId} (location: ${tokens.locationId})`);
-        res.redirect(`${env.FRONTEND_URL}/settings?ghl=success`);
+        res.redirect(`${env.FRONTEND_URL}/integrations?ghl=success`);
     } catch (err) {
         console.error('GHL OAuth callback error:', err);
-        res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=server`);
+        res.redirect(`${env.FRONTEND_URL}/integrations?ghl=error&reason=server`);
     }
 });
 
@@ -395,6 +395,159 @@ router.get('/ghl/opportunities', async (req: Request, res: Response) => {
         res.json(data);
     } catch (err: any) {
         console.error('GHL opportunities error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+});
+
+// ===================================================================
+// SETUP — Create pipeline & custom fields in GHL
+// ===================================================================
+
+// POST /api/integrations/ghl/setup-pipeline — Create sales pipeline in GHL
+router.post('/ghl/setup-pipeline', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn || !conn.isActive) {
+            res.status(400).json({ error: 'GHL not connected' });
+            return;
+        }
+
+        const pipeline = await ghlFetch(orgId, '/opportunities/pipelines', {
+            method: 'POST',
+            body: JSON.stringify({
+                locationId: conn.locationId,
+                name: 'Embudo Educativo LIA',
+                stages: [
+                    { name: 'Nuevo Lead', position: 0 },
+                    { name: 'Primer Contacto', position: 1 },
+                    { name: 'Calificado', position: 2 },
+                    { name: 'Presentacion Realizada', position: 3 },
+                    { name: 'Propuesta Enviada', position: 4 },
+                    { name: 'Negociacion', position: 5 },
+                    { name: 'Inscrito', position: 6 },
+                    { name: 'Perdido', position: 7 },
+                ],
+            }),
+        });
+
+        res.json({ message: 'Pipeline "Embudo Educativo LIA" creado en GHL', pipeline });
+    } catch (err: any) {
+        console.error('GHL setup pipeline error:', err);
+        res.status(500).json({ error: err.message || 'Error al crear pipeline' });
+    }
+});
+
+// POST /api/integrations/ghl/setup-fields — Create custom contact fields in GHL
+router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn || !conn.isActive) {
+            res.status(400).json({ error: 'GHL not connected' });
+            return;
+        }
+
+        const fieldsToCreate = [
+            {
+                name: 'Producto de Interes',
+                dataType: 'TEXT',
+                placeholder: 'Ej: Curso de IA para Arquitectos',
+            },
+            {
+                name: 'Tipo de Producto',
+                dataType: 'SINGLE_OPTIONS',
+                options: ['Curso', 'Programa', 'Webinar', 'Taller', 'Suscripcion', 'Asesoria', 'Postulacion'],
+            },
+            {
+                name: 'Presupuesto',
+                dataType: 'MONETARY',
+                placeholder: '0.00',
+            },
+            {
+                name: 'Modalidad Preferida',
+                dataType: 'SINGLE_OPTIONS',
+                options: ['Online', 'Presencial', 'Hibrido'],
+            },
+            {
+                name: 'Nivel Educativo',
+                dataType: 'SINGLE_OPTIONS',
+                options: ['Secundaria', 'Universitario', 'Postgrado', 'Profesional', 'Otro'],
+            },
+            {
+                name: 'Ocupacion Actual',
+                dataType: 'TEXT',
+                placeholder: 'Ej: Arquitecto, Estudiante, etc.',
+            },
+            {
+                name: 'Horario Preferido',
+                dataType: 'SINGLE_OPTIONS',
+                options: ['Manana', 'Tarde', 'Noche', 'Fines de semana'],
+            },
+            {
+                name: 'Fuente de Referencia',
+                dataType: 'SINGLE_OPTIONS',
+                options: ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Referido', 'Organico', 'Webinar', 'Evento', 'LinkedIn', 'WhatsApp'],
+            },
+            {
+                name: 'Fecha de Interes',
+                dataType: 'DATE',
+            },
+            {
+                name: 'Notas del Asesor',
+                dataType: 'LARGE_TEXT',
+                placeholder: 'Notas internas sobre el prospecto...',
+            },
+        ];
+
+        const results: { field: string; status: string; id?: string; error?: string }[] = [];
+
+        for (const field of fieldsToCreate) {
+            try {
+                const created = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: field.name,
+                        dataType: field.dataType,
+                        placeholder: field.placeholder,
+                        options: field.options,
+                        model: 'contact',
+                    }),
+                });
+                results.push({ field: field.name, status: 'created', id: created.customField?.id || created.id });
+            } catch (err: any) {
+                // Field might already exist
+                results.push({ field: field.name, status: 'error', error: err.message });
+            }
+        }
+
+        const created = results.filter(r => r.status === 'created').length;
+        const errors = results.filter(r => r.status === 'error').length;
+
+        res.json({
+            message: `${created} campos creados, ${errors} errores (pueden ya existir)`,
+            results,
+        });
+    } catch (err: any) {
+        console.error('GHL setup fields error:', err);
+        res.status(500).json({ error: err.message || 'Error al crear campos' });
+    }
+});
+
+// GET /api/integrations/ghl/custom-fields — List custom fields from GHL
+router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn || !conn.isActive) {
+            res.status(400).json({ error: 'GHL not connected' });
+            return;
+        }
+
+        const data = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields?model=contact`);
+        res.json(data);
+    } catch (err: any) {
+        console.error('GHL custom fields error:', err);
         res.status(500).json({ error: err.message || 'Internal server error' });
     }
 });

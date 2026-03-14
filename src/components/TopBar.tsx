@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut, Building2, ChevronDown, Settings, Menu } from 'lucide-react';
+import { User, LogOut, Building2, ChevronDown, Settings, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
 
@@ -16,6 +16,7 @@ const PAGE_TITLES: Record<string, string> = {
     '/settings': 'API & Sistema',
     '/account': 'Mi Cuenta',
     '/filter-questions': 'Preguntas Filtro',
+    '/integrations': 'Integraciones',
 };
 
 function getPageTitle(path: string): string {
@@ -72,17 +73,6 @@ export default function TopBar() {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-                {/* Notifications */}
-                <button
-                    className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                    aria-label="Notificaciones"
-                >
-                    <Bell size={18} />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-                </button>
-
-                <div className="w-px h-5 bg-gray-200 mx-1" />
-
                 {/* User dropdown */}
                 <div className="relative" ref={dropdownRef}>
                     <button
