@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import {
     Link2, Unlink, RefreshCw, Users, GitBranch,
     CheckCircle2, AlertTriangle, Loader2, ExternalLink, Download,
-    Settings2, ListChecks, Key, Save
+    ListChecks, Key, Save
 } from 'lucide-react';
 
 export default function GhlIntegration() {
@@ -18,7 +18,6 @@ export default function GhlIntegration() {
     const [previewContacts, setPreviewContacts] = useState<any[]>([]);
     const [showPreview, setShowPreview] = useState(false);
     const [loadingPreview, setLoadingPreview] = useState(false);
-    const [settingUpPipeline, setSettingUpPipeline] = useState(false);
     const [settingUpFields, setSettingUpFields] = useState(false);
     const [privateKey, setPrivateKey] = useState('');
     const [savingKey, setSavingKey] = useState(false);
@@ -124,18 +123,6 @@ export default function GhlIntegration() {
             toast(err?.data?.error || 'Error al guardar API key', 'error');
         } finally {
             setSavingKey(false);
-        }
-    };
-
-    const handleSetupPipeline = async () => {
-        setSettingUpPipeline(true);
-        try {
-            const result = await integrationsService.setupPipeline();
-            toast(result.message || 'Pipeline creado exitosamente');
-        } catch (err: any) {
-            toast(err?.data?.error || 'Error al crear pipeline. Verifica que tengas el scope opportunities.write', 'error');
-        } finally {
-            setSettingUpPipeline(false);
         }
     };
 
@@ -270,7 +257,7 @@ export default function GhlIntegration() {
 
             {/* Actions */}
             {status?.connected && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Sync Contacts */}
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <div className="flex items-center gap-3 mb-3">
@@ -310,7 +297,7 @@ export default function GhlIntegration() {
                         </div>
                     </div>
 
-                    {/* Setup Pipeline */}
+                    {/* Pipeline info (read-only — GHL API no soporta crear pipelines) */}
                     <div className="bg-white rounded-xl border border-gray-200 p-5">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
@@ -318,21 +305,12 @@ export default function GhlIntegration() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-gray-900">Pipeline</h3>
-                                <p className="text-xs text-gray-500">Crear embudo educativo en GHL</p>
+                                <p className="text-xs text-gray-500">Se configura directamente en GHL</p>
                             </div>
                         </div>
-                        <button
-                            onClick={handleSetupPipeline}
-                            disabled={settingUpPipeline}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-                        >
-                            {settingUpPipeline ? (
-                                <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                                <Settings2 size={16} />
-                            )}
-                            {settingUpPipeline ? 'Creando...' : 'Crear Pipeline'}
-                        </button>
+                        <p className="text-xs text-gray-400">
+                            La API de GHL no permite crear pipelines. Configura tus embudos desde la seccion de Oportunidades en tu cuenta de GoHighLevel.
+                        </p>
                     </div>
 
                     {/* Setup Custom Fields */}
