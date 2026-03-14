@@ -5,6 +5,7 @@ WORKDIR /app/frontend
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
+# Build timestamp: 2026-03-14T09:30
 RUN npm run build
 
 # === Stage 2: Build Backend ===
