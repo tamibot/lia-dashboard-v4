@@ -9,6 +9,7 @@ export interface GhlStatus {
     contactsSynced?: number;
     tokenExpired?: boolean;
     connectedAt?: string;
+    hasPrivateKey?: boolean;
 }
 
 export interface GhlSyncResult {
@@ -51,5 +52,8 @@ export const integrationsService = {
     },
     async getCustomFields() {
         return api.get<any>('/integrations/ghl/custom-fields');
+    },
+    async savePrivateKey(apiKey: string) {
+        return api.put<{ message: string }>('/integrations/ghl/private-key', { apiKey });
     },
 };

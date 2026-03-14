@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import {
     Link2, Unlink, RefreshCw, Users, GitBranch,
     CheckCircle2, AlertTriangle, Loader2, ExternalLink, Download,
-    Settings2, ListChecks
+    Settings2, ListChecks, Key, Save
 } from 'lucide-react';
 
 export default function GhlIntegration() {
@@ -20,6 +20,8 @@ export default function GhlIntegration() {
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [settingUpPipeline, setSettingUpPipeline] = useState(false);
     const [settingUpFields, setSettingUpFields] = useState(false);
+    const [privateKey, setPrivateKey] = useState('');
+    const [savingKey, setSavingKey] = useState(false);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -104,6 +106,24 @@ export default function GhlIntegration() {
             toast(err?.data?.error || 'Error al obtener preview', 'error');
         } finally {
             setLoadingPreview(false);
+        }
+    };
+
+    const handleSavePrivateKey = async () => {
+        if (!privateKey.trim()) {
+            toast('Ingresa un API Key valido', 'error');
+            return;
+        }
+        setSavingKey(true);
+        try {
+            await integrationsService.savePrivateKey(privateKey.trim());
+            toast('Private API Key guardada exitosamente');
+            setPrivateKey('');
+            fetchStatus();
+        } catch (err: any) {
+            toast(err?.data?.error || 'Error al guardar API key', 'error');
+        } finally {
+            setSavingKey(false);
         }
     };
 
@@ -337,6 +357,43 @@ export default function GhlIntegration() {
                                 <ListChecks size={16} />
                             )}
                             {settingUpFields ? 'Creando...' : 'Crear Campos'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Private Integration Key */}
+            {status?.connected && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <Key size={20} className="text-gray-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900">Private Integration Key</h3>
+                            <p className="text-xs text-gray-500">
+                                {status.hasPrivateKey
+                                    ? 'Key configurada. Puedes actualizarla ingresando una nueva.'
+                                    : 'Necesaria para crear pipelines y campos personalizados en GHL.'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            type="password"
+                            value={privateKey}
+                            onChange={e => setPrivateKey(e.target.value)}
+                            placeholder={status.hasPrivateKey ? 'Ingresa nueva key para actualizar...' : 'pit-xxxxx-xxxx-xxxx...'}
+                            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <button
+                            onClick={handleSavePrivateKey}
+                            disabled={savingKey || !privateKey.trim()}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
+                        >
+                            {savingKey ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                            Guardar
                         </button>
                     </div>
                 </div>

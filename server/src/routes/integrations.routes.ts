@@ -204,6 +204,7 @@ router.get('/ghl/status', async (req: Request, res: Response) => {
             contactsSynced: conn.contactsSynced,
             tokenExpired: conn.expiresAt < new Date(),
             connectedAt: conn.createdAt,
+            hasPrivateKey: !!conn.privateApiKey,
         });
     } catch (err) {
         console.error('GHL status error:', err);
@@ -400,8 +401,57 @@ router.get('/ghl/opportunities', async (req: Request, res: Response) => {
 });
 
 // ===================================================================
-// SETUP — Create pipeline & custom fields in GHL
+// SETUP — Private API Key & Create pipeline/fields in GHL
 // ===================================================================
+
+// Helper: GHL API call with Private Integration key
+async function ghlPrivateFetch(apiKey: string, path: string, options: RequestInit = {}): Promise<any> {
+    const resp = await fetch(`${GHL_API_BASE}${path}`, {
+        ...options,
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            ...options.headers,
+        },
+    });
+
+    if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`GHL Private API error (${path}):`, resp.status, errText);
+        throw new Error(`GHL API error: ${resp.status} - ${errText}`);
+    }
+
+    return resp.json();
+}
+
+// PUT /api/integrations/ghl/private-key — Save Private Integration API key
+router.put('/ghl/private-key', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const { apiKey } = req.body;
+        if (!apiKey) {
+            res.status(400).json({ error: 'API key is required' });
+            return;
+        }
+
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn) {
+            res.status(400).json({ error: 'GHL not connected. Connect via OAuth first.' });
+            return;
+        }
+
+        await prisma.ghlConnection.update({
+            where: { orgId },
+            data: { privateApiKey: apiKey },
+        });
+
+        res.json({ message: 'Private API key guardada exitosamente' });
+    } catch (err: any) {
+        console.error('GHL save private key error:', err);
+        res.status(500).json({ error: err.message || 'Error al guardar API key' });
+    }
+});
 
 // POST /api/integrations/ghl/setup-pipeline — Create sales pipeline in GHL
 router.post('/ghl/setup-pipeline', async (req: Request, res: Response) => {
@@ -413,7 +463,13 @@ router.post('/ghl/setup-pipeline', async (req: Request, res: Response) => {
             return;
         }
 
-        const pipeline = await ghlFetch(orgId, '/opportunities/pipelines', {
+        const apiKey = conn.privateApiKey;
+        if (!apiKey) {
+            res.status(400).json({ error: 'Private Integration API Key requerida. Configurala en la seccion de integraciones.' });
+            return;
+        }
+
+        const pipeline = await ghlPrivateFetch(apiKey, '/opportunities/pipelines', {
             method: 'POST',
             body: JSON.stringify({
                 locationId: conn.locationId,
@@ -448,75 +504,41 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
             return;
         }
 
+        const apiKey = conn.privateApiKey;
+        if (!apiKey) {
+            res.status(400).json({ error: 'Private Integration API Key requerida. Configurala en la seccion de integraciones.' });
+            return;
+        }
+
         const fieldsToCreate = [
-            {
-                name: 'Producto de Interes',
-                dataType: 'TEXT',
-                placeholder: 'Ej: Curso de IA para Arquitectos',
-            },
-            {
-                name: 'Tipo de Producto',
-                dataType: 'SINGLE_OPTIONS',
-                options: ['Curso', 'Programa', 'Webinar', 'Taller', 'Suscripcion', 'Asesoria', 'Postulacion'],
-            },
-            {
-                name: 'Presupuesto',
-                dataType: 'MONETARY',
-                placeholder: '0.00',
-            },
-            {
-                name: 'Modalidad Preferida',
-                dataType: 'SINGLE_OPTIONS',
-                options: ['Online', 'Presencial', 'Hibrido'],
-            },
-            {
-                name: 'Nivel Educativo',
-                dataType: 'SINGLE_OPTIONS',
-                options: ['Secundaria', 'Universitario', 'Postgrado', 'Profesional', 'Otro'],
-            },
-            {
-                name: 'Ocupacion Actual',
-                dataType: 'TEXT',
-                placeholder: 'Ej: Arquitecto, Estudiante, etc.',
-            },
-            {
-                name: 'Horario Preferido',
-                dataType: 'SINGLE_OPTIONS',
-                options: ['Manana', 'Tarde', 'Noche', 'Fines de semana'],
-            },
-            {
-                name: 'Fuente de Referencia',
-                dataType: 'SINGLE_OPTIONS',
-                options: ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Referido', 'Organico', 'Webinar', 'Evento', 'LinkedIn', 'WhatsApp'],
-            },
-            {
-                name: 'Fecha de Interes',
-                dataType: 'DATE',
-            },
-            {
-                name: 'Notas del Asesor',
-                dataType: 'LARGE_TEXT',
-                placeholder: 'Notas internas sobre el prospecto...',
-            },
+            { name: 'Producto de Interes', dataType: 'TEXT', placeholder: 'Ej: Curso de IA para Arquitectos' },
+            { name: 'Tipo de Producto', dataType: 'SINGLE_OPTIONS', options: ['Curso', 'Programa', 'Webinar', 'Taller', 'Suscripcion', 'Asesoria', 'Postulacion'] },
+            { name: 'Presupuesto', dataType: 'MONETORY', placeholder: '0.00' },
+            { name: 'Modalidad Preferida', dataType: 'SINGLE_OPTIONS', options: ['Online', 'Presencial', 'Hibrido'] },
+            { name: 'Nivel Educativo', dataType: 'SINGLE_OPTIONS', options: ['Secundaria', 'Universitario', 'Postgrado', 'Profesional', 'Otro'] },
+            { name: 'Ocupacion Actual', dataType: 'TEXT', placeholder: 'Ej: Arquitecto, Estudiante, etc.' },
+            { name: 'Horario Preferido', dataType: 'SINGLE_OPTIONS', options: ['Manana', 'Tarde', 'Noche', 'Fines de semana'] },
+            { name: 'Fuente de Referencia', dataType: 'SINGLE_OPTIONS', options: ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Referido', 'Organico', 'Webinar', 'Evento', 'LinkedIn', 'WhatsApp'] },
+            { name: 'Fecha de Interes', dataType: 'DATE' },
+            { name: 'Notas del Asesor', dataType: 'LARGE_TEXT', placeholder: 'Notas internas sobre el prospecto...' },
         ];
 
         const results: { field: string; status: string; id?: string; error?: string }[] = [];
 
         for (const field of fieldsToCreate) {
             try {
-                const created = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields`, {
+                const created = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields`, {
                     method: 'POST',
                     body: JSON.stringify({
                         name: field.name,
                         dataType: field.dataType,
-                        placeholder: field.placeholder,
-                        options: field.options,
+                        placeholder: (field as any).placeholder,
+                        options: (field as any).options,
                         model: 'contact',
                     }),
                 });
                 results.push({ field: field.name, status: 'created', id: created.customField?.id || created.id });
             } catch (err: any) {
-                // Field might already exist
                 results.push({ field: field.name, status: 'error', error: err.message });
             }
         }

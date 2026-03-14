@@ -1116,6 +1116,9 @@ model GhlConnection {
   userId     String? @map("user_id")
   userType   String  @default("Location") @map("user_type") // Company | Location
 
+  // Private Integration API Key (for setup operations)
+  privateApiKey String? @map("private_api_key")
+
   // Sync metadata
   lastSyncAt    DateTime? @map("last_sync_at")
   contactsSynced Int      @default(0) @map("contacts_synced")
