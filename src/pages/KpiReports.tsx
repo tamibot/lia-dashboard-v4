@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { kpiService, type KpiOverview, type KpiFunnel } from '../lib/services/kpi.service';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-    PieChart, Pie, AreaChart, Area, CartesianGrid, Legend,
+    PieChart, Pie, AreaChart, Area, CartesianGrid,
 } from 'recharts';
 import {
     Users, TrendingUp, Trophy, Target, AlertTriangle, Loader2,
@@ -257,7 +257,7 @@ export default function KpiReports() {
                                             ))}
                                         </Pie>
                                         <Tooltip
-                                            formatter={(value: number) => [value, 'Contactos']}
+                                            formatter={(value: any) => [value, 'Contactos']}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -320,8 +320,8 @@ export default function KpiReports() {
                                         allowDecimals={false}
                                     />
                                     <Tooltip
-                                        labelFormatter={(label: string) => `Semana del ${formatWeek(label)}`}
-                                        formatter={(value: number) => [value, 'Contactos']}
+                                        labelFormatter={(label: any) => `Semana del ${formatWeek(String(label))}`}
+                                        formatter={(value: any) => [value, 'Contactos']}
                                     />
                                     <Area
                                         type="monotone"
@@ -366,7 +366,7 @@ export default function KpiReports() {
                                         stroke="#9CA3AF"
                                         width={80}
                                     />
-                                    <Tooltip formatter={(value: number) => [value, 'Contactos']} />
+                                    <Tooltip formatter={(value: any) => [value, 'Contactos']} />
                                     <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
                                         {overview.byStage.map((_, i) => (
                                             <Cell key={i} fill={STAGE_COLORS[i % STAGE_COLORS.length]} />
