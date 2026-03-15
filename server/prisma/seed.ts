@@ -38,6 +38,34 @@ async function main() {
     });
     console.log(`✅ Organization: ${org.name} (${org.id})`);
 
+    // 1b. Cleanup test/demo items — delete anything that looks like a test entry
+    const looksLikeTest = (title: string) => {
+        const t = title.trim();
+        return (
+            /^test\b/i.test(t) ||           // starts with "Test"
+            /\[test\]/i.test(t) ||          // contains [TEST]
+            /\[sub-gen/i.test(t) ||         // internal code prefixes
+            t.length <= 2 ||               // single-char or 2-char titles like "T"
+            /^prueba\b/i.test(t) ||        // "prueba"
+            /^demo\b/i.test(t)             // "demo"
+        );
+    };
+    const cleanupModel = async (model: any, label: string) => {
+        const items = await model.findMany({ where: { orgId: org.id }, select: { id: true, title: true } });
+        const toDelete = items.filter((i: any) => looksLikeTest(i.title)).map((i: any) => i.id);
+        if (toDelete.length) {
+            await model.deleteMany({ where: { id: { in: toDelete } } });
+            console.log(`🗑️  Deleted ${toDelete.length} test ${label}: ${items.filter((i: any) => looksLikeTest(i.title)).map((i: any) => i.title).join(', ')}`);
+        }
+    };
+    await cleanupModel(prisma.course, 'cursos');
+    await cleanupModel(prisma.program, 'programas');
+    await cleanupModel(prisma.webinar, 'webinars');
+    await cleanupModel(prisma.taller, 'talleres');
+    await cleanupModel(prisma.subscription, 'suscripciones');
+    await cleanupModel(prisma.asesoria, 'asesorias');
+    await cleanupModel(prisma.application, 'postulaciones');
+
     // 2. Create admin user
     const passwordHash = await bcrypt.hash('admin123', 12);
     const admin = await prisma.user.upsert({
@@ -57,88 +85,172 @@ async function main() {
     const courses = [
         {
             code: 'CRS-IA2024-001',
-            title: 'IA para Arquitectos',
-            description: 'Domina las mejores herramientas de inteligencia artificial aplicadas a la arquitectura. Aprenderás a usar IA para diseño, renderizado, presentaciones y optimización de proyectos.',
+            title: 'IA para Arquitectos: De Cero a Experto',
+            description: 'Domina las mejores herramientas de inteligencia artificial aplicadas a la arquitectura. En 6 semanas pasarás de no saber nada de IA a usarla diariamente para acelerar tu trabajo: renders en minutos, presentaciones impactantes y diseño optimizado. El curso más completo del mercado hispanohablante para arquitectos.',
             category: 'Inteligencia Artificial',
             instructor: 'Arq. Carlos Méndez',
-            instructorBio: 'Arquitecto con 15 años de experiencia y especialista en IA aplicada al diseño.',
-            price: 1500,
-            currency: 'PEN',
+            instructorBio: 'Arquitecto con 15 años de experiencia, pionero en IA para arquitectura en Latinoamérica. Ha capacitado a más de 2.000 arquitectos en 12 países.',
+            price: 497,
+            currency: 'USD',
             modality: 'online' as const,
             duration: '6 semanas',
             totalHours: 36,
-            objectives: ['Dominar herramientas de IA para arquitectura', 'Crear renders con IA', 'Optimizar presentaciones con herramientas inteligentes'],
-            targetAudience: 'Arquitectos y estudiantes de arquitectura que buscan integrar IA en su práctica profesional',
+            maxStudents: 150,
+            objectives: [
+                'Usar Midjourney y Stable Diffusion para renders de nivel profesional',
+                'Automatizar presentaciones y memorias descriptivas con ChatGPT',
+                'Integrar IA en tu flujo de trabajo diario de diseño',
+                'Crear imágenes conceptuales y renders en minutos, no días',
+                'Optimizar planos y detalles con herramientas de IA especializadas',
+            ],
+            targetAudience: 'Arquitectos, estudiantes de arquitectura y diseñadores de interiores que quieren multiplicar su productividad con IA',
             status: 'activo' as const,
-            tags: ['IA', 'Arquitectura', 'Herramientas'],
-            tools: ['Midjourney', 'Stable Diffusion', 'ChatGPT', 'SketchUp AI'],
-            benefits: ['Certificado virtual', 'Acceso a comunidad exclusiva', 'Plantillas y recursos descargables'],
-            requirements: ['Laptop con internet', 'Conocimientos básicos de arquitectura'],
-            certification: 'Certificado en IA para Arquitectura',
+            tags: ['IA', 'Arquitectura', 'Midjourney', 'ChatGPT', 'Renders', 'Productividad'],
+            tools: ['Midjourney', 'Stable Diffusion', 'ChatGPT', 'SketchUp AI', 'Adobe Firefly', 'Canva AI'],
+            benefits: [
+                'Certificado avalado por el Instituto de Innovación',
+                'Acceso de por vida al material y actualizaciones',
+                'Comunidad privada de alumni en WhatsApp',
+                'Pack de 50+ prompts probados para arquitectura',
+                'Sesión de preguntas en vivo mensual',
+            ],
+            requirements: ['Laptop con internet estable', 'Conocimientos básicos de arquitectura o diseño', 'No se requiere experiencia previa en IA'],
+            certification: 'Certificado en IA Aplicada a la Arquitectura',
             registrationLink: 'https://innovation-institute.edu/cursos/ia-arquitectos',
-            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Yape/Plin'],
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Yape/Plin', 'PayPal'],
+            syllabus: {
+                create: [
+                    { title: 'Semana 1: Fundamentos de IA Generativa', description: 'Qué es la IA, cómo funciona y qué herramientas existen para arquitectos', order: 1, topics: ['Introducción a IA Generativa', 'Midjourney: primeros pasos', 'Prompt Engineering básico'] },
+                    { title: 'Semana 2: Renders Conceptuales con IA', description: 'Crea renders impactantes a partir de bocetos y referencias', order: 2, topics: ['Renders exteriores con Midjourney', 'Interiores fotorrealistas', 'Blend de renders con planos reales'] },
+                    { title: 'Semana 3: Renders Técnicos y de Presentación', description: 'Renders para entregar a clientes y concursos', order: 3, topics: ['Stable Diffusion aplicado', 'Post-producción con Adobe Firefly', 'Integración con SketchUp'] },
+                    { title: 'Semana 4: IA para Diseño y Planificación', description: 'Usa ChatGPT para memorias, normativa y optimización de espacios', order: 4, topics: ['ChatGPT para arquitectos', 'Automatización de documentos', 'Análisis de proyectos con IA'] },
+                    { title: 'Semana 5: Flujos de Trabajo Avanzados', description: 'Integra todas las herramientas en tu flujo profesional', order: 5, topics: ['Pipeline de IA completo', 'Gestión de proyectos con IA', 'Presentaciones automatizadas'] },
+                    { title: 'Semana 6: Proyecto Final + Certificación', description: 'Presenta tu proyecto integrando todo lo aprendido', order: 6, topics: ['Proyecto integrador', 'Revisión grupal', 'Entrega de certificados'] },
+                ],
+            },
         },
         {
             code: 'CRS-RENDER2024-002',
-            title: 'Renderizado con IA Generativa',
-            description: 'Aprende a crear renders fotorrealistas usando inteligencia artificial generativa.',
+            title: 'Masterclass de Renders Fotorrealistas con IA',
+            description: 'Aprende a crear renders fotorrealistas de nivel arquitectónico usando inteligencia artificial generativa. Lograrás imágenes que impresionan a cualquier cliente en una fracción del tiempo tradicional. Incluye técnicas avanzadas de Midjourney, Stable Diffusion y Adobe Firefly para exteriores, interiores y detalles constructivos.',
             category: 'Diseño',
             instructor: 'Arq. Ana Torres',
-            price: 1200,
-            currency: 'PEN',
+            instructorBio: 'Arquitecta y especialista en visualización arquitectónica. Ganadora de 3 premios internacionales de renders. Colaboradora de estudios en Madrid, Ciudad de México y Bogotá.',
+            price: 297,
+            currency: 'USD',
             modality: 'online' as const,
             duration: '4 semanas',
             totalHours: 24,
-            objectives: ['Generar renders con IA', 'Post-producción inteligente', 'Integración con flujos de trabajo existentes'],
-            targetAudience: 'Arquitectos y diseñadores de interiores',
+            maxStudents: 80,
+            objectives: [
+                'Generar renders exteriores e interiores fotorrealistas con IA',
+                'Dominar Midjourney para arquitectura al nivel de estudio profesional',
+                'Hacer post-producción inteligente con Adobe Firefly y Photoshop AI',
+                'Crear un portfolio de renders con IA para captar nuevos clientes',
+                'Automatizar tu proceso de visualización y reducir tiempos en 80%',
+            ],
+            targetAudience: 'Arquitectos y diseñadores de interiores que quieren elevar la calidad de sus presentaciones visuales',
             status: 'activo' as const,
-            tags: ['Renders', 'IA Generativa', 'Diseño'],
-            tools: ['Midjourney', 'DALL-E', 'Photoshop AI'],
-            benefits: ['Portfolio de renders con IA', 'Acceso de por vida al material'],
-            requirements: ['Conocimientos básicos de diseño'],
-            certification: 'Certificado en Renderizado IA',
-            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria'],
+            tags: ['Renders', 'IA Generativa', 'Midjourney', 'Visualización', 'Portfolio'],
+            tools: ['Midjourney V6', 'Stable Diffusion XL', 'Adobe Firefly', 'Photoshop AI', 'Canva AI'],
+            benefits: [
+                'Portfolio de 10 renders de nivel profesional al terminar',
+                'Acceso de por vida al material y nuevas versiones del curso',
+                'Grupo privado de feedback con la instructora',
+                'Pack de 30+ prompts especializados para exteriores e interiores',
+            ],
+            requirements: ['Laptop con buena tarjeta gráfica recomendada', 'Conocimientos básicos de arquitectura o diseño de interiores'],
+            certification: 'Certificado en Visualización Arquitectónica con IA',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'PayPal'],
+        },
+        {
+            code: 'CRS-BIM2025-003',
+            title: 'BIM + Inteligencia Artificial: El Futuro del Diseño',
+            description: 'Integra IA directamente en tus flujos de trabajo BIM con Revit, Dynamo y herramientas de IA específicas para el sector AEC (Architecture, Engineering, Construction). Automatiza la documentación, detecta colisiones con IA y genera planos técnicos más rápido que nunca.',
+            category: 'Arquitectura',
+            instructor: 'Arq. Luis García',
+            instructorBio: 'Arquitecto BIM Manager con certificación Autodesk. 10 años implementando BIM en proyectos de más de $50M USD en Latinoamérica.',
+            price: 397,
+            currency: 'USD',
+            modality: 'hibrido' as const,
+            duration: '8 semanas',
+            totalHours: 48,
+            maxStudents: 40,
+            objectives: [
+                'Integrar IA en Revit con plugins y herramientas especializadas',
+                'Automatizar documentación y planos técnicos con Dynamo + IA',
+                'Usar IA para detección de colisiones y coordinación de modelos',
+                'Generar renders desde BIM usando IA directamente',
+                'Implementar flujos de trabajo BIM+IA en tu estudio o empresa',
+            ],
+            targetAudience: 'Arquitectos e ingenieros con experiencia en BIM que quieren dar el salto a la automatización con IA',
+            status: 'activo' as const,
+            tags: ['BIM', 'Revit', 'IA', 'AEC', 'Automatización', 'Dynamo'],
+            tools: ['Revit', 'Dynamo', 'Autodesk AI', 'ChatGPT para AEC', 'Speckle'],
+            benefits: [
+                'Certificado avalado por el Instituto y Autodesk Partner',
+                'Proyecto BIM+IA completo para tu portfolio',
+                'Acceso a templates y scripts de Dynamo desarrollados en el curso',
+                'Comunidad de BIM Managers hispanohablantes',
+            ],
+            requirements: ['Revit instalado (versión 2023 o superior)', 'Experiencia básica-intermedia en BIM/Revit'],
+            certification: 'Certificado BIM + Inteligencia Artificial',
+            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Pago en cuotas disponible'],
         },
     ];
 
     for (const courseData of courses) {
+        const { code, ...rest } = courseData;
         const course = await prisma.course.upsert({
-            where: { code: courseData.code },
-            update: {},
+            where: { code },
+            update: rest,
             create: { orgId: org.id, ...courseData },
         });
         console.log(`✅ Course: ${course.title} (${course.code})`);
     }
 
-    // 4. Create sample program (Programa)
+    // 4. Create sample programs (Programas)
+    const programData1 = {
+        code: 'PRG-IAPROG2024-001',
+        title: 'Diplomado: Arquitecto del Futuro con IA',
+        description: 'El programa más completo de Latinoamérica para arquitectos que quieren liderar la transformación digital del sector. En 12 semanas dominarás IA generativa, programación paramétrica, BIM avanzado y visualización de última generación. Terminarás con un proyecto real en tu portfolio y una red de contactos internacional.',
+        category: 'Inteligencia Artificial',
+        modality: 'online',
+        totalDuration: '12 semanas',
+        totalHours: 180,
+        price: 1497,
+        currency: 'USD',
+        certification: 'Diplomado en Arquitectura + Inteligencia Artificial',
+        certifyingEntity: 'Instituto de Innovación para Arquitectos',
+        objectives: [
+            'Dominar todas las herramientas de IA relevantes para arquitectura',
+            'Aprender programación paramétrica con Grasshopper y Python',
+            'Integrar IA en flujos BIM y de gestión de proyectos',
+            'Desarrollar un proyecto arquitectónico completo con IA',
+            'Construir un portfolio diferenciado para el mercado actual',
+        ],
+        targetAudience: 'Arquitectos profesionales y recién egresados que quieren posicionarse como referentes en tecnología e IA',
+        status: 'activo',
+        tags: ['Diplomado', 'IA', 'Programación', 'BIM', 'Certificación'],
+        tools: ['Python', 'Grasshopper', 'Revit', 'ChatGPT', 'Midjourney', 'Stable Diffusion', 'Adobe Firefly'],
+        benefits: [
+            'Diploma avalado por el Instituto con sello internacional',
+            'Grupo de WhatsApp privado con instructores y alumni',
+            'Proyecto arquitectónico completo para portfolio',
+            'Acceso de por vida al material y actualizaciones',
+            '3 sesiones de mentoría 1:1 con expertos',
+            'Red de contactos con +500 egresados en 15 países',
+        ],
+        whatsappGroup: 'https://chat.whatsapp.com/diplomado-ia-arq',
+        includesProject: true,
+        registrationLink: 'https://innovation-institute.edu/programas/diplomado-ia',
+        paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', '3 cuotas sin interés', 'PayPal'],
+        requirements: ['Título de arquitecto o estudiante de último año', 'Laptop con internet estable', 'Dedicación de 15 horas semanales'],
+    };
     const program = await prisma.program.upsert({
-        where: { code: 'PRG-IAPROG2024-001' },
-        update: {},
-        create: {
-            orgId: org.id,
-            code: 'PRG-IAPROG2024-001',
-            title: 'IA y Programación para Arquitectos',
-            description: 'Programa completo de 3 meses donde aprenderás a integrar IA y programación en tu práctica arquitectónica. Incluye proyecto final práctico.',
-            category: 'Inteligencia Artificial',
-            modality: 'online',
-            totalDuration: '3 meses',
-            totalHours: 120,
-            price: 4500,
-            currency: 'PEN',
-            certification: 'Diplomado en IA y Programación para Arquitectura',
-            certifyingEntity: 'Instituto de Innovación para Arquitectos',
-            objectives: ['Dominar IA aplicada a arquitectura', 'Aprender programación visual', 'Desarrollar un proyecto integrador'],
-            targetAudience: 'Arquitectos profesionales que buscan especializarse en tecnología',
-            status: 'activo',
-            tags: ['IA', 'Programación', 'Diplomado'],
-            tools: ['Python', 'Grasshopper', 'ChatGPT', 'Midjourney'],
-            benefits: ['Certificado de diplomado', 'Grupo de WhatsApp 24/7', 'Proyecto práctico terminado', 'Acceso a comunidad de egresados'],
-            whatsappGroup: 'https://chat.whatsapp.com/example-program',
-            includesProject: true,
-            registrationLink: 'https://innovation-institute.edu/programas/ia-programacion',
-            paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Cuotas sin interés'],
-            requirements: ['Título de arquitecto o estudiante avanzado'],
-        },
+        where: { code: programData1.code },
+        update: programData1,
+        create: { orgId: org.id, ...programData1 },
     });
     console.log(`✅ Program: ${program.title} (${program.code})`);
 
@@ -152,42 +264,69 @@ async function main() {
         ],
     });
 
-    // 5. Create sample webinar
-    const webinar = await prisma.webinar.upsert({
-        where: { code: 'WBN-TEND2024-001' },
-        update: {},
-        create: {
-            orgId: org.id,
+    // 5. Create sample webinars
+    const webinarItems = [
+        {
             code: 'WBN-TEND2024-001',
-            title: 'Tendencias de IA para Arquitectos',
-            description: 'Webinar gratuito con ponentes internacionales sobre las últimas tendencias en inteligencia artificial aplicada a la arquitectura.',
+            title: '¿Cómo está transformando la IA a la Arquitectura? Panel Internacional 2026',
+            description: 'Webinar gratuito con 4 ponentes internacionales de España, México, Colombia y Perú. Descubre cómo la IA está cambiando el diseño, la construcción y la gestión de proyectos arquitectónicos. Caso reales de estudios que ya usan IA en su operación diaria. Incluye sesión de preguntas en vivo.',
             webinarFormat: 'webinar',
-            speaker: 'Panel Internacional',
-            speakerBio: 'Expertos internacionales en IA y arquitectura de España, México y Perú.',
-            eventDate: new Date('2026-04-15'),
-            eventTime: '19:00',
+            speaker: 'Panel Internacional: Arq. María Vega (Madrid), Arq. Roberto Cruz (CDMX), Arq. Daniela Ospina (Bogotá), Arq. Carlos Méndez (Lima)',
+            speakerBio: 'Cuatro arquitectos líderes en innovación y tecnología en sus respectivos países, con proyectos premiados internacionalmente.',
+            eventDate: new Date('2026-04-22'),
+            eventTime: '18:00 (GMT-5)',
             duration: '2 horas',
             price: 0,
-            currency: 'PEN',
+            currency: 'USD',
             category: 'Inteligencia Artificial',
-            targetAudience: 'Arquitectos, estudiantes y profesionales interesados en IA',
+            targetAudience: 'Arquitectos, estudiantes de arquitectura e ingeniería, diseñadores de interiores y profesionales del sector AEC',
             status: 'activo',
-            topics: ['IA Generativa', 'Diseño Computacional', 'Futuro de la Arquitectura'],
-            keyTopics: ['Midjourney para arquitectura', 'Diseño paramétrico con IA', 'BIM + IA'],
-            tags: ['Webinar', 'IA', 'Gratis', 'Internacional'],
-            registrationLink: 'https://innovation-institute.edu/webinars/tendencias-ia',
-            benefits: ['Acceso gratuito', 'Grabación disponible', 'Certificado de asistencia'],
+            topics: ['IA Generativa en Arquitectura', 'Casos reales de estudios con IA', 'Futuro del sector AEC', 'Cómo empezar con IA sin experiencia técnica'],
+            keyTopics: ['Midjourney para arquitectura', 'Diseño paramétrico con IA', 'BIM + IA', 'Gestión de proyectos con IA'],
+            tags: ['Webinar', 'IA', 'Gratis', 'Internacional', 'Panel'],
+            registrationLink: 'https://innovation-institute.edu/webinars/panel-ia-2026',
+            benefits: ['Acceso 100% gratuito', 'Grabación disponible por 30 días', 'Certificado de asistencia digital', 'Material de apoyo descargable'],
+            maxAttendees: 1000,
+        },
+        {
+            code: 'WBN-MIDJ2025-002',
+            title: 'Masterclass Gratuita: Midjourney para Arquitectos en 60 Minutos',
+            description: 'En esta masterclass práctica aprenderás a usar Midjourney específicamente para arquitectura desde cero. Verás en vivo cómo generar renders de exteriores, interiores y conceptos en minutos. Al final tendrás tus primeros renders y los prompts que los generaron.',
+            webinarFormat: 'masterclass',
+            speaker: 'Arq. Ana Torres',
+            speakerBio: 'Arquitecta especialista en visualización con IA. Ha generado más de 50.000 renders con IA y es la referente hispana más seguida en el tema.',
+            eventDate: new Date('2026-05-08'),
+            eventTime: '19:00 (GMT-5)',
+            duration: '1 hora',
+            price: 0,
+            currency: 'USD',
+            category: 'Diseño',
+            targetAudience: 'Arquitectos y diseñadores que quieren aprender Midjourney desde cero',
+            status: 'activo',
+            topics: ['Primeros pasos en Midjourney', 'Prompts para renders arquitectónicos', 'Casos prácticos en vivo'],
+            keyTopics: ['Renders exteriores', 'Interiores con IA', 'Prompt engineering para arquitectura'],
+            tags: ['Masterclass', 'Midjourney', 'Gratis', 'Renders', 'Práctica'],
+            registrationLink: 'https://innovation-institute.edu/webinars/midjourney-arquitectos',
+            benefits: ['Totalmente gratuita', 'Práctica en tiempo real', 'Pack de 20 prompts de regalo', 'Grabación disponible'],
             maxAttendees: 500,
         },
-    });
-    console.log(`✅ Webinar: ${webinar.title} (${webinar.code})`);
+    ];
+    for (const wd of webinarItems) {
+        const { code: wCode, ...wRest } = wd;
+        const webinar = await prisma.webinar.upsert({
+            where: { code: wCode },
+            update: wRest,
+            create: { orgId: org.id, ...wd },
+        });
+        console.log(`✅ Webinar: ${webinar.title} (${webinar.code})`);
+    }
 
     // 6. Create sample talleres (Workshops)
     const tallerItems = [
         {
             code: 'TLR-IAUSO2024-001',
-            title: 'Aprende a usar IA para Arquitectura',
-            description: 'Taller presencial intensivo donde aprenderás a usar las principales herramientas de IA aplicadas a la arquitectura. Saldrás con un proyecto terminado y certificado.',
+            title: 'Taller Intensivo: IA para Arquitectura desde Cero',
+            description: 'Taller presencial intensivo de 3 horas donde en una sola tarde aprenderás a usar las principales herramientas de IA para arquitectura. Saldrás con renders reales hechos por ti, un certificado y el kit de herramientas completo. Grupos reducidos de máximo 25 personas para atención personalizada.',
             modality: 'presencial' as const,
             duration: '3 horas',
             totalHours: 3,
@@ -197,10 +336,10 @@ async function main() {
             venueAddress: 'Av. Larco 1250, Miraflores, Lima',
             venueCapacity: 30,
             location: 'Lima, Perú',
-            price: 150,
-            currency: 'PEN',
+            price: 49,
+            currency: 'USD',
             maxParticipants: 25,
-            availableSpots: 15,
+            availableSpots: 10,
             waitlistEnabled: true,
             category: 'Inteligencia Artificial',
             targetAudience: 'Arquitectos que quieren una introducción práctica a las herramientas de IA',
@@ -218,8 +357,8 @@ async function main() {
         },
         {
             code: 'TLR-BIM2024-002',
-            title: 'BIM + IA: Taller Práctico',
-            description: 'Taller presencial para integrar inteligencia artificial en flujos de trabajo BIM.',
+            title: 'Taller Práctico: BIM + IA en un Día',
+            description: 'Taller presencial de 4 horas para integrar inteligencia artificial directamente en tus flujos de trabajo BIM. Trabajarás con Revit real y plugins de IA, generarás renders desde el modelo y automatizarás tareas de documentación. Cupos muy limitados para garantizar práctica individual.',
             modality: 'presencial' as const,
             duration: '4 horas',
             totalHours: 4,
@@ -227,10 +366,10 @@ async function main() {
             venue: 'Centro de Convenciones Lima',
             venueAddress: 'Jirón de la Unión 800, Lima',
             location: 'Lima, Perú',
-            price: 200,
-            currency: 'PEN',
+            price: 79,
+            currency: 'USD',
             maxParticipants: 20,
-            availableSpots: 8,
+            availableSpots: 5,
             category: 'Arquitectura',
             targetAudience: 'Arquitectos con experiencia en BIM',
             objectives: ['Integrar IA en Revit', 'Automatizar documentación', 'Generar renders desde BIM'],
@@ -248,9 +387,10 @@ async function main() {
     ];
 
     for (const tallerData of tallerItems) {
+        const { code: tCode, ...tRest } = tallerData;
         const taller = await prisma.taller.upsert({
-            where: { code: tallerData.code },
-            update: {},
+            where: { code: tCode },
+            update: tRest,
             create: { orgId: org.id, ...tallerData },
         });
         console.log(`✅ Taller: ${taller.title} (${taller.code})`);
@@ -260,12 +400,12 @@ async function main() {
     const subscriptionItems = [
         {
             code: 'SUB-ASESOR2024-001',
-            title: 'Asesor IA para Arquitectura',
-            description: 'Suscripción mensual que incluye horas de asesoría personalizada en IA para arquitectura y acceso a grupo de WhatsApp exclusivo para consultas.',
+            title: 'Membresía Arquitecto IA — Plan Individual',
+            description: 'Suscripción mensual diseñada para arquitectos que quieren mantenerse al día con la IA y tener apoyo continuo en su implementación. Incluye 2 horas de asesoría personalizada al mes, acceso a la biblioteca de recursos actualizada semanalmente y grupo de WhatsApp con expertos disponibles de lunes a viernes.',
             benefits: ['2 horas de asesoría personalizada al mes', 'Acceso a grupo de WhatsApp 24/7', 'Material exclusivo mensual', 'Descuentos en cursos y talleres'],
             features: ['Sesiones 1:1 con experto', 'Grupo WhatsApp exclusivo', 'Recursos actualizados', 'Prioridad en eventos'],
-            price: 500,
-            currency: 'PEN',
+            price: 49,
+            currency: 'USD',
             period: 'mensual',
             maxUsers: 1,
             advisoryHours: 2,
@@ -283,12 +423,12 @@ async function main() {
         },
         {
             code: 'SUB-ENTERPRISE2024-002',
-            title: 'Plan Estudio de Arquitectura',
-            description: 'Plan para estudios de arquitectura que incluye acceso para todo el equipo, asesorías grupales y soporte prioritario.',
+            title: 'Membresía Arquitecto IA — Plan Estudio',
+            description: 'Plan corporativo para estudios de arquitectura que quieren capacitar a todo su equipo en IA. Incluye hasta 10 usuarios, asesoría grupal mensual de 2 horas, soporte prioritario y acceso completo a todos los recursos. El plan más completo para estudios que quieren liderar la adopción de IA en su mercado.',
             benefits: ['Hasta 10 usuarios', 'Asesoría grupal mensual', 'Soporte prioritario', 'Reportes de uso'],
             features: ['Multi-usuario', 'Panel administrativo', 'Asesoría grupal', 'Soporte 24/7'],
-            price: 2000,
-            currency: 'PEN',
+            price: 199,
+            currency: 'USD',
             period: 'mensual',
             maxUsers: 10,
             advisoryHours: 4,
@@ -304,9 +444,10 @@ async function main() {
     ];
 
     for (const subData of subscriptionItems) {
+        const { code: sCode, ...sRest } = subData;
         const sub = await prisma.subscription.upsert({
-            where: { code: subData.code },
-            update: {},
+            where: { code: sCode },
+            update: sRest,
             create: { orgId: org.id, ...subData },
         });
         console.log(`✅ Subscription: ${sub.title} (${sub.code})`);
@@ -379,9 +520,10 @@ async function main() {
     ];
 
     for (const aseData of asesoriaItems) {
+        const { code: aCode, ...aRest } = aseData;
         const ase = await prisma.asesoria.upsert({
-            where: { code: aseData.code },
-            update: {},
+            where: { code: aCode },
+            update: aRest,
             create: { orgId: org.id, ...aseData },
         });
         console.log(`✅ Asesoría: ${ase.title} (${ase.code})`);
@@ -420,9 +562,10 @@ async function main() {
     ];
 
     for (const appData of applicationItems) {
+        const { code: apCode, ...apRest } = appData;
         const app = await prisma.application.upsert({
-            where: { code: appData.code },
-            update: {},
+            where: { code: apCode },
+            update: apRest,
             create: { orgId: org.id, ...appData },
         });
         console.log(`✅ Application: ${app.title} (${app.code})`);
