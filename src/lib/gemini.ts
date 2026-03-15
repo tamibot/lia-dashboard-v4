@@ -803,8 +803,9 @@ function cleanJson(text: string): any {
         const jsonStr = text.substring(start, end + 1);
         return JSON.parse(jsonStr);
     } catch (e) {
-        console.error('Error parsing JSON from Gemini:', e, text);
-        return null;
+        console.error('Error parsing JSON from Gemini:', e, text.substring(0, 200));
+        // Return empty object instead of null to prevent downstream errors
+        return {};
     }
 }
 
@@ -839,12 +840,13 @@ export async function analyzeFileContent(content: string, fileName: string, type
     if (isBase64) {
         await ensureKeysLoaded();
         const base64Data = content.split(',')[1];
-        const mimeType = content.split(';')[0].split(':')[1];
+        const mimeType = content.split(';')[0].split(':')[1] || 'application/octet-stream';
         const client = getClient();
         const hint = type && type !== 'auto' ? `El usuario indica que es un "${type}".` : '';
         const basePrompt = (type && PROMPT_MAP[type]) || PROMPTS.RAW_EXTRACT_CURSO;
         const prompt = `${basePrompt}\n\nAnaliza este archivo adjunto: "${fileName}". ${hint}\nExtrae TODA la información que encuentres en el documento.`;
 
+        let lastError = '';
         for (const model of GEMINI_MODELS) {
             try {
                 const response = await client.models.generateContent({
@@ -859,11 +861,19 @@ export async function analyzeFileContent(content: string, fileName: string, type
                 });
                 const text = response.text;
                 if (text) return cleanJson(text);
-            } catch (err) {
-                console.warn(`File analysis failed with ${model}, trying next...`);
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                lastError = msg;
+                console.warn(`File analysis failed with ${model}: ${msg.substring(0, 100)}`);
+                if (msg.includes('API_KEY') || msg.includes('invalid') || msg.includes('403')) break;
             }
         }
-        throw new Error('No se pudo analizar el archivo. Todos los modelos fallaron. Intenta pegar el contenido como texto.');
+        const errorHint = lastError.includes('429') || lastError.includes('quota')
+            ? ' El servicio está temporalmente saturado. Intenta en unos segundos.'
+            : lastError.includes('API_KEY') || lastError.includes('invalid')
+            ? ' Verifica tu API Key de Gemini en Integraciones.'
+            : ' Intenta pegar el contenido como texto.';
+        throw new Error(`No se pudo analizar el archivo.${errorHint}`);
     }
 
     const hint = type ? `\nNota: El usuario indicó que es un "${type}".` : '';

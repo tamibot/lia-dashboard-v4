@@ -133,8 +133,8 @@ export default function ProfilePage() {
         if (!brandText.trim()) { toast('Por favor pega algun texto sobre tu marca.', 'info'); return; }
         setBrandAnalyzing(true);
         try {
-            const jsonStr = await analyzeBrand(brandText);
-            const extracted = JSON.parse(jsonStr.replace(/```json|```/g, '').trim());
+            const result = await analyzeBrand(brandText);
+            const extracted = typeof result === 'string' ? JSON.parse(result.replace(/```json|```/g, '').trim()) : result;
 
             setData(prev => ({
                 ...prev,
