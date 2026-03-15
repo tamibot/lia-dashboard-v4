@@ -118,16 +118,6 @@ async function main() {
             certification: 'Certificado en IA Aplicada a la Arquitectura',
             registrationLink: 'https://innovation-institute.edu/cursos/ia-arquitectos',
             paymentMethods: ['Tarjeta de crédito', 'Transferencia bancaria', 'Yape/Plin', 'PayPal'],
-            syllabus: {
-                create: [
-                    { title: 'Semana 1: Fundamentos de IA Generativa', description: 'Qué es la IA, cómo funciona y qué herramientas existen para arquitectos', order: 1, topics: ['Introducción a IA Generativa', 'Midjourney: primeros pasos', 'Prompt Engineering básico'] },
-                    { title: 'Semana 2: Renders Conceptuales con IA', description: 'Crea renders impactantes a partir de bocetos y referencias', order: 2, topics: ['Renders exteriores con Midjourney', 'Interiores fotorrealistas', 'Blend de renders con planos reales'] },
-                    { title: 'Semana 3: Renders Técnicos y de Presentación', description: 'Renders para entregar a clientes y concursos', order: 3, topics: ['Stable Diffusion aplicado', 'Post-producción con Adobe Firefly', 'Integración con SketchUp'] },
-                    { title: 'Semana 4: IA para Diseño y Planificación', description: 'Usa ChatGPT para memorias, normativa y optimización de espacios', order: 4, topics: ['ChatGPT para arquitectos', 'Automatización de documentos', 'Análisis de proyectos con IA'] },
-                    { title: 'Semana 5: Flujos de Trabajo Avanzados', description: 'Integra todas las herramientas en tu flujo profesional', order: 5, topics: ['Pipeline de IA completo', 'Gestión de proyectos con IA', 'Presentaciones automatizadas'] },
-                    { title: 'Semana 6: Proyecto Final + Certificación', description: 'Presenta tu proyecto integrando todo lo aprendido', order: 6, topics: ['Proyecto integrador', 'Revisión grupal', 'Entrega de certificados'] },
-                ],
-            },
         },
         {
             code: 'CRS-RENDER2024-002',
@@ -207,6 +197,21 @@ async function main() {
             create: { orgId: org.id, ...courseData },
         });
         console.log(`✅ Course: ${course.title} (${course.code})`);
+
+        // Seed syllabus for the main IA course
+        if (code === 'CRS-IA2024-001') {
+            await prisma.syllabusModule.deleteMany({ where: { courseId: course.id } });
+            await prisma.syllabusModule.createMany({
+                data: [
+                    { courseId: course.id, title: 'Semana 1: Fundamentos de IA Generativa', description: 'Qué es la IA, cómo funciona y herramientas para arquitectos', order: 1, topics: ['Introducción a IA Generativa', 'Midjourney: primeros pasos', 'Prompt Engineering básico'] },
+                    { courseId: course.id, title: 'Semana 2: Renders Conceptuales con IA', description: 'Renders impactantes a partir de bocetos y referencias', order: 2, topics: ['Renders exteriores con Midjourney', 'Interiores fotorrealistas', 'Blend de renders con planos reales'] },
+                    { courseId: course.id, title: 'Semana 3: Renders Técnicos y de Presentación', description: 'Renders para entregar a clientes y concursos', order: 3, topics: ['Stable Diffusion aplicado', 'Post-producción con Adobe Firefly', 'Integración con SketchUp'] },
+                    { courseId: course.id, title: 'Semana 4: IA para Diseño y Planificación', description: 'ChatGPT para memorias, normativa y optimización de espacios', order: 4, topics: ['ChatGPT para arquitectos', 'Automatización de documentos', 'Análisis de proyectos con IA'] },
+                    { courseId: course.id, title: 'Semana 5: Flujos de Trabajo Avanzados', description: 'Integra todas las herramientas en tu flujo profesional', order: 5, topics: ['Pipeline de IA completo', 'Gestión de proyectos con IA', 'Presentaciones automatizadas'] },
+                    { courseId: course.id, title: 'Semana 6: Proyecto Final + Certificación', description: 'Presenta tu proyecto integrando todo lo aprendido', order: 6, topics: ['Proyecto integrador', 'Revisión grupal', 'Entrega de certificados'] },
+                ],
+            });
+        }
     }
 
     // 4. Create sample programs (Programas)
