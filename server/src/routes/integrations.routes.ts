@@ -61,10 +61,21 @@ async function getValidToken(orgId: string): Promise<string> {
     return tokens.access_token;
 }
 
+// ===== Helper: fetch with timeout =====
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // ===== Helper: GHL API call with auto-refresh =====
 async function ghlFetch(orgId: string, path: string, options: RequestInit = {}): Promise<any> {
     const token = await getValidToken(orgId);
-    const resp = await fetch(`${GHL_API_BASE}${path}`, {
+    const resp = await fetchWithTimeout(`${GHL_API_BASE}${path}`, {
         ...options,
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -85,7 +96,7 @@ async function ghlFetch(orgId: string, path: string, options: RequestInit = {}):
 
 // ===== Helper: GHL API call with Private Integration key =====
 async function ghlPrivateFetch(apiKey: string, path: string, options: RequestInit = {}): Promise<any> {
-    const resp = await fetch(`${GHL_API_BASE}${path}`, {
+    const resp = await fetchWithTimeout(`${GHL_API_BASE}${path}`, {
         ...options,
         headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -102,6 +113,20 @@ async function ghlPrivateFetch(apiKey: string, path: string, options: RequestIni
     }
 
     return resp.json();
+}
+
+// ===== Helper: Smart GHL fetch — private key first, OAuth fallback =====
+async function ghlSmartFetch(conn: { orgId: string; privateApiKey: string | null }, path: string, options: RequestInit = {}): Promise<any> {
+    // Private Integration Key never expires — always prefer it
+    if (conn.privateApiKey) {
+        try {
+            return await ghlPrivateFetch(conn.privateApiKey, path, options);
+        } catch (pkErr: any) {
+            console.warn(`Private key failed for ${path} (${pkErr.message}), trying OAuth...`);
+        }
+    }
+    // OAuth fallback (auto-refreshes if needed)
+    return await ghlFetch(conn.orgId, path, options);
 }
 
 // ===================================================================
@@ -286,25 +311,16 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
             return;
         }
 
-        // Fetch contacts from GHL (paginated) — prefer OAuth (auto-refresh), fall back to private key
+        // Fetch contacts from GHL (paginated) — private key first, OAuth fallback
         let allContacts: any[] = [];
         let nextPageUrl: string | null = `/contacts/?locationId=${conn.locationId}&limit=100`;
 
         while (nextPageUrl) {
-            let data: any;
-            try {
-                data = await ghlFetch(orgId, nextPageUrl);
-            } catch (oauthErr) {
-                if (conn.privateApiKey) {
-                    data = await ghlPrivateFetch(conn.privateApiKey, nextPageUrl);
-                } else {
-                    throw oauthErr;
-                }
-            }
+            const data = await ghlSmartFetch(conn, nextPageUrl);
             if (data.contacts && Array.isArray(data.contacts)) {
                 allContacts = allContacts.concat(data.contacts);
             }
-            // GHL uses meta.nextPageUrl or meta.nextPage for pagination
+            // GHL pagination
             nextPageUrl = data.meta?.nextPageUrl || null;
             // Safety: max 1000 contacts per sync
             if (allContacts.length >= 1000) break;
@@ -315,15 +331,17 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
         let failed = 0;
 
         for (const c of allContacts) {
+            if (!c.id) { failed++; continue; } // skip contacts without GHL ID
+            const contactName = (`${c.firstName || ''} ${c.lastName || ''}`).trim() || c.contactName || c.name || 'Sin nombre';
             try {
                 await prisma.contact.upsert({
                     where: { ghlContactId: c.id },
                     update: {
-                        name: c.contactName || c.name || c.firstName ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : 'Sin nombre',
-                        email: c.email,
-                        phone: c.phone,
-                        city: c.city,
-                        country: c.country,
+                        name: contactName,
+                        email: c.email || null,
+                        phone: c.phone || null,
+                        city: c.city || null,
+                        country: c.country || null,
                         tags: c.tags || [],
                         ghlData: c,
                         ghlLastSyncAt: new Date(),
@@ -331,11 +349,11 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
                     create: {
                         orgId,
                         ghlContactId: c.id,
-                        name: c.contactName || c.name || c.firstName ? `${c.firstName || ''} ${c.lastName || ''}`.trim() : 'Sin nombre',
-                        email: c.email,
-                        phone: c.phone,
-                        city: c.city,
-                        country: c.country,
+                        name: contactName,
+                        email: c.email || null,
+                        phone: c.phone || null,
+                        city: c.city || null,
+                        country: c.country || null,
                         stage: 'nuevo',
                         origin: 'otro',
                         tags: c.tags || [],
@@ -382,7 +400,7 @@ router.get('/ghl/contacts', async (req: Request, res: Response) => {
         }
 
         const limit = parseInt(req.query.limit as string) || 20;
-        const data = await ghlFetch(orgId, `/contacts/?locationId=${conn.locationId}&limit=${limit}`);
+        const data = await ghlSmartFetch(conn, `/contacts/?locationId=${conn.locationId}&limit=${limit}`);
 
         res.json({
             contacts: data.contacts || [],
@@ -404,13 +422,7 @@ router.get('/ghl/pipelines', async (req: Request, res: Response) => {
             return;
         }
 
-        // Prefer private key (more reliable), fall back to OAuth token
-        let data: any;
-        if (conn.privateApiKey) {
-            data = await ghlPrivateFetch(conn.privateApiKey, `/opportunities/pipelines?locationId=${conn.locationId}`);
-        } else {
-            data = await ghlFetch(orgId, `/opportunities/pipelines?locationId=${conn.locationId}`);
-        }
+        const data = await ghlSmartFetch(conn, `/opportunities/pipelines?locationId=${conn.locationId}`);
         res.json(data);
     } catch (err: any) {
         console.error('GHL pipelines error:', err);
@@ -428,7 +440,7 @@ router.get('/ghl/opportunities', async (req: Request, res: Response) => {
             return;
         }
 
-        const data = await ghlFetch(orgId, `/opportunities/search?location_id=${conn.locationId}&limit=50`);
+        const data = await ghlSmartFetch(conn, `/opportunities/search?location_id=${conn.locationId}&limit=50`);
         res.json(data);
     } catch (err: any) {
         console.error('GHL opportunities error:', err);
@@ -630,13 +642,7 @@ router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
             return;
         }
 
-        // Prefer private key (more reliable), fall back to OAuth token
-        let data: any;
-        if (conn.privateApiKey) {
-            data = await ghlPrivateFetch(conn.privateApiKey, `/locations/${conn.locationId}/customFields?model=contact`);
-        } else {
-            data = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields?model=contact`);
-        }
+        const data = await ghlSmartFetch(conn, `/locations/${conn.locationId}/customFields?model=contact`);
         console.log('GHL customFields response keys:', Object.keys(data || {}), 'count:', (data?.customFields || data?.data || []).length);
         res.json(data);
     } catch (err: any) {
