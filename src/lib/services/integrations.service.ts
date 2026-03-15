@@ -53,6 +53,12 @@ export const integrationsService = {
     async getCustomFields() {
         return api.get<any>('/integrations/ghl/custom-fields');
     },
+    async updateCustomField(fieldId: string, data: { name?: string; placeholder?: string; options?: string[] }) {
+        return api.put<any>(`/integrations/ghl/custom-fields/${fieldId}`, data);
+    },
+    async deleteCustomField(fieldId: string) {
+        return api.delete<any>(`/integrations/ghl/custom-fields/${fieldId}`);
+    },
     async savePrivateKey(apiKey: string) {
         return api.put<{ message: string }>('/integrations/ghl/private-key', { apiKey });
     },

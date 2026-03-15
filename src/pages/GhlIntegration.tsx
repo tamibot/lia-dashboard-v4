@@ -70,6 +70,13 @@ export default function GhlIntegration() {
         fetchStatus();
     }, [fetchStatus]);
 
+    // Auto-verify checklist when connected with private key
+    useEffect(() => {
+        if (status?.connected && status?.hasPrivateKey && !checklistData && !loadingChecklist) {
+            handleVerifyChecklist();
+        }
+    }, [status?.connected, status?.hasPrivateKey]);
+
     // Handle OAuth callback redirect
     useEffect(() => {
         const ghlResult = searchParams.get('ghl');
@@ -201,9 +208,11 @@ export default function GhlIntegration() {
         setSettingUpFields(true);
         try {
             const result = await integrationsService.setupFields();
-            toast(result.message || 'Campos creados exitosamente');
+            toast(result.message || 'Campos sincronizados exitosamente');
+            // Auto-refresh checklist after setup
+            handleVerifyChecklist();
         } catch (err: any) {
-            toast(err?.data?.error || 'Error al crear campos. Verifica que tengas el scope locations/customFields.write', 'error');
+            toast(err?.data?.error || 'Error al sincronizar campos. Verifica tu Private Integration Key.', 'error');
         } finally {
             setSettingUpFields(false);
         }
@@ -385,7 +394,7 @@ export default function GhlIntegration() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-gray-900">Campos Personalizados</h3>
-                                <p className="text-xs text-gray-500">Crear campos de contacto en GHL</p>
+                                <p className="text-xs text-gray-500">Crear o actualizar campos de contacto en GHL</p>
                             </div>
                         </div>
                         <button
@@ -398,7 +407,7 @@ export default function GhlIntegration() {
                             ) : (
                                 <ListChecks size={16} />
                             )}
-                            {settingUpFields ? 'Creando...' : 'Crear Campos'}
+                            {settingUpFields ? 'Sincronizando...' : 'Sincronizar Campos'}
                         </button>
                     </div>
                 </div>

@@ -529,12 +529,17 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
             { name: 'Notas del Asesor', dataType: 'LARGE_TEXT', placeholder: 'Notas internas sobre el prospecto...' },
         ];
 
-        // Fetch existing fields to skip duplicates
-        let existingFieldNames: string[] = [];
+        // Fetch existing fields to update or skip
+        let existingFields: { id: string; name: string; picklistOptions?: string[]; placeholder?: string }[] = [];
         try {
             const existingData = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields?model=contact`);
             const rawFields = existingData.customFields || existingData.data || [];
-            existingFieldNames = rawFields.map((f: any) => (f.name || '').toLowerCase().trim());
+            existingFields = rawFields.map((f: any) => ({
+                id: f.id,
+                name: (f.name || '').toLowerCase().trim(),
+                picklistOptions: f.picklistOptions || f.options || [],
+                placeholder: f.placeholder || '',
+            }));
         } catch {
             // If we can't fetch, proceed to create all
         }
@@ -542,36 +547,62 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
         const results: { field: string; status: string; id?: string; error?: string }[] = [];
 
         for (const field of fieldsToCreate) {
-            // Skip if field already exists
-            if (existingFieldNames.some(n => n === field.name.toLowerCase().trim())) {
-                results.push({ field: field.name, status: 'exists' });
-                continue;
-            }
-            try {
-                const created = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        name: field.name,
-                        dataType: field.dataType,
-                        placeholder: (field as any).placeholder,
-                        options: (field as any).options,
-                        model: 'contact',
-                    }),
-                });
-                results.push({ field: field.name, status: 'created', id: created.customField?.id || created.id });
-            } catch (err: any) {
-                results.push({ field: field.name, status: 'error', error: err.message });
+            const existing = existingFields.find(e => e.name === field.name.toLowerCase().trim());
+
+            if (existing) {
+                // Check if options or placeholder need updating
+                const needsUpdate =
+                    ((field as any).options && JSON.stringify((field as any).options) !== JSON.stringify(existing.picklistOptions))
+                    || ((field as any).placeholder && (field as any).placeholder !== existing.placeholder);
+
+                if (needsUpdate) {
+                    try {
+                        const updateData: any = { name: field.name };
+                        if ((field as any).options) updateData.options = (field as any).options;
+                        if ((field as any).placeholder) updateData.placeholder = (field as any).placeholder;
+                        await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields/${existing.id}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(updateData),
+                        });
+                        results.push({ field: field.name, status: 'updated', id: existing.id });
+                    } catch (err: any) {
+                        results.push({ field: field.name, status: 'error', error: err.message });
+                    }
+                } else {
+                    results.push({ field: field.name, status: 'exists', id: existing.id });
+                }
+            } else {
+                try {
+                    const created = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name: field.name,
+                            dataType: field.dataType,
+                            placeholder: (field as any).placeholder,
+                            options: (field as any).options,
+                            model: 'contact',
+                        }),
+                    });
+                    results.push({ field: field.name, status: 'created', id: created.customField?.id || created.id });
+                } catch (err: any) {
+                    results.push({ field: field.name, status: 'error', error: err.message });
+                }
             }
         }
 
         const created = results.filter(r => r.status === 'created').length;
+        const updated = results.filter(r => r.status === 'updated').length;
         const existing = results.filter(r => r.status === 'exists').length;
         const errors = results.filter(r => r.status === 'error').length;
 
+        const parts: string[] = [];
+        if (created) parts.push(`${created} creados`);
+        if (updated) parts.push(`${updated} actualizados`);
+        if (existing) parts.push(`${existing} sin cambios`);
+        if (errors) parts.push(`${errors} errores`);
+
         res.json({
-            message: existing === fieldsToCreate.length
-                ? `Los ${existing} campos ya existen en GHL`
-                : `${created} campos creados, ${existing} ya existian, ${errors} errores`,
+            message: parts.join(', ') || 'Operacion completada',
             results,
         });
     } catch (err: any) {
@@ -602,6 +633,70 @@ router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
     } catch (err: any) {
         console.error('GHL custom fields error:', err);
         res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+});
+
+// PUT /api/integrations/ghl/custom-fields/:fieldId — Update a custom field in GHL
+router.put('/ghl/custom-fields/:fieldId', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn || !conn.isActive) {
+            res.status(400).json({ error: 'GHL not connected' });
+            return;
+        }
+
+        const apiKey = conn.privateApiKey;
+        if (!apiKey) {
+            res.status(400).json({ error: 'Private Integration API Key requerida' });
+            return;
+        }
+
+        const { fieldId } = req.params;
+        const { name, placeholder, options } = req.body;
+
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (placeholder !== undefined) updateData.placeholder = placeholder;
+        if (options !== undefined) updateData.options = options;
+
+        const data = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields/${fieldId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData),
+        });
+
+        res.json(data);
+    } catch (err: any) {
+        console.error('GHL update custom field error:', err);
+        res.status(500).json({ error: err.message || 'Error al actualizar campo' });
+    }
+});
+
+// DELETE /api/integrations/ghl/custom-fields/:fieldId — Delete a custom field from GHL
+router.delete('/ghl/custom-fields/:fieldId', async (req: Request, res: Response) => {
+    try {
+        const orgId = req.user!.orgId;
+        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        if (!conn || !conn.isActive) {
+            res.status(400).json({ error: 'GHL not connected' });
+            return;
+        }
+
+        const apiKey = conn.privateApiKey;
+        if (!apiKey) {
+            res.status(400).json({ error: 'Private Integration API Key requerida' });
+            return;
+        }
+
+        const { fieldId } = req.params;
+        const data = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields/${fieldId}`, {
+            method: 'DELETE',
+        });
+
+        res.json(data);
+    } catch (err: any) {
+        console.error('GHL delete custom field error:', err);
+        res.status(500).json({ error: err.message || 'Error al eliminar campo' });
     }
 });
 
