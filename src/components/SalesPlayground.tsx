@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList, Search, ShoppingCart, User, Mail, DollarSign, Calendar, Image } from 'lucide-react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList, Search, ShoppingCart, User, Mail, DollarSign, Image } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
