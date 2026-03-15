@@ -350,7 +350,6 @@ export default function CourseUpload() {
     const [isChatOpen, setIsChatOpen] = useState(true);
     const [interactionCount, setInteractionCount] = useState(0);
     const [guidedFilterQuestions, setGuidedFilterQuestions] = useState<string>('');
-    const [guidedExtractionFields, setGuidedExtractionFields] = useState<string>('');
 
     const [analysisStep, setAnalysisStep] = useState(0);
 
@@ -646,7 +645,6 @@ export default function CourseUpload() {
                 } else if (isExtractionField) {
                     newData = { ...newData, _extractionFieldsAsked: true };
                     setData(prev => ({ ...prev, ...response.updates, _extractionFieldsAsked: true }));
-                    if (!isSkip) setGuidedExtractionFields(msg);
                 } else {
                     setData(prev => ({ ...prev, ...response.updates }));
                 }

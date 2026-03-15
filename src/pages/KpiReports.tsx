@@ -124,7 +124,6 @@ export default function KpiReports() {
         );
     }
 
-    const maxFunnelCount = funnel?.stages ? Math.max(...funnel.stages.map(s => s.count), 1) : 1;
 
     return (
         <div className="page-content">

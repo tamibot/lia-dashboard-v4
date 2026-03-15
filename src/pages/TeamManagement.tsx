@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import {
     Users, Plus, Edit2, Trash2, Calendar, Clock, Book, Loader,
-    AlertCircle, RefreshCw, Mail, Phone, MessageCircle, Star,
+    AlertCircle, RefreshCw, Mail, Phone, MessageCircle,
     ToggleLeft, ToggleRight, ChevronDown, ChevronUp, X, Save
 } from 'lucide-react';
 import { teamService } from '../lib/services/team.service';
