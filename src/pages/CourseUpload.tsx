@@ -1228,12 +1228,17 @@ export default function CourseUpload() {
                                         <div className="flex-1 overflow-y-auto p-5 space-y-3">
                                             {chatMessages.map((msg, i) => (
                                                 msg.role === 'data-chips' ? (
-                                                    <div key={i} className="flex justify-start flex-wrap gap-1.5 pl-1">
-                                                        {msg.content.split('|').map(label => (
-                                                            <span key={label} className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                                <Check size={9} /> {label.match(/guardad[oa]s?$/i) ? label : `${label} guardado`}
+                                                    <div key={i} className="flex justify-start pl-1">
+                                                        <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 flex items-center gap-2 shadow-sm">
+                                                            <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                <Check size={10} className="text-green-600" />
+                                                            </div>
+                                                            <span className="text-[11px] text-green-700 font-medium">
+                                                                {msg.content.includes('|')
+                                                                    ? `Datos actualizados: ${msg.content.split('|').join(', ')}`
+                                                                    : msg.content}
                                                             </span>
-                                                        ))}
+                                                        </div>
                                                     </div>
                                                 ) : (
                                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>

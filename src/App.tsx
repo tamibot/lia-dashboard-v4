@@ -5,7 +5,6 @@ import TopBar from './components/TopBar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SidebarProvider } from './context/SidebarContext';
-import { ThemeProvider } from './context/ThemeContext';
 
 // ─── Lazy-loaded pages (code splitting) ─────────────────────────────
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -58,7 +57,6 @@ const ProtectedRoute = () => {
 
 export default function App() {
   return (
-    <ThemeProvider>
     <AuthProvider>
       <ToastProvider>
       <BrowserRouter>
@@ -93,6 +91,5 @@ export default function App() {
       </BrowserRouter>
       </ToastProvider>
     </AuthProvider>
-    </ThemeProvider>
   );
 }

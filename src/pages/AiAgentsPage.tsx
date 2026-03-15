@@ -56,7 +56,7 @@ export default function AiAgentsPage() {
 
     // Form
     const [name, setName] = useState('LIA');
-    const [role, setRole] = useState('Asistente de Ventas');
+    const [role, setRole] = useState('Asesora de Ventas');
     const [personality, setPersonality] = useState('enthusiastic');
     const [avatar, setAvatar] = useState('🤖');
     const [systemPrompt, setSystemPrompt] = useState('');
@@ -84,7 +84,7 @@ export default function AiAgentsPage() {
                 const a = agents[0];
                 setAgent(a);
                 setName(a.name || 'LIA');
-                setRole(a.role || 'Asistente de Ventas');
+                setRole(a.role || 'Asesora de Ventas');
                 setPersonality(a.personality || 'enthusiastic');
                 setAvatar(a.avatar || '🤖');
                 setSystemPrompt(a.systemPrompt || '');
@@ -161,7 +161,7 @@ export default function AiAgentsPage() {
             <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                     <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                    <p className="text-gray-600 mb-4">Error al cargar datos del servidor.</p>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">Error al cargar datos del servidor.</p>
                     <button onClick={load} className="btn btn-primary gap-2"><RefreshCw size={15} /> Reintentar</button>
                 </div>
             </div>
@@ -173,14 +173,14 @@ export default function AiAgentsPage() {
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
                 <div>
-                    <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Agente de Ventas</h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Configura la personalidad y comportamiento de <span className="font-semibold text-gray-700">LIA</span>, tu asistente de ventas 24/7.
+                    <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Agente de Ventas</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Configura la personalidad y comportamiento de <span className="font-semibold text-gray-700 dark:text-gray-300">LIA</span>, tu asistente de ventas 24/7.
                     </p>
                 </div>
                 <button
                     onClick={() => setPlayground(true)}
-                    className="btn btn-primary gap-2 shadow-md shadow-blue-100"
+                    className="btn btn-primary gap-2 shadow-md shadow-blue-100 dark:shadow-blue-900/30"
                 >
                     <Play size={15} className="fill-current" /> Probar Agente
                 </button>
@@ -190,11 +190,11 @@ export default function AiAgentsPage() {
 
                 {/* Identity card */}
                 <div className="card">
-                    <h3 className="text-sm font-bold text-gray-800 mb-4">Identidad del Agente</h3>
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-4">Identidad del Agente</h3>
                     <div className="flex items-start gap-6">
                         {/* Avatar preview */}
                         <div className="flex-shrink-0 text-center">
-                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl mb-2 shadow-sm">
+                            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-3xl mb-2 shadow-sm">
                                 {avatar}
                             </div>
                             <div className="flex flex-wrap gap-1 justify-center w-16">
@@ -202,7 +202,7 @@ export default function AiAgentsPage() {
                                     <button
                                         key={em}
                                         onClick={() => setAvatar(em)}
-                                        className={`w-6 h-6 rounded text-xs flex items-center justify-center transition-all ${avatar === em ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100'}`}
+                                        className={`w-6 h-6 rounded text-xs flex items-center justify-center transition-all ${avatar === em ? 'bg-blue-100 dark:bg-blue-800 ring-2 ring-blue-400' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                     >
                                         {em}
                                     </button>
@@ -219,7 +219,7 @@ export default function AiAgentsPage() {
                                     value={name}
                                     onChange={e => setName(e.target.value)}
                                 />
-                                <p className="text-[10px] text-gray-400 mt-1">Este es el nombre con el que se presentará a los prospectos.</p>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Este es el nombre con el que se presentará a los prospectos.</p>
                             </div>
                             <div>
                                 <label className="label-sm">Rol / Título</label>
@@ -236,7 +236,7 @@ export default function AiAgentsPage() {
 
                 {/* Personality card */}
                 <div className="card">
-                    <h3 className="text-sm font-bold text-gray-800 mb-4">Personalidad y Temperamento</h3>
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-4">Personalidad y Temperamento</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {PERSONALITIES.map(p => (
                             <button
@@ -244,16 +244,16 @@ export default function AiAgentsPage() {
                                 onClick={() => setPersonality(p.value)}
                                 className={`text-left p-4 rounded-xl border-2 transition-all ${
                                     personality === p.value
-                                        ? 'border-blue-500 bg-blue-50'
-                                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className="text-lg">{p.emoji}</span>
-                                    <span className={`font-semibold text-sm ${personality === p.value ? 'text-blue-700' : 'text-gray-800'}`}>{p.label}</span>
+                                    <span className={`font-semibold text-sm ${personality === p.value ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}`}>{p.label}</span>
                                     {personality === p.value && <Check size={13} className="text-blue-600 ml-auto" />}
                                 </div>
-                                <p className="text-xs text-gray-500 leading-relaxed">{p.desc}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{p.desc}</p>
                             </button>
                         ))}
                     </div>
@@ -262,8 +262,8 @@ export default function AiAgentsPage() {
                 {/* Custom instructions */}
                 <div className="card">
                     <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-sm font-bold text-gray-800">Instrucciones Personalizadas</h3>
-                        <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Opcional</span>
+                        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">Instrucciones Personalizadas</h3>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">Opcional</span>
                     </div>
                     <textarea
                         className="input w-full h-28 text-sm font-mono resize-none"
@@ -271,17 +271,17 @@ export default function AiAgentsPage() {
                         value={systemPrompt}
                         onChange={e => setSystemPrompt(e.target.value)}
                     />
-                    <p className="text-[10px] text-gray-400 mt-1.5">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
                         Reglas adicionales para el agente. Se combinan con su personalidad base.
                     </p>
                 </div>
 
                 {/* Preview banner */}
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start gap-3">
-                    <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-lg flex-shrink-0">{avatar}</div>
+                <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-start gap-3">
+                    <div className="w-9 h-9 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-lg flex-shrink-0">{avatar}</div>
                     <div>
-                        <p className="text-xs font-bold text-gray-700">{name} · {role}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 italic">"{selectedPersonality.tone}"</p>
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">{name} · {role}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">"{selectedPersonality.tone}"</p>
                     </div>
                 </div>
 
@@ -302,14 +302,14 @@ export default function AiAgentsPage() {
                 {/* Related: CRM & Fields */}
                 <Link
                     to="/crm"
-                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
+                    className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all group"
                 >
-                    <div className="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 bg-purple-50 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
                         <ListFilter size={16} className="text-purple-600" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800">Embudo & Campos</p>
-                        <p className="text-[11px] text-gray-400">Configura el pipeline de ventas y campos personalizados del CRM</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Embudo & Campos</p>
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500">Configura el pipeline de ventas y campos personalizados del CRM</p>
                     </div>
                     <span className="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Configurar →</span>
                 </Link>

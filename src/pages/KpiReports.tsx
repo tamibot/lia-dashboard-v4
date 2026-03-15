@@ -118,7 +118,7 @@ export default function KpiReports() {
             <div className="page-content">
                 <div className="flex items-center justify-center py-20">
                     <Loader2 size={32} className="animate-spin text-blue-600" />
-                    <span className="ml-3 text-gray-500">Cargando KPIs...</span>
+                    <span className="ml-3 text-gray-500 dark:text-gray-400">Cargando KPIs...</span>
                 </div>
             </div>
         );
@@ -130,13 +130,13 @@ export default function KpiReports() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">KPIs & Reportes</h1>
-                    <p className="text-sm text-gray-500 mt-1">Visualización de métricas de tu embudo comercial y contactos.</p>
+                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">KPIs & Reportes</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Visualización de métricas de tu embudo comercial y contactos.</p>
                 </div>
                 <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                     <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                     Actualizar
@@ -144,7 +144,7 @@ export default function KpiReports() {
             </div>
 
             {error && (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-4 py-3 rounded-lg mb-6">
+                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 rounded-lg mb-6">
                     <AlertTriangle size={16} />
                     {error}
                 </div>
@@ -183,16 +183,16 @@ export default function KpiReports() {
             {/* Funnel + Origin */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 {/* Funnel Visualization */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="font-bold text-gray-900">Embudo de Ventas</h3>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100">Embudo de Ventas</h3>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                                 {funnel?.pipeline?.name || 'Pipeline GHL'}
                             </p>
                         </div>
                         {funnel?.totalValue ? (
-                            <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg">
+                            <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-lg">
                                 <DollarSign size={14} />
                                 {formatCurrency(funnel.totalValue)}
                             </div>
@@ -203,7 +203,7 @@ export default function KpiReports() {
                         <div>
                             {/* Linear/Sequential stages */}
                             {(() => {
-                                const PARALLEL_NAMES = ['seguimiento', 'asesor manual', 'descartado', 'perdido'];
+                                const PARALLEL_NAMES = ['seguimiento', 'asesor manual', 'caso especial', 'descartado', 'perdido'];
                                 const linearStages = funnel.stages.filter(s => !PARALLEL_NAMES.includes(s.name.toLowerCase()));
                                 const parallelStages = funnel.stages.filter(s => PARALLEL_NAMES.includes(s.name.toLowerCase()));
                                 const maxLinear = Math.max(...linearStages.map(s => s.count), 1);
@@ -216,15 +216,15 @@ export default function KpiReports() {
                                                 return (
                                                     <div
                                                         key={stage.id}
-                                                        className={`flex items-center gap-3 ${stageKey ? 'cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}`}
+                                                        className={`flex items-center gap-3 ${stageKey ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}`}
                                                         onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
                                                     >
                                                         <div className="w-36 text-right">
-                                                            <span className="text-xs font-medium text-gray-600 truncate block">
+                                                            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate block">
                                                                 {stage.name}
                                                             </span>
                                                         </div>
-                                                        <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                                                        <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden relative">
                                                             <div
                                                                 className="h-full rounded-lg transition-all duration-500 flex items-center px-2"
                                                                 style={{
@@ -238,7 +238,7 @@ export default function KpiReports() {
                                                             </div>
                                                         </div>
                                                         {stage.value > 0 && (
-                                                            <span className="text-xs text-gray-400 w-20 text-right">
+                                                            <span className="text-xs text-gray-400 dark:text-gray-500 w-20 text-right">
                                                                 {formatCurrency(stage.value)}
                                                             </span>
                                                         )}
@@ -249,8 +249,8 @@ export default function KpiReports() {
 
                                         {/* Parallel/Temporary states */}
                                         {parallelStages.length > 0 && (
-                                            <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estados paralelos / temporales</p>
+                                            <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+                                                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Estados paralelos / temporales</p>
                                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                                     {parallelStages.map((stage) => {
                                                         const stageKey = FUNNEL_STAGE_MAP[stage.name.toLowerCase()] || '';
@@ -258,13 +258,13 @@ export default function KpiReports() {
                                                         return (
                                                             <div
                                                                 key={stage.id}
-                                                                className={`p-3 rounded-xl border-2 border-dashed ${isLost ? 'border-red-200 bg-red-50/50' : 'border-amber-200 bg-amber-50/50'} ${stageKey ? 'cursor-pointer hover:shadow-sm' : ''} transition-all`}
+                                                                className={`p-3 rounded-xl border-2 border-dashed ${isLost ? 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/30' : 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/30'} ${stageKey ? 'cursor-pointer hover:shadow-sm' : ''} transition-all`}
                                                                 onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
                                                             >
-                                                                <p className={`text-xs font-semibold ${isLost ? 'text-red-700' : 'text-amber-700'}`}>{stage.name}</p>
-                                                                <p className={`text-lg font-black mt-0.5 ${isLost ? 'text-red-900' : 'text-amber-900'}`}>{stage.count}</p>
+                                                                <p className={`text-xs font-semibold ${isLost ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>{stage.name}</p>
+                                                                <p className={`text-lg font-black mt-0.5 ${isLost ? 'text-red-900 dark:text-red-300' : 'text-amber-900 dark:text-amber-300'}`}>{stage.count}</p>
                                                                 {stage.value > 0 && (
-                                                                    <p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(stage.value)}</p>
+                                                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{formatCurrency(stage.value)}</p>
                                                                 )}
                                                             </div>
                                                         );
@@ -277,12 +277,12 @@ export default function KpiReports() {
                             })()}
                         </div>
                     ) : funnel?.connected === false ? (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                             <Target size={32} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm">Conecta GoHighLevel para ver el embudo</p>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                             <Target size={32} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm">No hay datos de pipeline disponibles</p>
                         </div>
@@ -290,9 +290,9 @@ export default function KpiReports() {
                 </div>
 
                 {/* Contacts by Origin */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 className="font-bold text-gray-900 mb-1">Fuentes de Contactos</h3>
-                    <p className="text-xs text-gray-400 mb-4">Distribución por origen</p>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Fuentes de Contactos</h3>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Distribución por origen</p>
 
                     {overview && overview.byOrigin.length > 0 ? (
                         <>
@@ -328,7 +328,7 @@ export default function KpiReports() {
                                     .map(o => (
                                         <div
                                             key={o.origin}
-                                            className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded transition-colors"
+                                            className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 -mx-1 px-1 py-0.5 rounded transition-colors"
                                             onClick={() => navigate(`/contacts?origin=${o.origin}`)}
                                         >
                                             <div className="flex items-center gap-2">
@@ -336,17 +336,17 @@ export default function KpiReports() {
                                                     className="w-2.5 h-2.5 rounded-full"
                                                     style={{ backgroundColor: ORIGIN_COLORS[o.origin] || '#94A3B8' }}
                                                 />
-                                                <span className="text-gray-600">
+                                                <span className="text-gray-600 dark:text-gray-400">
                                                     {ORIGIN_LABELS[o.origin] || o.origin}
                                                 </span>
                                             </div>
-                                            <span className="font-semibold text-gray-900">{o.count}</span>
+                                            <span className="font-semibold text-gray-900 dark:text-gray-100">{o.count}</span>
                                         </div>
                                     ))}
                             </div>
                         </>
                     ) : (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                             <Users size={32} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm">Sincroniza contactos para ver fuentes</p>
                         </div>
@@ -357,9 +357,9 @@ export default function KpiReports() {
             {/* Contacts Over Time + Stage Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 {/* Contacts Over Time */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 className="font-bold text-gray-900 mb-1">Contactos por Semana</h3>
-                    <p className="text-xs text-gray-400 mb-4">Últimas 12 semanas</p>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Contactos por Semana</h3>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Últimas 12 semanas</p>
 
                     {overview && overview.contactsOverTime.length > 0 ? (
                         <div className="h-56">
@@ -398,7 +398,7 @@ export default function KpiReports() {
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                             <TrendingUp size={32} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm">Sin datos de contactos recientes</p>
                         </div>
@@ -406,9 +406,9 @@ export default function KpiReports() {
                 </div>
 
                 {/* Stage Distribution (local DB) */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 className="font-bold text-gray-900 mb-1">Contactos por Etapa</h3>
-                    <p className="text-xs text-gray-400 mb-4">Distribución en BD local</p>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Contactos por Etapa</h3>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Distribución en BD local</p>
 
                     {overview && overview.byStage.length > 0 ? (
                         <div className="h-56">
@@ -447,7 +447,7 @@ export default function KpiReports() {
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-gray-400">
+                        <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                             <Users size={32} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm">Sincroniza contactos para ver distribución</p>
                         </div>
@@ -457,9 +457,9 @@ export default function KpiReports() {
 
             {/* Recent Contacts Table */}
             {overview && overview.recentContacts.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h3 className="font-bold text-gray-900 text-sm">Contactos Recientes</h3>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Contactos Recientes</h3>
                         <button
                             onClick={() => navigate('/contacts')}
                             className="text-xs text-blue-600 font-semibold hover:underline"
@@ -469,7 +469,7 @@ export default function KpiReports() {
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                            <thead className="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 uppercase">
                                 <tr>
                                     <th className="px-4 py-2 text-left">Nombre</th>
                                     <th className="px-4 py-2 text-left">Email</th>
@@ -478,22 +478,22 @@ export default function KpiReports() {
                                     <th className="px-4 py-2 text-left">Fecha</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                                 {overview.recentContacts.map(c => (
-                                    <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/contacts?search=${encodeURIComponent(c.name)}`)}>
-                                        <td className="px-4 py-2 font-medium text-gray-900">{c.name}</td>
-                                        <td className="px-4 py-2 text-gray-600">{c.email || '-'}</td>
+                                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => navigate(`/contacts?search=${encodeURIComponent(c.name)}`)}>
+                                        <td className="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{c.name}</td>
+                                        <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{c.email || '-'}</td>
                                         <td className="px-4 py-2">
-                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
                                                 {STAGE_LABELS[c.stage] || c.stage}
                                             </span>
                                         </td>
                                         <td className="px-4 py-2">
-                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                                                 {ORIGIN_LABELS[c.origin] || c.origin}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-2 text-gray-500 text-xs">
+                                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400 text-xs">
                                             {new Date(c.createdAt).toLocaleDateString('es', {
                                                 day: '2-digit', month: 'short', year: 'numeric',
                                             })}
@@ -508,9 +508,9 @@ export default function KpiReports() {
 
             {/* GHL Status Banner */}
             {funnel && !funnel.connected && (
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-5">
-                    <h3 className="font-semibold text-blue-900 mb-1">Conecta GoHighLevel</h3>
-                    <p className="text-sm text-blue-700">
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-1">Conecta GoHighLevel</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
                         Para ver el embudo de ventas completo con datos en tiempo real, conecta tu cuenta de GHL en la sección de
                         <a href="/settings" className="font-semibold underline ml-1">Integraciones</a>.
                     </p>
@@ -529,10 +529,10 @@ function SummaryCard({ icon: Icon, label, value, subtitle, color }: {
     color: 'blue' | 'purple' | 'emerald' | 'amber';
 }) {
     const colors = {
-        blue: { bg: 'bg-blue-50', border: 'border-blue-100', iconBg: 'bg-blue-100', icon: 'text-blue-600', label: 'text-blue-600', value: 'text-blue-900' },
-        purple: { bg: 'bg-purple-50', border: 'border-purple-100', iconBg: 'bg-purple-100', icon: 'text-purple-600', label: 'text-purple-600', value: 'text-purple-900' },
-        emerald: { bg: 'bg-emerald-50', border: 'border-emerald-100', iconBg: 'bg-emerald-100', icon: 'text-emerald-600', label: 'text-emerald-600', value: 'text-emerald-900' },
-        amber: { bg: 'bg-amber-50', border: 'border-amber-100', iconBg: 'bg-amber-100', icon: 'text-amber-600', label: 'text-amber-600', value: 'text-amber-900' },
+        blue: { bg: 'bg-blue-50 dark:bg-blue-900/30', border: 'border-blue-100 dark:border-blue-800', iconBg: 'bg-blue-100 dark:bg-blue-900/50', icon: 'text-blue-600 dark:text-blue-400', label: 'text-blue-600 dark:text-blue-400', value: 'text-blue-900 dark:text-blue-200' },
+        purple: { bg: 'bg-purple-50 dark:bg-purple-900/30', border: 'border-purple-100 dark:border-purple-800', iconBg: 'bg-purple-100 dark:bg-purple-900/50', icon: 'text-purple-600 dark:text-purple-400', label: 'text-purple-600 dark:text-purple-400', value: 'text-purple-900 dark:text-purple-200' },
+        emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', border: 'border-emerald-100 dark:border-emerald-800', iconBg: 'bg-emerald-100 dark:bg-emerald-900/50', icon: 'text-emerald-600 dark:text-emerald-400', label: 'text-emerald-600 dark:text-emerald-400', value: 'text-emerald-900 dark:text-emerald-200' },
+        amber: { bg: 'bg-amber-50 dark:bg-amber-900/30', border: 'border-amber-100 dark:border-amber-800', iconBg: 'bg-amber-100 dark:bg-amber-900/50', icon: 'text-amber-600 dark:text-amber-400', label: 'text-amber-600 dark:text-amber-400', value: 'text-amber-900 dark:text-amber-200' },
     };
     const c = colors[color];
 
@@ -546,7 +546,7 @@ function SummaryCard({ icon: Icon, label, value, subtitle, color }: {
                     <p className={`text-[11px] font-bold ${c.label} uppercase tracking-wide`}>{label}</p>
                     <h4 className={`text-2xl font-black ${c.value} leading-none mt-0.5`}>{value}</h4>
                     {subtitle && (
-                        <p className="text-[10px] text-gray-500 mt-0.5">{subtitle}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>
                     )}
                 </div>
             </div>

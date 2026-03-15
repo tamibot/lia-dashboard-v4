@@ -47,6 +47,49 @@ const STAGE_COLORS = [
     '#6366F1', '#14B8A6', '#F97316', '#EF4444', '#06B6D4',
 ];
 
+/** Stage names considered "parallel" / non-sequential — shown separately */
+const PARALLEL_STAGE_KEYS = new Set([
+    'seguimiento', 'asesor_manual', 'caso_especial', 'descartado',
+]);
+
+/** Color map by stage key for consistent coloring */
+const STAGE_COLOR_MAP: Record<string, string> = {
+    bbdd: '#6B7280',
+    interesado: '#3B82F6',
+    informado: '#0EA5E9',
+    filtrado: '#F59E0B',
+    cualificado: '#8B5CF6',
+    alumno_registrado: '#10B981',
+    alumno_activo: '#059669',
+    seguimiento: '#F97316',
+    asesor_manual: '#6366F1',
+    caso_especial: '#EC4899',
+    descartado: '#EF4444',
+};
+
+function getStageColor(stage: FunnelStage, idx: number): string {
+    if (stage.color) return stage.color;
+    const key = (stage as any).key as string | undefined;
+    if (key && STAGE_COLOR_MAP[key]) return STAGE_COLOR_MAP[key];
+    // Fallback: try matching by name
+    const nameLower = stage.name.toLowerCase();
+    for (const [k, c] of Object.entries(STAGE_COLOR_MAP)) {
+        if (nameLower.includes(k.replace('_', ' '))) return c;
+    }
+    return STAGE_COLORS[idx % STAGE_COLORS.length];
+}
+
+function isParallelStage(stage: FunnelStage): boolean {
+    const key = (stage as any).key as string | undefined;
+    if (key && PARALLEL_STAGE_KEYS.has(key)) return true;
+    // Fallback: match by name
+    const nameLower = stage.name.toLowerCase();
+    return nameLower === 'seguimiento'
+        || nameLower === 'asesor manual'
+        || nameLower === 'caso especial'
+        || nameLower === 'descartado';
+}
+
 const DATA_TYPES = [
     { value: 'string', label: 'Texto' },
     { value: 'number', label: 'Numero' },
@@ -475,35 +518,77 @@ function FunnelsSection({
                         </div>
 
                         {/* Pipeline visualization (always visible) */}
-                        <div style={{
-                            padding: '0 20px 16px', display: 'flex', alignItems: 'center',
-                            gap: '4px', overflowX: 'auto',
-                        }}>
-                            {funnel.stages
-                                .slice()
-                                .sort((a, b) => a.sortOrder - b.sortOrder)
-                                .map((stage, idx) => (
-                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                            padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
-                                            background: (stage.color || STAGE_COLORS[idx % STAGE_COLORS.length]) + '18',
-                                            color: stage.color || STAGE_COLORS[idx % STAGE_COLORS.length],
-                                            whiteSpace: 'nowrap',
-                                            border: `1px solid ${(stage.color || STAGE_COLORS[idx % STAGE_COLORS.length]) + '30'}`,
-                                        }}>
-                                            <span style={{
-                                                width: '8px', height: '8px', borderRadius: '50%',
-                                                background: stage.color || STAGE_COLORS[idx % STAGE_COLORS.length],
-                                            }} />
-                                            {stage.name}
-                                        </span>
-                                        {idx < funnel.stages.length - 1 && (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '16px', margin: '0 2px' }}>→</span>
-                                        )}
+                        {(() => {
+                            const sorted = funnel.stages.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+                            const sequential = sorted.filter(s => !isParallelStage(s));
+                            const parallel = sorted.filter(s => isParallelStage(s));
+
+                            return (
+                                <div style={{ padding: '0 20px 16px' }}>
+                                    {/* Sequential flow */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', flexWrap: 'wrap' }}>
+                                        {sequential.map((stage, idx) => {
+                                            const color = getStageColor(stage, idx);
+                                            return (
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                                                        background: color + '18',
+                                                        color: color,
+                                                        whiteSpace: 'nowrap',
+                                                        border: `1px solid ${color}30`,
+                                                    }}>
+                                                        <span style={{
+                                                            width: '8px', height: '8px', borderRadius: '50%',
+                                                            background: color,
+                                                        }} />
+                                                        {stage.name}
+                                                    </span>
+                                                    {idx < sequential.length - 1 && (
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '16px', margin: '0 2px' }}>→</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                ))}
-                        </div>
+
+                                    {/* Parallel / non-sequential states */}
+                                    {parallel.length > 0 && (
+                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border, #e5e7eb)' }}>
+                                            <span style={{
+                                                fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
+                                                letterSpacing: '0.05em', color: 'var(--text-muted, #9ca3af)',
+                                                marginRight: '10px',
+                                            }}>
+                                                Estados Especiales
+                                            </span>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                                {parallel.map((stage, idx) => {
+                                                    const color = getStageColor(stage, idx);
+                                                    return (
+                                                        <span key={idx} style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                            padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
+                                                            background: color + '18',
+                                                            color: color,
+                                                            whiteSpace: 'nowrap',
+                                                            border: `1px solid ${color}30`,
+                                                        }}>
+                                                            <span style={{
+                                                                width: '7px', height: '7px', borderRadius: '50%',
+                                                                background: color,
+                                                            }} />
+                                                            {stage.name}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* Expanded details */}
                         {isExpanded && funnel.stages.length > 0 && (

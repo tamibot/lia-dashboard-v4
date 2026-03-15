@@ -50,32 +50,33 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     // Fetch the REAL catalog from the backend so the agent doesn't invent courses
     const [catalogLoading, setCatalogLoading] = useState(true);
 
-    // Fetch the REAL catalog from the backend so the agent doesn't invent courses
+    // Fetch catalog using authenticated API (more reliable than public slug-based)
     useEffect(() => {
-        // Try to get org slug from profile; fall back to localStorage or default
-        const orgSlug = (orgProfile as any)?.slug
-            || localStorage.getItem('orgSlug')
-            || '';
-
-        if (!orgSlug) {
-            setCatalogLoading(false);
-            return;
-        }
-
         setCatalogLoading(true);
-        const url = `${API_CONFIG.BASE_URL}/public/${orgSlug}/catalog`;
+        const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
+        const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-        fetch(url)
-            .then(r => r.json())
-            .then(data => {
-                setFullCatalog(data);
-                setCatalogLoading(false);
-            })
-            .catch(err => {
-                console.warn('Could not load catalog for agent context:', err);
-                setCatalogLoading(false);
+        // Fetch all content types in parallel using the authenticated courses API
+        Promise.all([
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=curso`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=programa`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=webinar`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=taller`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=subscripcion`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=asesoria`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`${API_CONFIG.BASE_URL}/courses?type=postulacion`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+        ]).then(([cursos, programas, webinars, talleres, subs, asesorias, postulaciones]) => {
+            setFullCatalog({
+                courses: [...cursos, ...talleres, ...subs, ...asesorias, ...postulaciones],
+                programs: programas,
+                webinars: webinars,
             });
-    }, [orgProfile]);
+            setCatalogLoading(false);
+        }).catch(err => {
+            console.warn('Could not load catalog for agent context:', err);
+            setCatalogLoading(false);
+        });
+    }, []);
 
     // Fetch team members for advisor assignment
     useEffect(() => {

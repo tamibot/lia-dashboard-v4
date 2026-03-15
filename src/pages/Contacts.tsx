@@ -48,14 +48,14 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const STAGE_COLORS: Record<string, string> = {
-    nuevo: 'bg-blue-50 text-blue-700',
-    contactado: 'bg-indigo-50 text-indigo-700',
-    interesado: 'bg-violet-50 text-violet-700',
-    propuesta: 'bg-purple-50 text-purple-700',
-    negociacion: 'bg-amber-50 text-amber-700',
-    ganado: 'bg-emerald-50 text-emerald-700',
-    perdido: 'bg-red-50 text-red-700',
-    inactivo: 'bg-gray-100 text-gray-500',
+    nuevo: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+    contactado: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300',
+    interesado: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300',
+    propuesta: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
+    negociacion: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
+    ganado: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300',
+    perdido: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300',
+    inactivo: 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400',
 };
 
 const ORIGIN_OPTIONS = [
@@ -78,17 +78,17 @@ const ORIGIN_LABELS: Record<string, string> = {
 };
 
 const ORIGIN_COLORS: Record<string, string> = {
-    meta_ads: 'bg-blue-50 text-blue-700',
-    google_ads: 'bg-yellow-50 text-yellow-700',
-    tiktok_ads: 'bg-red-50 text-red-700',
-    referido: 'bg-purple-50 text-purple-700',
-    organico: 'bg-emerald-50 text-emerald-700',
-    webinar: 'bg-pink-50 text-pink-700',
-    evento: 'bg-indigo-50 text-indigo-700',
-    linkedin: 'bg-sky-50 text-sky-700',
-    whatsapp: 'bg-green-50 text-green-700',
-    agente_ia: 'bg-violet-50 text-violet-700',
-    otro: 'bg-gray-100 text-gray-600',
+    meta_ads: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+    google_ads: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300',
+    tiktok_ads: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300',
+    referido: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
+    organico: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300',
+    webinar: 'bg-pink-50 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300',
+    evento: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300',
+    linkedin: 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300',
+    whatsapp: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300',
+    agente_ia: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300',
+    otro: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
 };
 
 /* ------------------------------------------------------------------ */
@@ -254,7 +254,7 @@ export default function Contacts() {
             <div className="page-content">
                 <div className="flex items-center justify-center py-20">
                     <Loader2 size={32} className="animate-spin text-blue-600" />
-                    <span className="ml-3 text-gray-500">Cargando contactos...</span>
+                    <span className="ml-3 text-gray-500 dark:text-gray-400">Cargando contactos...</span>
                 </div>
             </div>
         );
@@ -265,8 +265,8 @@ export default function Contacts() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Contactos</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Contactos</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                         {contacts.length} de {totalCount} contacto{totalCount !== 1 ? 's' : ''}
                     </p>
                 </div>
@@ -274,7 +274,7 @@ export default function Contacts() {
                     <button
                         onClick={handleExport}
                         disabled={exporting || totalCount === 0}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                     >
                         {exporting
                             ? <Loader2 size={14} className="animate-spin" />
@@ -284,7 +284,7 @@ export default function Contacts() {
                     <button
                         onClick={handleRefresh}
                         disabled={refreshing}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                     >
                         <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                         Actualizar
@@ -293,88 +293,88 @@ export default function Contacts() {
             </div>
 
             {error && (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-4 py-3 rounded-lg mb-6">
+                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 rounded-lg mb-6">
                     <AlertTriangle size={16} />
                     {error}
                 </div>
             )}
 
             {/* Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
                 <div className="flex flex-col sm:flex-row gap-3">
                     {/* Search */}
                     <form onSubmit={handleSearchSubmit} className="flex-1 relative">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                         <input
                             type="text"
                             placeholder="Buscar por nombre, email o telefono..."
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                     </form>
 
                     {/* Stage filter */}
                     <div className="relative">
-                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                         <select
                             value={stage}
                             onChange={(e) => updateParam('stage', e.target.value)}
-                            className="appearance-none pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                            className="appearance-none pl-8 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                         >
                             <option value="">Todas las etapas</option>
                             {STAGE_OPTIONS.map((s) => (
                                 <option key={s} value={s}>{STAGE_LABELS[s]}</option>
                             ))}
                         </select>
-                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     </div>
 
                     {/* Origin filter */}
                     <div className="relative">
-                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                         <select
                             value={origin}
                             onChange={(e) => updateParam('origin', e.target.value)}
-                            className="appearance-none pl-8 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                            className="appearance-none pl-8 pr-8 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                         >
                             <option value="">Todos los origenes</option>
                             {ORIGIN_OPTIONS.map((o) => (
                                 <option key={o} value={o}>{ORIGIN_LABELS[o]}</option>
                             ))}
                         </select>
-                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
                     </div>
                 </div>
 
                 {/* Date range filters */}
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                    <Calendar size={14} className="text-gray-400 flex-shrink-0" />
-                    <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Rango de fecha:</span>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <Calendar size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    <span className="text-xs text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap">Rango de fecha:</span>
                     <input
                         type="date"
                         value={dateFrom}
                         onChange={(e) => updateParam('dateFrom', e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-xs text-gray-400">a</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">a</span>
                     <input
                         type="date"
                         value={dateTo}
                         onChange={(e) => updateParam('dateTo', e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
 
                 {/* Active filter pills */}
                 {activeFilters.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-                        <span className="text-xs text-gray-400 font-medium">Filtros activos:</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Filtros activos:</span>
                         {activeFilters.map((f) => (
                             <button
                                 key={f.key}
                                 onClick={() => clearFilter(f.key)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition-colors"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                             >
                                 {f.label}
                                 <X size={12} />
@@ -383,7 +383,7 @@ export default function Contacts() {
                         {activeFilters.length > 1 && (
                             <button
                                 onClick={clearAllFilters}
-                                className="text-xs text-gray-500 hover:text-gray-700 underline ml-1"
+                                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline ml-1"
                             >
                                 Limpiar todos
                             </button>
@@ -394,10 +394,10 @@ export default function Contacts() {
 
             {/* Table */}
             {contacts.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                    <Users size={40} className="mx-auto mb-3 text-gray-300" />
-                    <h3 className="text-lg font-semibold text-gray-700 mb-1">No se encontraron contactos</h3>
-                    <p className="text-sm text-gray-400">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+                    <Users size={40} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">No se encontraron contactos</h3>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
                         {activeFilters.length > 0
                             ? 'Intenta ajustar los filtros de busqueda.'
                             : 'Aun no hay contactos registrados.'}
@@ -412,10 +412,10 @@ export default function Contacts() {
                     )}
                 </div>
             ) : (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+                            <thead className="bg-gray-50 dark:bg-gray-900 text-xs text-gray-500 dark:text-gray-400 uppercase">
                                 <tr>
                                     <th className="px-4 py-3 text-left w-8"></th>
                                     <th className="px-4 py-3 text-left">Nombre</th>
@@ -426,7 +426,7 @@ export default function Contacts() {
                                     <th className="px-4 py-3 text-left">Fecha</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                                 {contacts.map((contact) => {
                                     const isExpanded = expandedId === contact.id;
                                     return (
@@ -449,11 +449,11 @@ export default function Contacts() {
 
                     {/* Load more button */}
                     {nextCursor && (
-                        <div className="border-t border-gray-100 px-4 py-3 text-center">
+                        <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 text-center">
                             <button
                                 onClick={loadMore}
                                 disabled={loadingMore}
-                                className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                                className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors disabled:opacity-50"
                             >
                                 {loadingMore
                                     ? <><Loader2 size={14} className="animate-spin" /> Cargando...</>
@@ -486,8 +486,8 @@ function ContactRow({
     onTagsUpdate: (id: string, tags: string[]) => void;
     onNavigate: (id: string) => void;
 }) {
-    const stageCls = STAGE_COLORS[contact.stage] || 'bg-gray-100 text-gray-600';
-    const originCls = ORIGIN_COLORS[contact.origin] || 'bg-gray-100 text-gray-600';
+    const stageCls = STAGE_COLORS[contact.stage] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
+    const originCls = ORIGIN_COLORS[contact.origin] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
     const [newTag, setNewTag] = useState('');
 
     const addTag = async () => {
@@ -513,14 +513,14 @@ function ContactRow({
         <>
             <tr
                 onClick={onToggle}
-                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
             >
-                <td className="px-4 py-3 text-gray-400">
+                <td className="px-4 py-3 text-gray-400 dark:text-gray-500">
                     {isExpanded
                         ? <ChevronUp size={16} />
                         : <ChevronDown size={16} />}
                 </td>
-                <td className="px-4 py-3 font-medium text-gray-900">
+                <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                     <button
                         onClick={(e) => { e.stopPropagation(); onNavigate(contact.id); }}
                         className="hover:text-blue-600 hover:underline transition-colors text-left"
@@ -528,8 +528,8 @@ function ContactRow({
                         {contact.name}
                     </button>
                 </td>
-                <td className="px-4 py-3 text-gray-600">{contact.email || '-'}</td>
-                <td className="px-4 py-3 text-gray-600">{contact.phone || '-'}</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.email || '-'}</td>
+                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.phone || '-'}</td>
                 <td className="px-4 py-3">
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${stageCls}`}>
                         {STAGE_LABELS[contact.stage] || contact.stage}
@@ -540,7 +540,7 @@ function ContactRow({
                         {ORIGIN_LABELS[contact.origin] || contact.origin}
                     </span>
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">
                     {new Date(contact.createdAt).toLocaleDateString('es', {
                         day: '2-digit', month: 'short', year: 'numeric',
                     })}
@@ -550,7 +550,7 @@ function ContactRow({
             {isExpanded && (
                 <tr>
                     <td colSpan={7} className="px-4 py-0">
-                        <div className="bg-gray-50 rounded-lg p-4 my-2 border border-gray-100">
+                        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 my-2 border border-gray-100 dark:border-gray-700">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                                 <DetailItem icon={User} label="Nombre" value={contact.name} />
                                 <DetailItem icon={Mail} label="Email" value={contact.email || '-'} />
@@ -571,16 +571,16 @@ function ContactRow({
                             </div>
 
                             {/* Tags with inline editing */}
-                            <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Tag size={14} className="text-gray-400 flex-shrink-0" />
-                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Etiquetas</p>
+                                    <Tag size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                                    <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wide">Etiquetas</p>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 items-center">
                                     {contact.tags.map((tag) => (
                                         <span
                                             key={tag}
-                                            className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 group"
+                                            className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1 group"
                                         >
                                             {tag}
                                             <button
@@ -598,7 +598,7 @@ function ContactRow({
                                             value={newTag}
                                             onChange={(e) => setNewTag(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && addTag()}
-                                            className="text-[11px] px-2 py-0.5 border border-gray-200 rounded-full w-28 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            className="text-[11px] px-2 py-0.5 border border-gray-200 dark:border-gray-700 rounded-full w-28 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                         />
                                         {newTag.trim() && (
                                             <button onClick={addTag} className="text-[10px] text-blue-600 font-medium hover:underline">+</button>
@@ -609,15 +609,15 @@ function ContactRow({
 
                             {/* Notes */}
                             {contact.notes && (
-                                <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide mb-1">Notas</p>
-                                    <p className="text-sm text-gray-700 whitespace-pre-line">{contact.notes}</p>
+                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                    <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wide mb-1">Notas</p>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{contact.notes}</p>
                                 </div>
                             )}
 
                             {/* GHL Link */}
                             {contact.ghlContactId && ghlLocationId && (
-                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                     <a
                                         href={`https://app.gohighlevel.com/v2/location/${ghlLocationId}/contacts/${contact.ghlContactId}`}
                                         target="_blank"
@@ -652,10 +652,10 @@ function DetailItem({
 }) {
     return (
         <div className="flex items-start gap-2">
-            <Icon size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <Icon size={14} className="text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
             <div>
-                <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">{label}</p>
-                <p className="text-gray-700">{value}</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wide">{label}</p>
+                <p className="text-gray-700 dark:text-gray-300">{value}</p>
             </div>
         </div>
     );

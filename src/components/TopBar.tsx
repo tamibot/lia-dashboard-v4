@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { User, LogOut, Building2, ChevronDown, Settings, Menu, Moon, Sun } from 'lucide-react';
+import { User, LogOut, Building2, ChevronDown, Settings, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSidebar } from '../context/SidebarContext';
-import { useTheme } from '../context/ThemeContext';
 
 const PAGE_TITLES: Record<string, string> = {
     '/': 'Dashboard',
@@ -34,7 +33,6 @@ export default function TopBar() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { toggle: toggleSidebar } = useSidebar();
-    const { isDark, toggle: toggleTheme } = useTheme();
     const [open, setOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -75,16 +73,6 @@ export default function TopBar() {
 
             {/* Right side */}
             <div className="flex items-center gap-2">
-                {/* Dark mode toggle */}
-                <button
-                    onClick={toggleTheme}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
-                    aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                    title={isDark ? 'Modo claro' : 'Modo oscuro'}
-                >
-                    {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-
                 {/* User dropdown */}
                 <div className="relative" ref={dropdownRef}>
                     <button

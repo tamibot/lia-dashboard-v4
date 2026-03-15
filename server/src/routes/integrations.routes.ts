@@ -286,16 +286,20 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
             return;
         }
 
-        // Fetch contacts from GHL (paginated) — prefer private key
+        // Fetch contacts from GHL (paginated) — prefer OAuth (auto-refresh), fall back to private key
         let allContacts: any[] = [];
         let nextPageUrl: string | null = `/contacts/?locationId=${conn.locationId}&limit=100`;
 
         while (nextPageUrl) {
             let data: any;
-            if (conn.privateApiKey) {
-                data = await ghlPrivateFetch(conn.privateApiKey, nextPageUrl);
-            } else {
+            try {
                 data = await ghlFetch(orgId, nextPageUrl);
+            } catch (oauthErr) {
+                if (conn.privateApiKey) {
+                    data = await ghlPrivateFetch(conn.privateApiKey, nextPageUrl);
+                } else {
+                    throw oauthErr;
+                }
             }
             if (data.contacts && Array.isArray(data.contacts)) {
                 allContacts = allContacts.concat(data.contacts);
