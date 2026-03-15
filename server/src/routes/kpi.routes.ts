@@ -109,13 +109,13 @@ router.get('/funnel', async (req: Request, res: Response) => {
             return;
         }
 
-        // Use OAuth token to fetch GHL data
         const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 
-        // Check token validity
-        let token = conn.accessToken;
-        if (conn.expiresAt < new Date(Date.now() + 5 * 60 * 1000)) {
-            // Token expired or about to expire, try to refresh
+        // Determine auth token — prefer private key, fall back to OAuth
+        let token = conn.privateApiKey || conn.accessToken;
+
+        // If using OAuth and token is about to expire, try to refresh
+        if (!conn.privateApiKey && conn.expiresAt < new Date(Date.now() + 5 * 60 * 1000)) {
             try {
                 const { env } = await import('../config/env.js');
                 const refreshResp = await fetch(`${GHL_API_BASE}/oauth/token`, {

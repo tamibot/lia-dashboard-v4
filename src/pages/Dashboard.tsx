@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { courseService } from '../lib/services/course.service';
 import { agentService } from '../lib/services/agent.service';
+import { profileService } from '../lib/services/profile.service';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bot, BookOpen, GraduationCap, Video, Wrench, Repeat, MessageCircle, FileText, Play, Plus, ArrowRight, ListFilter, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { AiAgent } from '../lib/types';
+import type { AiAgent, OrgProfile } from '../lib/types';
 import SalesPlayground from '../components/SalesPlayground';
+import OnboardingWidget from '../components/OnboardingWidget';
 
 const StatCard = ({
     bg, border, iconBg, iconColor, icon: Icon, label, labelColor, value, valueColor, onClick, isLoading
@@ -43,6 +45,7 @@ export default function DashboardPage() {
     const [stats, setStats] = useState({ cursos: 0, programas: 0, webinars: 0, talleres: 0, subscripciones: 0, asesorias: 0, postulaciones: 0 });
     const [isLoading, setIsLoading] = useState(true);
     const [agents, setAgents] = useState<AiAgent[]>([]);
+    const [profile, setProfile] = useState<OrgProfile | null>(null);
     const [playgroundAgent, setPlaygroundAgent] = useState<AiAgent | null>(null);
     const goToCatalog = (tab: string) => navigate(`/courses?tab=${tab}`);
 
@@ -56,9 +59,11 @@ export default function DashboardPage() {
             courseService.getAll('asesoria').catch(() => []),
             courseService.getAll('postulacion').catch(() => []),
             agentService.getAll().catch(() => []),
-        ]).then(([c, p, w, t, sub, ase, post, ag]) => {
+            profileService.get().catch(() => null),
+        ]).then(([c, p, w, t, sub, ase, post, ag, prof]) => {
             setStats({ cursos: c.length, programas: p.length, webinars: w.length, talleres: t.length, subscripciones: sub.length, asesorias: ase.length, postulaciones: post.length });
             setAgents(ag);
+            if (prof) setProfile(prof);
         }).catch(err => {
             console.error("Error fetching dashboard data:", err);
         }).finally(() => {
@@ -78,6 +83,12 @@ export default function DashboardPage() {
                     <p className="text-gray-500 text-sm mt-1">Bienvenido a tu panel de control de <span className="font-semibold text-gray-700">{user?.orgName}</span>.</p>
                 </div>
             </div>
+
+            {/* Onboarding Widget */}
+            <OnboardingWidget
+                totalProducts={Object.values(stats).reduce((a, b) => a + b, 0)}
+                hasAgent={agents.length > 0}
+            />
 
             {/* Stats */}
             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Resumen del catálogo</p>
@@ -127,13 +138,13 @@ export default function DashboardPage() {
                     <ChevronRight size={16} className="text-gray-300 group-hover:text-orange-500 transition-colors flex-shrink-0" />
                 </Link>
 
-                <Link to="/filter-questions" className="card hover:shadow-md transition-all cursor-pointer border-l-4 border-l-purple-500 group flex items-center gap-4">
+                <Link to="/contacts" className="card hover:shadow-md transition-all cursor-pointer border-l-4 border-l-purple-500 group flex items-center gap-4">
                     <div className="w-11 h-11 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform flex-shrink-0">
                         <ListFilter size={20} />
                     </div>
                     <div className="flex-1">
-                        <h4 className="font-bold text-gray-900 text-sm">Preguntas Filtro</h4>
-                        <p className="text-xs text-gray-500 mt-0.5">Calificar prospectos</p>
+                        <h4 className="font-bold text-gray-900 text-sm">Contactos</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">Ver y gestionar leads</p>
                     </div>
                     <ChevronRight size={16} className="text-gray-300 group-hover:text-purple-500 transition-colors flex-shrink-0" />
                 </Link>
@@ -186,6 +197,7 @@ export default function DashboardPage() {
             {playgroundAgent && (
                 <SalesPlayground
                     agent={playgroundAgent}
+                    orgProfile={profile || undefined}
                     onClose={() => setPlaygroundAgent(null)}
                 />
             )}

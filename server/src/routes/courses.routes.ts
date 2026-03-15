@@ -456,7 +456,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
         const existing = await prismaModel.findFirst({ where: { id, orgId } });
         if (!existing) return res.status(404).json({ error: 'Item not found' });
 
-        await prismaModel.delete({ where: { id } });
+        await prismaModel.delete({ where: { id, orgId } });
         res.json({ message: 'Deleted successfully' });
     } catch (err) {
         console.error('Delete course error:', err);

@@ -990,7 +990,7 @@ function filterCatalogItems(catalog: any[], sql: string): any[] {
                 const terms = whereClause.split(/\s+AND\s+/i);
                 return terms.every(term => {
                     // LIKE case
-                    const likeMatch = term.match(/(\w+)\s+LIKE\s+'%?(.+?)%?'/i);
+                    const likeMatch = term.match(/(\w+)\s+LIKE\s+'%?([^%']+)%?'/i);
                     if (likeMatch) {
                         const [, field, val] = likeMatch;
                         const itemVal = String(item[field] || '').toLowerCase();
@@ -1030,10 +1030,11 @@ function filterCatalogItems(catalog: any[], sql: string): any[] {
             filtered.sort((a, b) => {
                 const valA = a[field];
                 const valB = b[field];
-                if (direction.toUpperCase() === 'DESC') {
-                    return valB - valA;
+                const isNumeric = typeof valA === 'number' || typeof valB === 'number';
+                if (isNumeric) {
+                    return direction.toUpperCase() === 'DESC' ? (Number(valB) || 0) - (Number(valA) || 0) : (Number(valA) || 0) - (Number(valB) || 0);
                 }
-                return valA - valB;
+                return direction.toUpperCase() === 'DESC' ? String(valB || '').localeCompare(String(valA || '')) : String(valA || '').localeCompare(String(valB || ''));
             });
         }
 
@@ -1086,28 +1087,39 @@ export async function chatWithAgent(
         if (filteredCatalog.courses?.length) {
             sections.push('=== CURSOS DISPONIBLES ===');
             filteredCatalog.courses.forEach((c: any) => {
-                sections.push(
-                    `• [${c.code || ''}] ${c.title} | ${c.modality || 'online'} | ${c.duration || ''} | ${c.currency || 'USD'} ${c.price || 0} | Instructor: ${c.instructor || 'N/A'}` +
-                    (c.description ? `\n  Descripción: ${c.description.slice(0, 120)}...` : '')
-                );
+                const details: string[] = [];
+                details.push(`• [${c.code || ''}] ${c.title} | ${c.modality || 'online'} | ${c.duration || ''} | ${c.currency || 'USD'} ${c.price || 0} | Instructor: ${c.instructor || 'N/A'}`);
+                if (c.startDate) details.push(`  Inicio: ${c.startDate}${c.endDate ? ` — Fin: ${c.endDate}` : ''}`);
+                if (c.schedule) details.push(`  Horario: ${c.schedule}`);
+                if (c.location) details.push(`  Ubicación: ${c.location}`);
+                if (c.certification) details.push(`  Certificación: ${c.certification}`);
+                if (c.maxStudents) details.push(`  Cupos: ${c.maxStudents}`);
+                if (c.description) details.push(`  Descripción: ${c.description.slice(0, 150)}...`);
+                sections.push(details.join('\n'));
             });
         }
 
         if (filteredCatalog.programs?.length) {
             sections.push('\n=== PROGRAMAS / DIPLOMADOS ===');
             filteredCatalog.programs.forEach((p: any) => {
-                sections.push(
-                    `• [${p.code || ''}] ${p.title} | ${p.totalDuration || ''} | ${p.currency || 'USD'} ${p.price || 0}`
-                );
+                const details: string[] = [];
+                details.push(`• [${p.code || ''}] ${p.title} | ${p.totalDuration || ''} | ${p.currency || 'USD'} ${p.price || 0}`);
+                if (p.startDate) details.push(`  Inicio: ${p.startDate}`);
+                if (p.modality) details.push(`  Modalidad: ${p.modality}`);
+                if (p.certification) details.push(`  Certificación: ${p.certification}`);
+                if (p.description) details.push(`  Descripción: ${p.description.slice(0, 150)}...`);
+                sections.push(details.join('\n'));
             });
         }
 
         if (filteredCatalog.webinars?.length) {
             sections.push('\n=== WEBINARS / MASTERCLASSES ===');
             filteredCatalog.webinars.forEach((w: any) => {
-                sections.push(
-                    `• ${w.title} | ${w.speaker || ''} | ${w.date || 'Próximamente'} | ${w.price === 0 ? 'GRATIS' : `${w.currency} ${w.price}`}`
-                );
+                const details: string[] = [];
+                details.push(`• ${w.title} | ${w.speaker || ''} | ${w.date || 'Próximamente'} | ${w.price === 0 ? 'GRATIS' : `${w.currency} ${w.price}`}`);
+                if (w.duration) details.push(`  Duración: ${w.duration}`);
+                if (w.description) details.push(`  Descripción: ${w.description.slice(0, 150)}...`);
+                sections.push(details.join('\n'));
             });
         }
 
@@ -1120,10 +1132,21 @@ CURSO PRINCIPAL QUE ESTÁS VENDIENDO HOY:
 Nombre: ${courseContext.title}
 Código: ${courseContext.code || 'N/A'}
 Precio: ${courseContext.currency || 'USD'} ${courseContext.price || 0}
+${courseContext.earlyBirdPrice ? `Precio Early Bird: ${courseContext.currency || 'USD'} ${courseContext.earlyBirdPrice}${courseContext.earlyBirdDeadline ? ` (hasta ${courseContext.earlyBirdDeadline})` : ''}` : ''}
 Modalidad: ${courseContext.modality || 'online'}
 Duración: ${courseContext.duration || 'N/A'}
+${courseContext.startDate ? `Fecha de inicio: ${courseContext.startDate}` : ''}
+${courseContext.endDate ? `Fecha de fin: ${courseContext.endDate}` : ''}
+${courseContext.schedule ? `Horario: ${courseContext.schedule}` : ''}
+${courseContext.location ? `Ubicación: ${courseContext.location}` : ''}
 Instructor: ${courseContext.instructor || 'N/A'}
+${courseContext.instructorBio ? `Bio del Instructor: ${courseContext.instructorBio}` : ''}
 Descripción: ${courseContext.description || ''}
+${courseContext.category ? `Categoría: ${courseContext.category}` : ''}
+${courseContext.certification ? `Certificación: ${courseContext.certification}` : ''}
+${courseContext.maxStudents ? `Cupos disponibles: ${courseContext.maxStudents} (menciona esto como factor de urgencia)` : ''}
+${courseContext.prerequisites ? `Requisitos previos: ${courseContext.prerequisites}` : ''}
+${courseContext.requirements ? `Requerimientos: ${courseContext.requirements}` : ''}
 Objetivos: ${(courseContext.objectives || []).join(', ')}
 Beneficios: ${(courseContext.benefits || []).join(', ')}
 Bonos: ${(courseContext.bonuses || []).join(', ')}
@@ -1132,6 +1155,11 @@ Call to Action: ${courseContext.callToAction || 'N/A'}
 Perfil del estudiante ideal: ${courseContext.idealStudentProfile || 'N/A'}
 Ventaja competitiva: ${courseContext.competitiveAdvantage || 'N/A'}
 Gatillos de urgencia: ${(courseContext.urgencyTriggers || []).join(', ') || 'N/A'}
+${courseContext.paymentMethods?.length ? `Métodos de pago aceptados: ${courseContext.paymentMethods.join(', ')}` : ''}
+${courseContext.registrationLink ? `Link de inscripción: ${courseContext.registrationLink}` : ''}
+${courseContext.faqs?.length ? `
+PREGUNTAS FRECUENTES (usa estas respuestas cuando aplique):
+${courseContext.faqs.map((f: any) => `  P: "${f.question}" → R: "${f.answer}"`).join('\n')}` : ''}
 ${courseContext.objectionHandlers?.length ? `
 MANEJO DE OBJECIONES (usa estas respuestas cuando el prospecto tenga dudas):
 ${courseContext.objectionHandlers.map((oh: any) => `  Objeción: "${oh.objection}" → Respuesta: "${oh.response}"`).join('\n')}` : ''}
@@ -1193,33 +1221,37 @@ CIERRE AGRESIVO:
   • Máximo 3-4 líneas por respuesta. Nunca monólogos largos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔴 REGLAS ABSOLUTAS
+🔴 REGLAS ABSOLUTAS (NUNCA romper estas reglas)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. JAMÁS inventes ni menciones un curso que NO esté en el catálogo real.
-2. Si el catálogo dice "vacío", ofrece el catálogo general disponible.
-3. Si piden hablar con humano → di: "Te paso con el equipo de ventas para coordinar los detalles finales."
-4. Si quieren comprar → di: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
-5. Si hay [SIMULACION: ...], responde al escenario como si fuera real.
-6. Siempre usa **negrita** y emojis relevantes — hace la conversación más viva y legible.
+1. JAMÁS inventes ni menciones un curso, programa o webinar que NO esté en el catálogo real de abajo.
+2. SOLO menciona precios, promociones, descuentos, becas y métodos de pago que estén EXPLÍCITAMENTE en la información del curso o la institución.
+   ❌ NUNCA inventes: becas o financiamiento no mencionado, planes de pago (cuotas, facilidades) no especificadas, códigos de descuento, disponibilidad de horarios del instructor no listados. Si NO aparecen en los datos, NO los inventes.
+3. Si el usuario pregunta sobre algo que NO está en la información proporcionada (promociones, financiamiento, becas, descuentos, planes de pago, etc.), responde: "No tengo esa información disponible en este momento, pero puedo conectarte con un asesor que te pueda dar todos los detalles."
+4. Si el catálogo dice "vacío", ofrece el catálogo general disponible.
+5. Si piden hablar con humano → di: "Te paso con el equipo de ventas para coordinar los detalles finales."
+6. Si quieren comprar → di: "¡Excelente decisión! La inscripción ha sido completada con éxito. ¡Bienvenido al curso!"
+7. Si hay [SIMULACION: ...], responde al escenario como si fuera real.
+8. Siempre usa **negrita** y emojis relevantes — hace la conversación más viva y legible.
+9. Al inicio de la conversación, pregunta el nombre del usuario de forma natural (Ej: "¿Con quién tengo el gusto?", "¿Me puedes dar tu nombre?"). Usa su nombre a lo largo de la conversación.
+
+${courseContext?.filterQuestions?.length ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 PREGUNTAS DE CALIFICACION (MUY IMPORTANTE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEBES hacer estas preguntas de forma natural durante la conversación, NO como un formulario. Las OBLIGATORIAS se deben responder ANTES de intentar cerrar la venta.
+${courseContext.filterQuestions.map((q: any, i: number) => {
+    const reqLabel = q.isRequired ? 'OBLIGATORIA' : 'Opcional';
+    const options = q.type === 'select' && q.options?.length ? ` (opciones: ${q.options.join(', ')})` : '';
+    return `${i + 1}. ${q.question} [${reqLabel}]${options}`;
+}).join('\n')}
+` : ''}
 
 CATÁLOGO DISPONIBLE:
 ${catalogBlock}
 
 ${orgInfo}
 ${courseInfo}
-${courseContext?.filterQuestions?.length ? `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PREGUNTAS DE CALIFICACION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Estas preguntas sirven para calificar al prospecto. Hazlas de forma natural durante la conversacion, no como un formulario.
-${courseContext.filterQuestions.map((q: any, i: number) => {
-    const reqLabel = q.isRequired ? 'OBLIGATORIA' : 'Opcional';
-    const options = q.type === 'select' && q.options?.length ? ` (opciones: ${q.options.join(', ')})` : '';
-    return `${i + 1}. ${q.question} [${reqLabel}]${options}`;
-}).join('\n')}
 
-REGLA: Las preguntas OBLIGATORIAS deben responderse antes de intentar cerrar la venta. Integralas naturalmente en la conversacion.
-` : ''}
 HISTORIAL:
 ${history.map(h => `${h.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${h.content}`).join('\n')}
 

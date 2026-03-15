@@ -201,41 +201,81 @@ export default function KpiReports() {
                     </div>
 
                     {funnel?.connected && funnel.stages.length > 0 ? (
-                        <div className="space-y-2">
-                            {funnel.stages.map((stage, i) => {
-                                const stageKey = FUNNEL_STAGE_MAP[stage.name.toLowerCase()] || '';
+                        <div>
+                            {/* Linear/Sequential stages */}
+                            {(() => {
+                                const PARALLEL_NAMES = ['seguimiento', 'asesor manual', 'descartado', 'perdido'];
+                                const linearStages = funnel.stages.filter(s => !PARALLEL_NAMES.includes(s.name.toLowerCase()));
+                                const parallelStages = funnel.stages.filter(s => PARALLEL_NAMES.includes(s.name.toLowerCase()));
+                                const maxLinear = Math.max(...linearStages.map(s => s.count), 1);
+
                                 return (
-                                <div
-                                    key={stage.id}
-                                    className={`flex items-center gap-3 ${stageKey ? 'cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}`}
-                                    onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
-                                >
-                                    <div className="w-36 text-right">
-                                        <span className="text-xs font-medium text-gray-600 truncate block">
-                                            {stage.name}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
-                                        <div
-                                            className="h-full rounded-lg transition-all duration-500 flex items-center px-2"
-                                            style={{
-                                                width: `${Math.max((stage.count / maxFunnelCount) * 100, 4)}%`,
-                                                backgroundColor: STAGE_COLORS[i % STAGE_COLORS.length],
-                                            }}
-                                        >
-                                            <span className="text-xs font-bold text-white whitespace-nowrap">
-                                                {stage.count}
-                                            </span>
+                                    <>
+                                        <div className="space-y-2 mb-4">
+                                            {linearStages.map((stage, i) => {
+                                                const stageKey = FUNNEL_STAGE_MAP[stage.name.toLowerCase()] || '';
+                                                return (
+                                                    <div
+                                                        key={stage.id}
+                                                        className={`flex items-center gap-3 ${stageKey ? 'cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}`}
+                                                        onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
+                                                    >
+                                                        <div className="w-36 text-right">
+                                                            <span className="text-xs font-medium text-gray-600 truncate block">
+                                                                {stage.name}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                                                            <div
+                                                                className="h-full rounded-lg transition-all duration-500 flex items-center px-2"
+                                                                style={{
+                                                                    width: `${Math.max((stage.count / maxLinear) * 100, 4)}%`,
+                                                                    backgroundColor: STAGE_COLORS[i % STAGE_COLORS.length],
+                                                                }}
+                                                            >
+                                                                <span className="text-xs font-bold text-white whitespace-nowrap">
+                                                                    {stage.count}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        {stage.value > 0 && (
+                                                            <span className="text-xs text-gray-400 w-20 text-right">
+                                                                {formatCurrency(stage.value)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    </div>
-                                    {stage.value > 0 && (
-                                        <span className="text-xs text-gray-400 w-20 text-right">
-                                            {formatCurrency(stage.value)}
-                                        </span>
-                                    )}
-                                </div>
+
+                                        {/* Parallel/Temporary states */}
+                                        {parallelStages.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Estados paralelos / temporales</p>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    {parallelStages.map((stage) => {
+                                                        const stageKey = FUNNEL_STAGE_MAP[stage.name.toLowerCase()] || '';
+                                                        const isLost = stage.name.toLowerCase().includes('perdido') || stage.name.toLowerCase().includes('descartado');
+                                                        return (
+                                                            <div
+                                                                key={stage.id}
+                                                                className={`p-3 rounded-xl border-2 border-dashed ${isLost ? 'border-red-200 bg-red-50/50' : 'border-amber-200 bg-amber-50/50'} ${stageKey ? 'cursor-pointer hover:shadow-sm' : ''} transition-all`}
+                                                                onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
+                                                            >
+                                                                <p className={`text-xs font-semibold ${isLost ? 'text-red-700' : 'text-amber-700'}`}>{stage.name}</p>
+                                                                <p className={`text-lg font-black mt-0.5 ${isLost ? 'text-red-900' : 'text-amber-900'}`}>{stage.count}</p>
+                                                                {stage.value > 0 && (
+                                                                    <p className="text-[10px] text-gray-400 mt-0.5">{formatCurrency(stage.value)}</p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 );
-                            })}
+                            })()}
                         </div>
                     ) : funnel?.connected === false ? (
                         <div className="text-center py-8 text-gray-400">
@@ -378,9 +418,16 @@ export default function KpiReports() {
                                     data={overview.byStage.map(s => ({
                                         name: STAGE_LABELS[s.stage] || s.stage,
                                         count: s.count,
+                                        stage: s.stage,
                                     }))}
                                     layout="vertical"
                                     margin={{ left: 10 }}
+                                    onClick={(data: any) => {
+                                        if (data?.activePayload?.[0]?.payload?.stage) {
+                                            navigate(`/contacts?stage=${data.activePayload[0].payload.stage}`);
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                                     <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9CA3AF" allowDecimals={false} />
@@ -392,7 +439,7 @@ export default function KpiReports() {
                                         width={80}
                                     />
                                     <Tooltip formatter={(value: any) => [value, 'Contactos']} />
-                                    <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                                    <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={24} style={{ cursor: 'pointer' }}>
                                         {overview.byStage.map((_, i) => (
                                             <Cell key={i} fill={STAGE_COLORS[i % STAGE_COLORS.length]} />
                                         ))}
@@ -434,7 +481,7 @@ export default function KpiReports() {
                             </thead>
                             <tbody className="divide-y divide-gray-50">
                                 {overview.recentContacts.map(c => (
-                                    <tr key={c.id} className="hover:bg-gray-50">
+                                    <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/contacts?search=${encodeURIComponent(c.name)}`)}>
                                         <td className="px-4 py-2 font-medium text-gray-900">{c.name}</td>
                                         <td className="px-4 py-2 text-gray-600">{c.email || '-'}</td>
                                         <td className="px-4 py-2">
@@ -466,7 +513,7 @@ export default function KpiReports() {
                     <h3 className="font-semibold text-blue-900 mb-1">Conecta GoHighLevel</h3>
                     <p className="text-sm text-blue-700">
                         Para ver el embudo de ventas completo con datos en tiempo real, conecta tu cuenta de GHL en la sección de
-                        <a href="/settings?tab=ghl" className="font-semibold underline ml-1">Integraciones</a>.
+                        <a href="/settings" className="font-semibold underline ml-1">Integraciones</a>.
                     </p>
                 </div>
             )}

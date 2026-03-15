@@ -82,6 +82,10 @@ router.put('/funnels/:id', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const { name, description, isDefault, stages } = req.body;
 
+        // Verify funnel belongs to this org before updating
+        const existingFunnel = await prisma.funnel.findFirst({ where: { id, orgId } });
+        if (!existingFunnel) { res.status(404).json({ error: 'Funnel not found' }); return; }
+
         const funnel = await prisma.$transaction(async (tx) => {
             // Update stages if provided
             if (stages) {
@@ -99,7 +103,7 @@ router.put('/funnels/:id', async (req: Request, res: Response) => {
             }
 
             return tx.funnel.update({
-                where: { id },
+                where: { id, orgId },
                 data: { name, description, isDefault },
                 include: { stages: { orderBy: { sortOrder: 'asc' } } },
             });

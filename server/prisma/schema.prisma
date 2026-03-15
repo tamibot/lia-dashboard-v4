@@ -969,6 +969,9 @@ model Contact {
   lastContactedAt DateTime? @map("last_contacted_at")
   nextFollowUpAt  DateTime? @map("next_follow_up_at")
 
+  // Assignment
+  assignedTo String? @map("assigned_to")
+
   // Notes
   notes String?
   tags  String[] @default([])
@@ -1098,6 +1101,7 @@ enum ContactOrigin {
   linkedin
   whatsapp
   email
+  agente_lia
   otro
 }
 

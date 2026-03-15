@@ -83,6 +83,27 @@ async function ghlFetch(orgId: string, path: string, options: RequestInit = {}):
     return resp.json();
 }
 
+// ===== Helper: GHL API call with Private Integration key =====
+async function ghlPrivateFetch(apiKey: string, path: string, options: RequestInit = {}): Promise<any> {
+    const resp = await fetch(`${GHL_API_BASE}${path}`, {
+        ...options,
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+            ...options.headers,
+        },
+    });
+
+    if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`GHL Private API error (${path}):`, resp.status, errText);
+        throw new Error(`GHL API error: ${resp.status} - ${errText}`);
+    }
+
+    return resp.json();
+}
+
 // ===================================================================
 // PUBLIC (no auth) — OAuth callback (GHL redirects browser here)
 // ===================================================================
@@ -113,7 +134,7 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         if (!tokenResp.ok) {
             const errText = await tokenResp.text();
             console.error('GHL token exchange failed:', errText);
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=token_exchange`);
+            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=token_exchange`);
             return;
         }
 
@@ -132,14 +153,14 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         // The state parameter carries the orgId (set during auth redirect).
         const orgId = req.query.state as string;
         if (!orgId) {
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=missing_state`);
+            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=missing_state`);
             return;
         }
 
         // Verify org exists
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
         if (!org) {
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=invalid_org`);
+            res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=invalid_org`);
             return;
         }
 
@@ -171,10 +192,10 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         });
 
         console.log(`GHL connected for org ${orgId} (location: ${tokens.locationId})`);
-        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=success`);
+        res.redirect(`${env.FRONTEND_URL}/settings?ghl=success`);
     } catch (err) {
         console.error('GHL OAuth callback error:', err);
-        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=server`);
+        res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=server`);
     }
 });
 
@@ -265,12 +286,17 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
             return;
         }
 
-        // Fetch contacts from GHL (paginated)
+        // Fetch contacts from GHL (paginated) — prefer private key
         let allContacts: any[] = [];
         let nextPageUrl: string | null = `/contacts/?locationId=${conn.locationId}&limit=100`;
 
         while (nextPageUrl) {
-            const data = await ghlFetch(orgId, nextPageUrl);
+            let data: any;
+            if (conn.privateApiKey) {
+                data = await ghlPrivateFetch(conn.privateApiKey, nextPageUrl);
+            } else {
+                data = await ghlFetch(orgId, nextPageUrl);
+            }
             if (data.contacts && Array.isArray(data.contacts)) {
                 allContacts = allContacts.concat(data.contacts);
             }
@@ -409,27 +435,6 @@ router.get('/ghl/opportunities', async (req: Request, res: Response) => {
 // ===================================================================
 // SETUP — Private API Key & Create pipeline/fields in GHL
 // ===================================================================
-
-// Helper: GHL API call with Private Integration key
-async function ghlPrivateFetch(apiKey: string, path: string, options: RequestInit = {}): Promise<any> {
-    const resp = await fetch(`${GHL_API_BASE}${path}`, {
-        ...options,
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Version': '2021-07-28',
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
-    });
-
-    if (!resp.ok) {
-        const errText = await resp.text();
-        console.error(`GHL Private API error (${path}):`, resp.status, errText);
-        throw new Error(`GHL API error: ${resp.status} - ${errText}`);
-    }
-
-    return resp.json();
-}
 
 // PUT /api/integrations/ghl/private-key — Save Private Integration API key
 router.put('/ghl/private-key', async (req: Request, res: Response) => {

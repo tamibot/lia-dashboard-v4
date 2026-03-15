@@ -7,20 +7,20 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
         isActive
             ? 'bg-blue-600 text-white shadow-sm'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
     }`;
 
 const SectionLabel = ({ label }: { label: string }) => (
-    <p className="mt-5 mb-1 px-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+    <p className="mt-5 mb-1 px-3 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
         {label}
     </p>
 );
 
 const SoonItem = ({ icon: Icon, label }: { icon: any; label: string }) => (
-    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 cursor-default select-none">
+    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 dark:text-gray-600 cursor-default select-none">
         <Icon size={16} className="opacity-60" />
         <span className="flex-1">{label}</span>
-        <span className="text-[9px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded font-semibold tracking-wide">Pronto</span>
+        <span className="text-[9px] bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-1.5 py-0.5 rounded font-semibold tracking-wide">Pronto</span>
     </div>
 );
 
@@ -44,26 +44,26 @@ export default function Sidebar() {
             )}
 
             <aside className={`
-                fixed left-0 top-0 h-screen w-[240px] bg-white border-r border-gray-200 flex flex-col z-50
+                fixed left-0 top-0 h-screen w-[240px] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col z-50
                 transition-transform duration-200 ease-out
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
                 md:translate-x-0
             `}>
 
                 {/* Logo */}
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                             <Building2 size={16} className="text-white" />
                         </div>
                         <div>
-                            <h1 className="text-sm font-extrabold text-gray-900 leading-none">LIA Dashboard</h1>
+                            <h1 className="text-sm font-extrabold text-gray-900 dark:text-gray-100 leading-none">LIA Dashboard</h1>
                             <span className="text-[10px] text-blue-600 font-semibold">V4.0</span>
                         </div>
                     </Link>
                     <button
                         onClick={close}
-                        className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+                        className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
                     >
                         <X size={18} />
                     </button>
@@ -99,17 +99,15 @@ export default function Sidebar() {
                         <Users size={16} /> Equipo de Ventas
                     </NavLink>
 
-                    <SectionLabel label="IA" />
-                    <NavLink to="/agentes" className={navClass}>
-                        <Bot size={16} /> Agente de Venta
-                    </NavLink>
-
                     <SectionLabel label="Configuracion" />
                     <NavLink to="/profile" className={navClass}>
                         <Building2 size={16} /> Mi Institucion
                     </NavLink>
+                    <NavLink to="/agentes" className={navClass}>
+                        <Bot size={16} /> Agente de Venta
+                    </NavLink>
                     <NavLink to="/settings" className={navClass}>
-                        <Settings size={16} /> API & Integraciones
+                        <Settings size={16} /> Integraciones
                     </NavLink>
 
                     <SectionLabel label="Proximamente" />
@@ -119,12 +117,12 @@ export default function Sidebar() {
                 </nav>
 
                 {/* Footer */}
-                <div className="px-3 py-3 border-t border-gray-100">
+                <div className="px-3 py-3 border-t border-gray-100 dark:border-gray-700">
                     <NavLink
                         to="/account"
                         className={({ isActive }) =>
                             `flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${
-                                isActive ? 'bg-blue-50' : 'hover:bg-gray-100'
+                                isActive ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                             }`
                         }
                     >
@@ -132,8 +130,8 @@ export default function Sidebar() {
                             <User size={13} className="text-blue-600" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-900 truncate leading-none">Mi Cuenta</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Configurar perfil</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate leading-none">Mi Cuenta</p>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Configurar perfil</p>
                         </div>
                         <Settings size={13} className="text-gray-300" />
                     </NavLink>

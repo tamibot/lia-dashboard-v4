@@ -37,6 +37,24 @@
   --info-light: #eff6ff;
 }
 
+/* Dark mode overrides */
+.dark {
+  --bg: #111827;
+  --bg-subtle: #0f172a;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #374151;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --brand-light: #1e3a5f;
+  --success-light: #052e16;
+  --warning-light: #422006;
+  --error-light: #450a0a;
+  --info-light: #172554;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -79,6 +97,10 @@ body {
   background: white;
   color: var(--brand);
   box-shadow: var(--shadow-sm);
+}
+
+.dark .sidebar-link:hover {
+  background: #1f2937;
 }
 
 .sidebar-link.active {
@@ -869,6 +891,28 @@ a:hover {
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+/* Dark mode form inputs */
+.dark .form-input,
+.dark .form-select,
+.dark .form-textarea,
+.dark .input {
+  background: #1f2937;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.dark .form-input:focus,
+.dark .form-select:focus,
+.dark .form-textarea:focus,
+.dark .input:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
 }
 
 /* Mobile responsive page content */

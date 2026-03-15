@@ -8,6 +8,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from '../lib/gemini';
 import { courseService } from '../lib/services/course.service';
+import { filterQuestionsService } from '../lib/services/filterQuestions.service';
 import { useToast } from '../context/ToastContext';
 import type { Attachment, ContactInfo } from '../lib/types';
 import ProductFilterQuestions from '../components/ProductFilterQuestions';
@@ -108,6 +109,9 @@ interface CourseData {
     whatsappGroup?: string;
     communityAccess?: string;
     maxUsers?: number;
+    // Tracking flags for guided flow
+    _filterQuestionsAsked?: boolean;
+    _extractionFieldsAsked?: boolean;
 }
 
 const INITIAL_STATE: CourseData = {
@@ -243,80 +247,86 @@ function calcCompleteness(d: CourseData): { percent: number; missing: string[]; 
     return { percent: Math.round((filled / fields.length) * 100), missing, missingHigh };
 }
 
-// ─── Guided questions (all types, exhaustive) ────────────────────────
+// ─── Guided questions (all types, exhaustive, with formatting) ──────
 function getNextQuestion(d: CourseData): string | null {
     const t = TYPE_LABELS[d.type] || 'producto';
 
     // ── 1. Core info (all types) ──
-    if (!d.title) return `Para empezar, ¿cual es el nombre de tu ${t}?`;
-    if (!d.description || d.description.length < 30) return `Necesito una descripcion comercial atractiva de "${d.title}". ¿Que problema resuelve? ¿Que transformacion ofrece?`;
-    if (d.objectives.length === 0) return `¿Cuales son los objetivos principales de "${d.title}"? Lista los 3-5 mas importantes.`;
-    if (!d.targetAudience) return '¿A quien va dirigido? Describe a tu alumno/cliente ideal (edad, profesion, situacion actual).';
+    if (!d.title) return `📝 **Titulo del ${t}** — ¿Como se llama tu ${t}? Dale un nombre que enganche al prospecto.`;
+    if (!d.description || d.description.length < 30) return `📋 **Descripcion comercial** — Necesito una descripcion atractiva de **"${d.title}"**. ¿Que problema resuelve? ¿Que transformacion ofrece?`;
+    if (d.objectives.length === 0) return `🎯 **Objetivos** — ¿Cuales son los objetivos principales de **"${d.title}"**? Lista los 3-5 mas importantes.`;
+    if (!d.targetAudience) return '👥 **Publico objetivo** — ¿A quien va dirigido? Describe a tu alumno/cliente ideal (edad, profesion, situacion actual).';
 
     // ── 2. Type-specific REQUIRED fields ──
     if (d.type === 'curso') {
-        if (!d.instructor) return '¿Quien imparte el curso? Dame nombre y un breve perfil profesional.';
-        if (d.price === null || d.price === 0) return `¿Cual es el precio del curso? Si no lo tienes definido, indica "pendiente".`;
-        if (d.syllabus.length === 0) return '¿Cuales son los modulos o temas principales del curso? Lista cada uno con sus subtemas.';
-        if (!d.duration) return '¿Cuanto dura el curso? (ej: 4 semanas, 3 meses, 20 horas)';
+        if (!d.instructor) return '👨‍🏫 **Instructor** — ¿Quien imparte el curso? Dame nombre y un breve perfil profesional.';
+        if (d.price === null || d.price === 0) return '💰 **Precio** — ¿Cual es el precio del curso? Si no lo tienes definido, indica "pendiente".';
+        if (d.syllabus.length === 0) return '📚 **Temario** — ¿Cuales son los modulos o temas principales? Lista cada uno con sus subtemas.';
+        if (!d.duration) return '⏱ **Duracion** — ¿Cuanto dura el curso? (ej: 4 semanas, 3 meses, 20 horas)';
     }
     if (d.type === 'programa') {
-        if (!d.instructor) return '¿Quien coordina o imparte el programa? Dame nombre y perfil.';
-        if (d.price === null || d.price === 0) return '¿Cual es la inversion total del programa?';
-        if (d.syllabus.length === 0) return '¿Cuales son los cursos o modulos que incluye el programa? Lista cada uno.';
-        if (!d.duration) return '¿Cuanto dura el programa completo?';
-        if (!d.certification) return '¿El programa otorga certificacion? ¿Cual y por quien?';
+        if (!d.instructor) return '👨‍🏫 **Coordinador** — ¿Quien coordina o imparte el programa? Dame nombre y perfil.';
+        if (d.price === null || d.price === 0) return '💰 **Inversion** — ¿Cual es la inversion total del programa?';
+        if (d.syllabus.length === 0) return '📚 **Malla curricular** — ¿Cuales son los cursos o modulos que incluye? Lista cada uno.';
+        if (!d.duration) return '⏱ **Duracion** — ¿Cuanto dura el programa completo?';
+        if (!d.certification) return '🏆 **Certificacion** — ¿El programa otorga certificacion? ¿Cual y por quien?';
     }
     if (d.type === 'webinar') {
-        if (!d.instructor) return '¿Quien es el speaker del webinar? Dame nombre y titulo.';
-        if (d.price === null) return '¿El webinar es gratuito o tiene costo? Indica el precio (0 si es gratis).';
-        if (!d.startDate) return '¿Cuando se realizara el webinar? Dame la fecha y hora.';
-        if (!d.registrationLink) return 'Es MUY IMPORTANTE: ¿Cual es el link de registro? (Zoom, Eventbrite, formulario). Sin este link no podran inscribirse.';
-        if (!d.duration) return '¿Cuanto durara el webinar?';
+        if (!d.instructor) return '🎤 **Speaker** — ¿Quien es el speaker del webinar? Dame nombre y titulo.';
+        if (d.price === null) return '💰 **Precio** — ¿El webinar es gratuito o tiene costo? Indica el precio (0 si es gratis).';
+        if (!d.startDate) return '📅 **Fecha del evento** — ¿Cuando se realizara el webinar? Dame la fecha y hora.';
+        if (!d.registrationLink) return '🔗 **Link de registro** — ⚠️ Es MUY IMPORTANTE: ¿Cual es el link de registro? (Zoom, Eventbrite, formulario). Sin este link no podran inscribirse.';
+        if (!d.duration) return '⏱ **Duracion** — ¿Cuanto durara el webinar?';
     }
     if (d.type === 'taller') {
-        if (!d.instructor) return '¿Quien impartira el taller? Dame nombre y perfil.';
-        if (d.price === null || d.price === 0) return '¿Cual es el precio del taller?';
-        if (!d.venue) return '¿Donde se realizara el taller? Indica el nombre de la sede.';
-        if (!d.venueAddress) return '¿Cual es la direccion exacta de la sede del taller?';
-        if (!d.maxParticipants) return '¿Cual es la capacidad maxima de participantes?';
-        if (!d.startDate) return '¿Cuando se realizara el taller? Dame la fecha.';
-        if ((d.materials?.length || 0) === 0) return '¿Que materiales o herramientas se entregaran a los participantes?';
-        if ((d.deliverables?.length || 0) === 0) return '¿Que se llevaran los participantes al finalizar? (entregables, certificado, proyecto)';
-        if (!d.duration) return '¿Cuanto durara el taller?';
+        if (!d.instructor) return '👨‍🏫 **Instructor** — ¿Quien impartira el taller? Dame nombre y perfil.';
+        if (d.price === null || d.price === 0) return '💰 **Precio** — ¿Cual es el precio del taller?';
+        if (!d.venue) return '📍 **Sede** — ¿Donde se realizara el taller? Indica el nombre de la sede.';
+        if (!d.venueAddress) return '🗺 **Direccion** — ¿Cual es la direccion exacta de la sede?';
+        if (!d.maxParticipants) return '👥 **Capacidad** — ¿Cual es la capacidad maxima de participantes?';
+        if (!d.startDate) return '📅 **Fecha** — ¿Cuando se realizara el taller? Dame la fecha.';
+        if ((d.materials?.length || 0) === 0) return '🧰 **Materiales** — ¿Que materiales o herramientas se entregaran a los participantes?';
+        if ((d.deliverables?.length || 0) === 0) return '📦 **Entregables** — ¿Que se llevaran los participantes al finalizar? (entregables, certificado, proyecto)';
+        if (!d.duration) return '⏱ **Duracion** — ¿Cuanto durara el taller?';
     }
     if (d.type === 'asesoria') {
-        if (!d.advisor) return '¿Quien es el asesor/consultor? Dame nombre completo.';
-        if (!d.advisorTitle) return `¿Cual es el titulo profesional de ${d.advisor || 'el asesor'}?`;
-        if (!d.pricePerHour) return '¿Cual es el precio por hora de la asesoria?';
-        if ((d.specialties?.length || 0) === 0) return '¿Cuales son las especialidades del asesor? Lista las 3-5 principales.';
-        if (!d.bookingLink) return 'Es MUY IMPORTANTE: ¿Tienes un link para agendar sesiones? (Calendly, Google Calendar, etc.). Sin esto los clientes no pueden reservar.';
-        if (!d.sessionDuration) return '¿Cuanto dura cada sesion de asesoria? (ej: 60 minutos)';
-        if (!d.availableSchedule) return '¿Cual es el horario disponible para agendar? (ej: Lunes a Viernes 9am-6pm)';
-        if ((d.topicsCovered?.length || 0) === 0) return '¿Que temas cubre la asesoria? Lista los principales.';
+        if (!d.advisor) return '🧑‍💼 **Asesor** — ¿Quien es el asesor/consultor? Dame nombre completo.';
+        if (!d.advisorTitle) return `🎓 **Titulo profesional** — ¿Cual es el titulo profesional de ${d.advisor || 'el asesor'}?`;
+        if (!d.pricePerHour) return '💰 **Precio por hora** — ¿Cual es el precio por hora de la asesoria?';
+        if ((d.specialties?.length || 0) === 0) return '⭐ **Especialidades** — ¿Cuales son las especialidades del asesor? Lista las 3-5 principales.';
+        if (!d.bookingLink) return '🔗 **Link de agenda** — ⚠️ Es MUY IMPORTANTE: ¿Tienes un link para agendar sesiones? (Calendly, Google Calendar, etc.). Sin esto los clientes no pueden reservar.';
+        if (!d.sessionDuration) return '⏱ **Duracion de sesion** — ¿Cuanto dura cada sesion? (ej: 60 minutos)';
+        if (!d.availableSchedule) return '🕐 **Horario** — ¿Cual es el horario disponible para agendar? (ej: Lunes a Viernes 9am-6pm)';
+        if ((d.topicsCovered?.length || 0) === 0) return '📋 **Temas** — ¿Que temas cubre la asesoria? Lista los principales.';
     }
     if (d.type === 'postulacion') {
-        if ((d.steps?.length || 0) === 0) return '¿Cuales son los pasos que debe seguir alguien para postular? Lista cada paso en orden.';
-        if ((d.documentsNeeded?.length || 0) === 0) return '¿Que documentos necesita presentar el postulante?';
-        if (!d.deadline) return '¿Cual es la fecha limite para postular?';
-        if (!d.availableSlots) return '¿Cuantos cupos hay disponibles?';
-        if ((d.selectionCriteria?.length || 0) === 0) return '¿Cuales son los criterios de seleccion?';
-        if (!d.registrationLink) return 'Es MUY IMPORTANTE: ¿Cual es el link o formulario de postulacion? Sin esto los interesados no pueden postular.';
+        if ((d.steps?.length || 0) === 0) return '📋 **Pasos del proceso** — ¿Cuales son los pasos que debe seguir alguien para postular? Lista cada paso en orden.';
+        if ((d.documentsNeeded?.length || 0) === 0) return '📄 **Documentos** — ¿Que documentos necesita presentar el postulante?';
+        if (!d.deadline) return '⏰ **Fecha limite** — ¿Cual es la fecha limite para postular?';
+        if (!d.availableSlots) return '🎟 **Cupos** — ¿Cuantos cupos hay disponibles?';
+        if ((d.selectionCriteria?.length || 0) === 0) return '✅ **Criterios** — ¿Cuales son los criterios de seleccion?';
+        if (!d.registrationLink) return '🔗 **Link de postulacion** — ⚠️ Es MUY IMPORTANTE: ¿Cual es el link o formulario de postulacion? Sin esto los interesados no pueden postular.';
     }
     if (d.type === 'subscripcion') {
-        if (d.price === null || d.price === 0) return '¿Cual es el precio de la suscripcion?';
-        if ((d.features?.length || 0) === 0) return '¿Que beneficios incluye la suscripcion? Lista todo lo que obtiene el suscriptor.';
-        if (!d.registrationLink) return '¿Tienes un link de registro para la suscripcion?';
+        if (d.price === null || d.price === 0) return '💰 **Precio** — ¿Cual es el precio de la suscripcion?';
+        if ((d.features?.length || 0) === 0) return '⭐ **Beneficios incluidos** — ¿Que beneficios incluye la suscripcion? Lista todo lo que obtiene el suscriptor.';
+        if (!d.registrationLink) return '🔗 **Link de registro** — ¿Tienes un link de registro para la suscripcion?';
     }
 
     // ── 3. Commercial intelligence (all types) ──
-    if (!d.competitiveAdvantage) return `¿Que hace UNICO a "${d.title}"? ¿Por que un prospecto deberia elegirte a ti y no a la competencia?`;
-    if (!d.callToAction) return '¿Cual es tu llamada a la accion? ¿Que frase motivaria al prospecto a inscribirse YA?';
-    if (!d.idealStudentProfile) return 'Describe en detalle a tu cliente ideal. ¿Que situacion vive hoy y que resultado busca?';
-    if ((d.benefits?.length || 0) === 0) return '¿Cuales son los principales beneficios o transformaciones que obtendra el alumno?';
-    if ((d.objectionHandlers?.length || 0) === 0) return 'Piensa en las 2-3 objeciones mas comunes que escuchas (ej: "es caro", "no tengo tiempo"). ¿Cuales son y como las respondes?';
-    if ((d.urgencyTriggers?.length || 0) === 0) return '¿Tienes algun gatillo de urgencia? (ej: cupos limitados, precio sube pronto, fecha limite). Si no tienes, escribe "no tengo aun".';
-    if ((d.successStories?.length || 0) === 0) return '¿Tienes algun caso de exito o testimonio? Dame nombre, resultado obtenido y una cita. Si no tienes, escribe "no tengo aun".';
+    if (!d.competitiveAdvantage) return `🏅 **Ventaja competitiva** — ¿Que hace UNICO a **"${d.title}"**? ¿Por que un prospecto deberia elegirte a ti y no a la competencia?`;
+    if (!d.callToAction) return '🚀 **Call to Action** — ¿Cual es tu llamada a la accion? ¿Que frase motivaria al prospecto a inscribirse YA?';
+    if (!d.idealStudentProfile) return '🎯 **Perfil del cliente ideal** — Describe en detalle a tu cliente ideal. ¿Que situacion vive hoy y que resultado busca?';
+    if ((d.benefits?.length || 0) === 0) return '✨ **Beneficios** — ¿Cuales son los principales beneficios o transformaciones que obtendra el alumno?';
+    if ((d.objectionHandlers?.length || 0) === 0) return '🛡 **Manejo de objeciones** — Piensa en las 2-3 objeciones mas comunes (ej: "es caro", "no tengo tiempo"). ¿Cuales son y como las respondes?';
+    if ((d.urgencyTriggers?.length || 0) === 0) return '⚡ **Urgencia** — ¿Tienes algun gatillo de urgencia? (ej: cupos limitados, precio sube pronto, fecha limite). Si no tienes, escribe "no tengo aun".';
+    if ((d.successStories?.length || 0) === 0) return '🌟 **Casos de exito** — ¿Tienes algun testimonio? Dame nombre, resultado obtenido y una cita. Si no tienes, escribe "no tengo aun".';
+
+    // ── 4. Filter questions (preguntas filtro para calificar prospectos) ──
+    if (!(d as any)._filterQuestionsAsked) return `📋 **Preguntas Filtro** — Estas son las preguntas que tu **agente de ventas** le hara a los prospectos para **calificarlos**. Por ejemplo:\n• "¿Cual es tu nivel de experiencia?"\n• "¿Tienes presupuesto aprobado?"\n• "¿Para cuando necesitas empezar?"\n\n¿Que preguntas de calificacion quieres hacerle a los interesados en **"${d.title}"**? Si no tienes, escribe "omitir".`;
+
+    // ── 5. Extraction fields (campos especiales) ──
+    if (!(d as any)._extractionFieldsAsked) return `📊 **Campos especiales de captura** — Ademas de nombre, email y telefono, ¿que otros datos quieres capturar de los prospectos? Por ejemplo:\n• Empresa\n• Cargo\n• Ciudad\n• Presupuesto\n\nEscribe los campos que necesites o "omitir" si no aplica.`;
 
     return null; // All done!
 }
@@ -338,6 +348,9 @@ export default function CourseUpload() {
     const [chatInput, setChatInput] = useState('');
     const [applyingChange, setApplyingChange] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(true);
+    const [interactionCount, setInteractionCount] = useState(0);
+    const [guidedFilterQuestions, setGuidedFilterQuestions] = useState<string>('');
+    const [guidedExtractionFields, setGuidedExtractionFields] = useState<string>('');
 
     const [analysisStep, setAnalysisStep] = useState(0);
 
@@ -547,31 +560,35 @@ export default function CourseUpload() {
             setStatus('success');
             setActiveTab('guided');
 
-            // Build initial guided messages
+            // Build initial guided messages with rich summary
             const msgs: { role: string; content: string }[] = [];
-            const fields = [
-                mergedData.title && `"${mergedData.title}"`,
-                `${mergedData.objectives?.length || 0} objetivos`,
-                `${mergedData.syllabus?.length || 0} modulos`,
-                mergedData.price ? `$${mergedData.price} ${mergedData.currency || 'USD'}` : null,
-                mergedData.instructor ? `Instructor: ${mergedData.instructor}` : null,
-            ].filter(Boolean);
-            msgs.push({ role: 'assistant', content: `He analizado tu ${TYPE_LABELS[mergedData.type]}. Encontre: ${fields.join(', ')}.` });
+            const summaryLines: string[] = [];
+            summaryLines.push(`📊 **Resumen del analisis de tu ${TYPE_LABELS[mergedData.type]}:**\n`);
+            if (mergedData.title) summaryLines.push(`📝 **Titulo:** "${mergedData.title}"`);
+            if (mergedData.price) summaryLines.push(`💰 **Precio:** $${mergedData.price} ${mergedData.currency || 'USD'}`);
+            if (mergedData.instructor) summaryLines.push(`👨‍🏫 **Instructor:** ${mergedData.instructor}`);
+            if (mergedData.objectives?.length) summaryLines.push(`🎯 **Objetivos:** ${mergedData.objectives.length} detectados`);
+            if (mergedData.syllabus?.length) summaryLines.push(`📚 **Modulos:** ${mergedData.syllabus.length} en el temario`);
+            if (mergedData.modality) summaryLines.push(`🌐 **Modalidad:** ${mergedData.modality}`);
+            if (mergedData.duration) summaryLines.push(`⏱ **Duracion:** ${mergedData.duration}`);
+            if (mergedData.targetAudience) summaryLines.push(`👥 **Audiencia:** ${mergedData.targetAudience.slice(0, 80)}...`);
+            summaryLines.push(`\n¿Esta todo correcto? Si hay algo que corregir, indicamelo. Si esta bien, escribe **"confirmar"** o **"continuar"** para seguir.`);
+            msgs.push({ role: 'assistant', content: summaryLines.join('\n') });
 
             // Try proactive review
             try {
                 const reviewJson = await reviewContent(parsed);
                 const review = JSON.parse(reviewJson);
                 if (review.score !== undefined) {
-                    msgs.push({ role: 'assistant', content: `Auditoria comercial: ${review.score}/10\n${review.suggestions?.slice(0, 3).map((s: string) => `• ${s}`).join('\n') || ''}` });
+                    msgs.push({ role: 'assistant', content: `📋 **Auditoria comercial:** ${review.score}/10\n${review.suggestions?.slice(0, 3).map((s: string) => `• ${s}`).join('\n') || ''}` });
                 }
             } catch { /* skip review if fails */ }
 
-            msgs.push({ role: 'assistant', content: 'Voy a hacerte algunas preguntas para completar la informacion comercial. Responde con naturalidad.' });
+            msgs.push({ role: 'assistant', content: '💬 Voy a hacerte algunas preguntas para **completar la informacion comercial**. Responde con naturalidad.' });
 
             const nextQ = getNextQuestion(mergedData as CourseData);
             if (nextQ) msgs.push({ role: 'assistant', content: nextQ });
-            else msgs.push({ role: 'assistant', content: 'Tu producto ya tiene toda la informacion comercial necesaria. Puedes ir al editor para revisar los detalles.' });
+            else msgs.push({ role: 'assistant', content: '✅ Tu producto ya tiene toda la informacion comercial necesaria. Puedes ir al **editor** para revisar los detalles.' });
 
             setChatMessages(msgs);
 
@@ -594,9 +611,9 @@ export default function CourseUpload() {
     };
 
     // ─── Chat handler (guided + sidebar) ──────────────────────────────
-    const handleChatAction = useCallback(async () => {
-        if (!chatInput.trim()) return;
-        const msg = chatInput;
+    const handleChatAction = useCallback(async (overrideMsg?: string | React.MouseEvent) => {
+        const msg = (typeof overrideMsg === 'string') ? overrideMsg : chatInput;
+        if (!msg.trim()) return;
         setChatInput('');
         setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
         setApplyingChange(true);
@@ -614,8 +631,27 @@ export default function CourseUpload() {
             const response = typeof responseRaw === 'string' ? JSON.parse(responseRaw) : responseRaw;
 
             if (response.updates) {
-                const newData = { ...data, ...response.updates };
-                setData(prev => ({ ...prev, ...response.updates }));
+                // Check if user is responding to filter questions or extraction fields
+                const lastAiContent = chatMessages.filter(m => m.role === 'assistant').pop()?.content || '';
+                const isFilterQuestion = lastAiContent.includes('**Preguntas Filtro**');
+                const isExtractionField = lastAiContent.includes('**Campos especiales');
+                const isSkip = msg.toLowerCase().includes('omitir') || msg.toLowerCase().includes('no tengo') || msg.toLowerCase().includes('siguiente');
+
+                let newData = { ...data, ...response.updates };
+
+                if (isFilterQuestion) {
+                    newData = { ...newData, _filterQuestionsAsked: true };
+                    setData(prev => ({ ...prev, ...response.updates, _filterQuestionsAsked: true }));
+                    if (!isSkip) setGuidedFilterQuestions(msg);
+                } else if (isExtractionField) {
+                    newData = { ...newData, _extractionFieldsAsked: true };
+                    setData(prev => ({ ...prev, ...response.updates, _extractionFieldsAsked: true }));
+                    if (!isSkip) setGuidedExtractionFields(msg);
+                } else {
+                    setData(prev => ({ ...prev, ...response.updates }));
+                }
+
+                setInteractionCount(prev => prev + 1);
                 setChatMessages(prev => [...prev, { role: 'assistant', content: `${response.message}` }]);
 
                 // Show chips for fields that were just saved (only recognized FIELD_LABELS keys)
@@ -627,6 +663,12 @@ export default function CourseUpload() {
                     const chipContent = savedKeys.map(k => FIELD_LABELS[k] || k).join('|');
                     setChatMessages(prev => [...prev, { role: 'data-chips', content: chipContent }]);
                 }
+                if (isFilterQuestion && !isSkip) {
+                    setChatMessages(prev => [...prev, { role: 'data-chips', content: 'Preguntas filtro guardadas' }]);
+                }
+                if (isExtractionField && !isSkip) {
+                    setChatMessages(prev => [...prev, { role: 'data-chips', content: 'Campos especiales guardados' }]);
+                }
 
                 // Auto-ask next question in guided mode
                 if (activeTab === 'guided') {
@@ -637,7 +679,7 @@ export default function CourseUpload() {
                         }, 1200);
                     } else {
                         setTimeout(() => {
-                            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Tu producto esta completo. Toda la informacion comercial ha sido recopilada. Haz clic en "Ir al Editor" para revisar los detalles finales.' }]);
+                            setChatMessages(prev => [...prev, { role: 'assistant', content: '✅ **Tu producto esta completo.** Toda la informacion comercial ha sido recopilada. Haz clic en **"Ir al Editor"** para revisar los detalles finales.' }]);
                         }, 1200);
                     }
                 }
@@ -825,8 +867,39 @@ export default function CourseUpload() {
         try {
             setStatus('analyzing');
             const payload = buildPayload(data);
-            if (id) await courseService.update(id, payload);
-            else await courseService.create(payload);
+            let savedId = id;
+            if (id) {
+                await courseService.update(id, payload);
+            } else {
+                const created = await courseService.create(payload);
+                savedId = (created as any)?.id;
+            }
+
+            // Auto-save filter questions from guided flow
+            if (savedId && guidedFilterQuestions) {
+                try {
+                    const questions = guidedFilterQuestions
+                        .split(/[\n•\-\d+\.]+/)
+                        .map(q => q.trim().replace(/^[¿"]+|[?"]+$/g, ''))
+                        .filter(q => q.length > 5);
+                    for (let i = 0; i < questions.length; i++) {
+                        await filterQuestionsService.create({
+                            courseId: savedId,
+                            question: questions[i],
+                            fieldKey: `guided_q${i + 1}`,
+                            type: 'text',
+                            options: [],
+                            isRequired: false,
+                            isActive: true,
+                            productType: data.type,
+                            sortOrder: i,
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not auto-save filter questions:', e);
+                }
+            }
+
             navigate('/courses');
         } catch (error: any) {
             console.error("Error saving:", error);
@@ -1140,10 +1213,15 @@ export default function CourseUpload() {
                                         {/* Go to editor button */}
                                         <button
                                             onClick={() => { setActiveTab('editor'); setIsChatOpen(true); }}
-                                            className={`mt-4 btn w-full gap-2 ${percent >= 40 ? 'btn-primary' : 'btn-ghost border border-gray-200'}`}
+                                            disabled={interactionCount < 3}
+                                            className={`mt-4 btn w-full gap-2 ${interactionCount >= 3 && percent >= 40 ? 'btn-primary' : 'btn-ghost border border-gray-200'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                                            title={interactionCount < 3 ? `Responde al menos ${3 - interactionCount} preguntas mas para continuar` : ''}
                                         >
                                             <ArrowRight size={16} />
-                                            {percent >= 40 ? 'Ir al Editor' : 'Saltar al Editor'}
+                                            {interactionCount < 3
+                                                ? `Responde ${3 - interactionCount} preguntas mas`
+                                                : percent >= 40 ? 'Ir al Editor' : 'Saltar al Editor'
+                                            }
                                         </button>
                                     </div>
 
@@ -1155,7 +1233,7 @@ export default function CourseUpload() {
                                                     <div key={i} className="flex justify-start flex-wrap gap-1.5 pl-1">
                                                         {msg.content.split('|').map(label => (
                                                             <span key={label} className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                                <Check size={9} /> {label} guardado
+                                                                <Check size={9} /> {label.match(/guardad[oa]s?$/i) ? label : `${label} guardado`}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -1167,7 +1245,13 @@ export default function CourseUpload() {
                                                             : 'bg-white border border-gray-200 text-gray-800 rounded-bl-md shadow-sm'
                                                     }`}>
                                                         {msg.content.split('\n').map((line, j) => (
-                                                            <p key={j} className={j > 0 ? 'mt-1' : ''}>{line}</p>
+                                                            <p key={j} className={j > 0 ? 'mt-1' : ''}>
+                                                                {line.split(/(\*\*[^*]+\*\*)/g).map((part, pi) =>
+                                                                    part.startsWith('**') && part.endsWith('**')
+                                                                        ? <strong key={pi} className="font-bold">{part.slice(2, -2)}</strong>
+                                                                        : <span key={pi}>{part}</span>
+                                                                )}
+                                                            </p>
                                                         ))}
                                                     </div>
                                                 </div>
@@ -1183,10 +1267,7 @@ export default function CourseUpload() {
                                         <div className="p-4 bg-white border-t border-gray-200">
                                             <div className="flex items-center gap-2 max-w-2xl mx-auto">
                                                 <button
-                                                    onClick={() => {
-                                                        setChatInput('No tengo esa información por ahora, siguiente pregunta');
-                                                        setTimeout(() => handleChatAction(), 50);
-                                                    }}
+                                                    onClick={() => handleChatAction('No tengo esa información por ahora, siguiente pregunta')}
                                                     disabled={applyingChange}
                                                     className="px-3 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full border border-gray-200 transition-colors whitespace-nowrap disabled:opacity-50"
                                                     title="Saltar esta pregunta"

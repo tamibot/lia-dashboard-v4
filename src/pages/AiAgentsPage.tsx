@@ -299,17 +299,17 @@ export default function AiAgentsPage() {
                     }
                 </button>
 
-                {/* Related: Filter Questions */}
+                {/* Related: CRM & Fields */}
                 <Link
-                    to="/filter-questions"
+                    to="/crm"
                     className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all group"
                 >
                     <div className="w-9 h-9 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
                         <ListFilter size={16} className="text-purple-600" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800">Preguntas Filtro</p>
-                        <p className="text-[11px] text-gray-400">Configura las preguntas de calificación que el agente hará a los prospectos</p>
+                        <p className="text-sm font-semibold text-gray-800">Embudo & Campos</p>
+                        <p className="text-[11px] text-gray-400">Configura el pipeline de ventas y campos personalizados del CRM</p>
                     </div>
                     <span className="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Configurar →</span>
                 </Link>

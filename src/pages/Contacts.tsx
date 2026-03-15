@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import {
     Search, Filter, ChevronDown, ChevronUp, ExternalLink,
     User, Mail, Phone, MapPin, Calendar, Tag, Loader2, AlertTriangle,
-    RefreshCw, X, Users,
+    RefreshCw, X, Users, Download,
 } from 'lucide-react';
+import { API_CONFIG } from '../config/api.config';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -90,49 +91,127 @@ const ORIGIN_COLORS: Record<string, string> = {
     otro: 'bg-gray-100 text-gray-600',
 };
 
-const GHL_BASE = 'https://app.gohighlevel.com/v2/location/xnkv60LDkjOYchFtULc2/contacts';
-
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
+interface PaginatedResponse {
+    contacts: Contact[];
+    nextCursor: string | null;
+    total: number;
+}
+
 export default function Contacts() {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+    const [ghlLocationId, setGhlLocationId] = useState<string | null>(null);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [totalCount, setTotalCount] = useState<number>(0);
+
+    // Fetch GHL location ID for dynamic links
+    useEffect(() => {
+        api.get<{ locationId?: string }>('/integrations/ghl/status')
+            .then(data => { if (data.locationId) setGhlLocationId(data.locationId); })
+            .catch(() => {});
+    }, []);
 
     const stage = searchParams.get('stage') || '';
     const origin = searchParams.get('origin') || '';
     const search = searchParams.get('search') || '';
+    const dateFrom = searchParams.get('dateFrom') || '';
+    const dateTo = searchParams.get('dateTo') || '';
+
+    /* ---- build filter params ---- */
+    const buildFilterParams = useCallback((): Record<string, string> => {
+        const params: Record<string, string> = {};
+        if (stage) params.stage = stage;
+        if (origin) params.origin = origin;
+        if (search) params.search = search;
+        if (dateFrom) params.dateFrom = dateFrom;
+        if (dateTo) params.dateTo = dateTo;
+        return params;
+    }, [stage, origin, search, dateFrom, dateTo]);
 
     /* ---- data fetching ---- */
     const fetchContacts = useCallback(async () => {
         setError(null);
         try {
-            const params: Record<string, string> = { limit: '100' };
-            if (stage) params.stage = stage;
-            if (origin) params.origin = origin;
-            if (search) params.search = search;
-
-            const data = await api.get<Contact[]>('/contacts', params);
-            setContacts(data);
+            const params: Record<string, string> = { limit: '50', ...buildFilterParams() };
+            const data = await api.get<PaginatedResponse>('/contacts', params);
+            setContacts(data.contacts);
+            setNextCursor(data.nextCursor);
+            setTotalCount(data.total);
         } catch (err: any) {
             setError(err.message || 'Error al cargar contactos');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [stage, origin, search]);
+    }, [buildFilterParams]);
 
     useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
     const handleRefresh = () => {
         setRefreshing(true);
         fetchContacts();
+    };
+
+    /* ---- load more (next page) ---- */
+    const loadMore = async () => {
+        if (!nextCursor || loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const params: Record<string, string> = {
+                limit: '50',
+                cursor: nextCursor,
+                ...buildFilterParams(),
+            };
+            const data = await api.get<PaginatedResponse>('/contacts', params);
+            setContacts(prev => [...prev, ...data.contacts]);
+            setNextCursor(data.nextCursor);
+            setTotalCount(data.total);
+        } catch (err: any) {
+            setError(err.message || 'Error al cargar mas contactos');
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    /* ---- CSV export ---- */
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            const params = new URLSearchParams(buildFilterParams());
+            const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
+            const url = `${API_CONFIG.BASE_URL}/contacts/export${params.toString() ? '?' + params.toString() : ''}`;
+            const response = await fetch(url, {
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+            if (!response.ok) throw new Error('Error al exportar contactos');
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = 'contactos.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (err: any) {
+            setError(err.message || 'Error al exportar contactos');
+        } finally {
+            setExporting(false);
+        }
     };
 
     /* ---- filter helpers ---- */
@@ -165,6 +244,8 @@ export default function Contacts() {
         stage && { key: 'stage', label: `Etapa: ${STAGE_LABELS[stage] || stage}` },
         origin && { key: 'origin', label: `Origen: ${ORIGIN_LABELS[origin] || origin}` },
         search && { key: 'search', label: `Busqueda: "${search}"` },
+        dateFrom && { key: 'dateFrom', label: `Desde: ${dateFrom}` },
+        dateTo && { key: 'dateTo', label: `Hasta: ${dateTo}` },
     ].filter(Boolean) as { key: string; label: string }[];
 
     /* ---- render ---- */
@@ -186,17 +267,29 @@ export default function Contacts() {
                 <div>
                     <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Contactos</h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        {contacts.length} contacto{contacts.length !== 1 ? 's' : ''} encontrado{contacts.length !== 1 ? 's' : ''}
+                        {contacts.length} de {totalCount} contacto{totalCount !== 1 ? 's' : ''}
                     </p>
                 </div>
-                <button
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                    <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                    Actualizar
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExport}
+                        disabled={exporting || totalCount === 0}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                        {exporting
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <Download size={14} />}
+                        Exportar CSV
+                    </button>
+                    <button
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                        Actualizar
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -252,6 +345,25 @@ export default function Contacts() {
                         </select>
                         <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
+                </div>
+
+                {/* Date range filters */}
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Rango de fecha:</span>
+                    <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => updateParam('dateFrom', e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-400">a</span>
+                    <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => updateParam('dateTo', e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                 </div>
 
                 {/* Active filter pills */}
@@ -323,12 +435,32 @@ export default function Contacts() {
                                             contact={contact}
                                             isExpanded={isExpanded}
                                             onToggle={() => setExpandedId(isExpanded ? null : contact.id)}
+                                            ghlLocationId={ghlLocationId}
+                                            onTagsUpdate={(id, tags) => {
+                                                setContacts(prev => prev.map(c => c.id === id ? { ...c, tags } : c));
+                                            }}
+                                            onNavigate={(id) => navigate(`/contacts/${id}`)}
                                         />
                                     );
                                 })}
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Load more button */}
+                    {nextCursor && (
+                        <div className="border-t border-gray-100 px-4 py-3 text-center">
+                            <button
+                                onClick={loadMore}
+                                disabled={loadingMore}
+                                className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                            >
+                                {loadingMore
+                                    ? <><Loader2 size={14} className="animate-spin" /> Cargando...</>
+                                    : <>Cargar mas ({totalCount - contacts.length} restantes)</>}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -343,13 +475,39 @@ function ContactRow({
     contact,
     isExpanded,
     onToggle,
+    ghlLocationId,
+    onTagsUpdate,
+    onNavigate,
 }: {
     contact: Contact;
     isExpanded: boolean;
     onToggle: () => void;
+    ghlLocationId: string | null;
+    onTagsUpdate: (id: string, tags: string[]) => void;
+    onNavigate: (id: string) => void;
 }) {
     const stageCls = STAGE_COLORS[contact.stage] || 'bg-gray-100 text-gray-600';
     const originCls = ORIGIN_COLORS[contact.origin] || 'bg-gray-100 text-gray-600';
+    const [newTag, setNewTag] = useState('');
+
+    const addTag = async () => {
+        const tag = newTag.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!tag || contact.tags.includes(tag)) return;
+        const updated = [...contact.tags, tag];
+        try {
+            await api.put(`/contacts/${contact.id}`, { tags: updated });
+            onTagsUpdate(contact.id, updated);
+            setNewTag('');
+        } catch { /* ignore */ }
+    };
+
+    const removeTag = async (tag: string) => {
+        const updated = contact.tags.filter(t => t !== tag);
+        try {
+            await api.put(`/contacts/${contact.id}`, { tags: updated });
+            onTagsUpdate(contact.id, updated);
+        } catch { /* ignore */ }
+    };
 
     return (
         <>
@@ -362,7 +520,14 @@ function ContactRow({
                         ? <ChevronUp size={16} />
                         : <ChevronDown size={16} />}
                 </td>
-                <td className="px-4 py-3 font-medium text-gray-900">{contact.name}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onNavigate(contact.id); }}
+                        className="hover:text-blue-600 hover:underline transition-colors text-left"
+                    >
+                        {contact.name}
+                    </button>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{contact.email || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{contact.phone || '-'}</td>
                 <td className="px-4 py-3">
@@ -387,25 +552,14 @@ function ContactRow({
                     <td colSpan={7} className="px-4 py-0">
                         <div className="bg-gray-50 rounded-lg p-4 my-2 border border-gray-100">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                                {/* Name */}
                                 <DetailItem icon={User} label="Nombre" value={contact.name} />
-
-                                {/* Email */}
                                 <DetailItem icon={Mail} label="Email" value={contact.email || '-'} />
-
-                                {/* Phone */}
                                 <DetailItem icon={Phone} label="Telefono" value={contact.phone || '-'} />
-
-                                {/* Location */}
                                 <DetailItem
                                     icon={MapPin}
                                     label="Ubicacion"
-                                    value={
-                                        [contact.city, contact.country].filter(Boolean).join(', ') || '-'
-                                    }
+                                    value={[contact.city, contact.country].filter(Boolean).join(', ') || '-'}
                                 />
-
-                                {/* Date */}
                                 <DetailItem
                                     icon={Calendar}
                                     label="Fecha de registro"
@@ -414,26 +568,43 @@ function ContactRow({
                                         hour: '2-digit', minute: '2-digit',
                                     })}
                                 />
+                            </div>
 
-                                {/* Tags */}
-                                {contact.tags && contact.tags.length > 0 && (
-                                    <div className="flex items-start gap-2">
-                                        <Tag size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                            <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Tags</p>
-                                            <div className="flex flex-wrap gap-1 mt-0.5">
-                                                {contact.tags.map((tag, i) => (
-                                                    <span
-                                                        key={i}
-                                                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-600"
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
+                            {/* Tags with inline editing */}
+                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Tag size={14} className="text-gray-400 flex-shrink-0" />
+                                    <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Etiquetas</p>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 items-center">
+                                    {contact.tags.map((tag) => (
+                                        <span
+                                            key={tag}
+                                            className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 group"
+                                        >
+                                            {tag}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                                                className="text-blue-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <X size={10} />
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="text"
+                                            placeholder="Nueva etiqueta..."
+                                            value={newTag}
+                                            onChange={(e) => setNewTag(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addTag()}
+                                            className="text-[11px] px-2 py-0.5 border border-gray-200 rounded-full w-28 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                        />
+                                        {newTag.trim() && (
+                                            <button onClick={addTag} className="text-[10px] text-blue-600 font-medium hover:underline">+</button>
+                                        )}
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Notes */}
@@ -445,10 +616,10 @@ function ContactRow({
                             )}
 
                             {/* GHL Link */}
-                            {contact.ghlContactId && (
+                            {contact.ghlContactId && ghlLocationId && (
                                 <div className="mt-3 pt-3 border-t border-gray-200">
                                     <a
-                                        href={`${GHL_BASE}/${contact.ghlContactId}`}
+                                        href={`https://app.gohighlevel.com/v2/location/${ghlLocationId}/contacts/${contact.ghlContactId}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"

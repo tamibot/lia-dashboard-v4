@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList } from 'lucide-react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList, Search, ShoppingCart } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
@@ -24,19 +24,26 @@ function renderMd(text: string): ReactNode {
     });
 }
 
+type AgentMode = 'sales' | 'search';
+
 interface SalesPlaygroundProps {
     agent: AiAgent;
     courseContext?: any;
     orgProfile?: OrgProfile;
     onClose: () => void;
+    initialMode?: AgentMode;
 }
 
-export default function SalesPlayground({ agent, courseContext, orgProfile, onClose }: SalesPlaygroundProps) {
+export default function SalesPlayground({ agent, courseContext, orgProfile, onClose, initialMode = 'sales' }: SalesPlaygroundProps) {
     const [messages, setMessages] = useState<{ role: string, content: string }[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'chatting' | 'closed' | 'transferred'>('chatting');
     const [fullCatalog, setFullCatalog] = useState<any>(null);
+    const [simulatedTransfer, setSimulatedTransfer] = useState(false);
+    const [assignedAdvisor, setAssignedAdvisor] = useState<{ name: string; phone?: string; whatsapp?: string } | null>(null);
+    const [agentMode, setAgentMode] = useState<AgentMode>(initialMode);
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +55,12 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         // Try to get org slug from profile; fall back to localStorage or default
         const orgSlug = (orgProfile as any)?.slug
             || localStorage.getItem('orgSlug')
-            || 'innovation-institute';
+            || '';
+
+        if (!orgSlug) {
+            setCatalogLoading(false);
+            return;
+        }
 
         setCatalogLoading(true);
         const url = `${API_CONFIG.BASE_URL}/public/${orgSlug}/catalog`;
@@ -65,6 +77,19 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
             });
     }, [orgProfile]);
 
+    // Fetch team members for advisor assignment
+    useEffect(() => {
+        fetch(`${API_CONFIG.BASE_URL}/team`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem(API_CONFIG.TOKEN_KEY)}` }
+        })
+            .then(r => r.json())
+            .then(data => {
+                const members = Array.isArray(data) ? data : data.members || [];
+                setTeamMembers(members);
+            })
+            .catch(() => {});
+    }, []);
+
     const orgName = orgProfile?.name || (fullCatalog as any)?.orgName || null;
 
     useEffect(() => {
@@ -72,13 +97,13 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         setStatus('chatting');
         setInput('');
         const fromOrg = orgName ? ` de **${orgName}**` : '';
-        setMessages([{
-            role: 'assistant',
-            content: courseContext
+        const greeting = agentMode === 'search'
+            ? `Hola, soy **${agent.name}**${fromOrg}. Soy tu asistente de busqueda de cursos. Puedo ayudarte a encontrar el programa perfecto para ti. Dime: ¿que area te interesa? ¿presencial u online? ¿tienes un presupuesto en mente?`
+            : courseContext
                 ? `Hola, soy **${agent.name}**, tu asesora${fromOrg}. Vimos que tienes interes en **${courseContext.title}**, me encantaria ayudarte con toda la informacion que necesites. ¿En que te puedo ayudar?`
-                : `Hola, soy **${agent.name}**, tu asesora${fromOrg}. Estoy aqui para orientarte y ayudarte a encontrar el programa ideal para ti. ¿Que area te interesa o en que puedo ayudarte?`
-        }]);
-    }, [agent.name, orgName]); // eslint-disable-line react-hooks/exhaustive-deps
+                : `Hola, soy **${agent.name}**, tu asesora${fromOrg}. Estoy aqui para orientarte y ayudarte a encontrar el programa ideal para ti. ¿Que area te interesa o en que puedo ayudarte?`;
+        setMessages([{ role: 'assistant', content: greeting }]);
+    }, [agent.name, orgName, courseContext?.title, agentMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-scroll: scroll after messages change AND after a short delay for render
     useEffect(() => {
@@ -104,12 +129,50 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         setLoading(true);
 
         try {
-            const response = await chatWithAgent(agent, messages, msg, courseContext, orgProfile, fullCatalog);
+            // Filter out simulation-event messages so they don't pollute the AI's conversation history
+            const cleanHistory = messages.filter(m => m.role === 'user' || m.role === 'assistant');
+            // In search mode, don't pass courseContext so the agent focuses on catalog browsing
+            const ctxForMode = agentMode === 'search' ? undefined : courseContext;
+            const searchPrefix = agentMode === 'search' ? '[MODO BUSQUEDA] El usuario busca un curso en el catalogo. Ayudalo a encontrar el mejor match comparando opciones. NO intentes cerrar venta, solo orienta y compara. ' : '';
+            const response = await chatWithAgent(agent, cleanHistory, searchPrefix + msg, ctxForMode, orgProfile, fullCatalog);
             setMessages(prev => [...prev, { role: 'assistant', content: response }]);
 
-            if (response.toLowerCase().includes('agendado') || response.toLowerCase().includes('asesor') || response.toLowerCase().includes('paso con el equipo')) {
+            const lower = response.toLowerCase();
+            if (simulatedTransfer || lower.includes('agendado') || lower.includes('paso con el equipo') || lower.includes('te paso con') || lower.includes('te conecto con') || lower.includes('te comunico con')) {
                 setStatus('transferred');
-            } else if (response.toLowerCase().includes('inscripción completada') || response.toLowerCase().includes('pago exitoso') || response.toLowerCase().includes('¡bienvenido al curso!')) {
+                // Assign a random available advisor
+                if (!assignedAdvisor) {
+                    let selectedAdvisor: any = null;
+                    if (teamMembers.length > 0) {
+                        const available = teamMembers.filter((m: any) => m.availability !== 'vacation');
+                        const pool = available.length > 0 ? available : teamMembers;
+                        selectedAdvisor = pool[Math.floor(Math.random() * pool.length)];
+                        setAssignedAdvisor({ name: selectedAdvisor.name, phone: selectedAdvisor.phone, whatsapp: selectedAdvisor.whatsapp });
+                    } else {
+                        setAssignedAdvisor({ name: 'Equipo de ventas' });
+                    }
+
+                    // Register the transfer as a real contact in the backend
+                    try {
+                        const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
+                        if (token) {
+                            // Extract user info from conversation
+                            const userMsgs = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
+                            fetch(`${API_CONFIG.BASE_URL}/contacts/transfer`, {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: 'Lead de LIA',
+                                    courseInterest: courseContext?.title || detectedInterests[0] || null,
+                                    advisorId: selectedAdvisor?.id || null,
+                                    conversationSummary: `Prospecto interesado en ${detectedInterests[0] || 'el catalogo'}. ${totalInteractions} interacciones. ${userMsgs.slice(0, 200)}`,
+                                }),
+                            }).catch(() => {});
+                        }
+                    } catch { /* non-blocking */ }
+                }
+                setSimulatedTransfer(false);
+            } else if (lower.includes('inscripción completada') || lower.includes('pago exitoso') || lower.includes('¡bienvenido al curso!') || lower.includes('bienvenido al curso')) {
                 setStatus('closed');
             }
         } catch (error) {
@@ -121,13 +184,17 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
 
     const triggerSimulation = (type: 'visto15' | 'visto1h' | 'visto5h' | 'negativa' | 'asesor') => {
         const simulations = {
-            visto15: { label: '⏱ Dejó en visto 15 minutos', msg: '[SIMULACION:VISTO_15MIN] El prospecto dejó en visto por 15 minutos. Reengánchalo.' },
-            visto1h: { label: '⏰ Dejó en visto 1 hora', msg: '[SIMULACION:VISTO_1H] El prospecto estuvo 1 hora sin responder. Haz seguimiento cálido.' },
-            visto5h: { label: '🕐 Dejó en visto 5 horas', msg: '[SIMULACION:VISTO_5H] Pasaron 5 horas sin respuesta. Reactiva con urgencia o nuevo ángulo.' },
-            negativa: { label: '👎 Respuesta negativa', msg: '[SIMULACION:NEGATIVA] El prospecto dijo que no está interesado. Maneja la objeción y rescata el lead.' },
-            asesor: { label: '🙋 Quiere hablar con asesor', msg: '[SIMULACION:ASESOR] El prospecto quiere hablar con una persona. Haz el handoff de forma profesional.' },
+            visto15: { label: '⏱ Dejó en visto 15 minutos', msg: '[SIMULACION:VISTO_15MIN] El prospecto dejó en visto por 15 minutos. Reengánchalo.', newStatus: 'chatting' as const },
+            visto1h: { label: '⏰ Dejó en visto 1 hora', msg: '[SIMULACION:VISTO_1H] El prospecto estuvo 1 hora sin responder. Haz seguimiento cálido.', newStatus: 'chatting' as const },
+            visto5h: { label: '🕐 Dejó en visto 5 horas', msg: '[SIMULACION:VISTO_5H] Pasaron 5 horas sin respuesta. Reactiva con urgencia o nuevo ángulo.', newStatus: 'chatting' as const },
+            negativa: { label: '👎 Respuesta negativa', msg: '[SIMULACION:NEGATIVA] El prospecto dijo que no está interesado. Maneja la objeción y rescata el lead.', newStatus: 'chatting' as const },
+            asesor: { label: '🙋 Quiere hablar con asesor', msg: '[SIMULACION:ASESOR] El prospecto quiere hablar con una persona. Haz el handoff de forma profesional.', newStatus: 'transferred' as const },
         };
         const sim = simulations[type];
+        // For asesor simulation, immediately set transferred status
+        if (sim.newStatus === 'transferred') {
+            setSimulatedTransfer(true);
+        }
         sendMessage(sim.msg, true, sim.label);
     };
 
@@ -137,9 +204,15 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
     const totalInteractions = userMessages.length;
 
     // Stage detection from assistant messages
+    const hasSimulationEvent = messages.some(m => m.role === 'simulation');
     const detectStage = (): { label: string; color: string } => {
-        if (status === 'transferred') return { label: 'Transferido', color: 'text-amber-700 bg-amber-50' };
+        if (status === 'transferred') return { label: 'Asesor Asignado', color: 'text-amber-700 bg-amber-50' };
         if (status === 'closed') return { label: 'Cierre', color: 'text-green-700 bg-green-50' };
+        // Check for simulation-driven stages
+        const simMessages = messages.filter(m => m.role === 'simulation').map(m => m.content);
+        if (simMessages.some(s => s.includes('visto') || s.includes('Visto'))) {
+            return { label: 'Seguimiento', color: 'text-orange-700 bg-orange-50' };
+        }
         const lastMsgs = assistantMessages.slice(-3).map(m => m.content.toLowerCase()).join(' ');
         if (lastMsgs.includes('precio') || lastMsgs.includes('costo') || lastMsgs.includes('inversion') || lastMsgs.includes('pago')) {
             return { label: 'Decision', color: 'text-purple-700 bg-purple-50' };
@@ -166,7 +239,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
 
     // Build summary when transferred
     const conversationSummary = status === 'transferred'
-        ? `El prospecto mostro interes en ${detectedInterests[0] || 'un producto'}. Se realizaron ${totalInteractions} interacciones antes de ser transferido a un asesor humano.`
+        ? `El prospecto mostro interes en ${detectedInterests[0] || 'un producto'}. Se realizaron ${totalInteractions} interacciones antes de ser transferido${assignedAdvisor ? ` al asesor ${assignedAdvisor.name}` : ' a un asesor humano'}.`
         : null;
 
     return (
@@ -197,12 +270,14 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         {currentStage.label}
                     </span>
                     <div className="mt-2 flex gap-1">
-                        {['Descubrimiento', 'Consideracion', 'Decision', 'Cierre'].map((s, i) => (
-                            <div key={s} className={`h-1.5 flex-1 rounded-full ${
-                                ['Descubrimiento', 'Consideracion', 'Decision', 'Cierre', 'Transferido'].indexOf(currentStage.label) >= i
-                                    ? 'bg-blue-500' : 'bg-gray-200'
-                            }`} title={s} />
-                        ))}
+                        {['Descubrimiento', 'Consideracion', 'Decision', 'Cierre'].map((s, i) => {
+                            const stageOrder = ['Descubrimiento', 'Consideracion', 'Seguimiento', 'Decision', 'Cierre', 'Asesor Asignado'];
+                            const currentIdx = stageOrder.indexOf(currentStage.label);
+                            const isActive = currentIdx >= i || (currentStage.label === 'Seguimiento' && i <= 1) || (currentStage.label === 'Asesor Asignado');
+                            return (
+                                <div key={s} className={`h-1.5 flex-1 rounded-full ${isActive ? 'bg-blue-500' : 'bg-gray-200'}`} title={s} />
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -230,7 +305,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
                             <ClipboardList size={13} /> Resumen
                         </div>
-                        <p className="text-xs text-gray-700 leading-relaxed bg-white rounded-lg p-2.5 border border-gray-100">
+                        <p className="text-xs text-gray-700 leading-relaxed bg-white rounded-lg p-2.5 border border-gray-100 break-words overflow-y-auto max-h-32">
                             {conversationSummary}
                         </p>
                     </div>
@@ -243,8 +318,8 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         status === 'transferred' ? 'bg-amber-100 text-amber-700' :
                         'bg-blue-100 text-blue-700'
                     }`}>
-                        {status === 'chatting' ? 'Conversacion activa' :
-                         status === 'transferred' ? 'Transferido a asesor' :
+                        {status === 'chatting' ? (hasSimulationEvent ? 'Seguimiento activo' : 'Conversacion activa') :
+                         status === 'transferred' ? (assignedAdvisor ? `Asesor: ${assignedAdvisor.name}` : 'Transferido a asesor') :
                          'Venta cerrada'}
                     </div>
                 </div>
@@ -265,9 +340,26 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                             <p className="text-xs text-gray-400 mt-0.5">{agent.role} · Playground de prueba</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* Agent mode toggle */}
+                        <div className="flex bg-gray-100 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setAgentMode('sales')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${agentMode === 'sales' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <ShoppingCart size={12} /> Ventas
+                            </button>
+                            <button
+                                onClick={() => setAgentMode('search')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${agentMode === 'search' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Search size={12} /> Buscar Cursos
+                            </button>
+                        </div>
+                        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Course Context Mini Card */}
@@ -369,9 +461,17 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                     {status === 'transferred' && (
                         <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 animate-slide-in-up">
                             <div className="bg-amber-100 p-2 rounded-full text-amber-600 animate-pulse"><Phone size={20} /></div>
-                            <div>
+                            <div className="flex-1">
                                 <p className="font-bold text-amber-900 text-sm">Transferido a Ventas</p>
-                                <p className="text-xs text-amber-700">El agente ha detectado una oportunidad y está derivando el lead.</p>
+                                {assignedAdvisor ? (
+                                    <div className="mt-1">
+                                        <p className="text-xs text-amber-700">Asesor asignado: <strong>{assignedAdvisor.name}</strong></p>
+                                        {assignedAdvisor.phone && <p className="text-xs text-amber-600">Tel: {assignedAdvisor.phone}</p>}
+                                        {assignedAdvisor.whatsapp && <p className="text-xs text-amber-600">WhatsApp: {assignedAdvisor.whatsapp}</p>}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-amber-700">El agente ha detectado una oportunidad y está derivando el lead.</p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -392,7 +492,13 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                 <div className="p-4 bg-white border-t space-y-3">
                     {/* Quick chips for testing */}
                     <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                        {(courseContext ? [
+                        {(agentMode === 'search' ? [
+                            "¿Qué cursos tienen disponibles?",
+                            "Busco algo de marketing digital",
+                            "Quiero comparar opciones virtuales",
+                            "¿Cuál es el más económico?",
+                            "¿Tienen algo de tecnología o IA?"
+                        ] : courseContext ? [
                             "¿De qué trata el curso?",
                             "¿Cuál es el precio?",
                             "¿Tienen facilidades de pago?",

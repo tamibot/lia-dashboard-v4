@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { settingsService } from '../lib/services/settings.service';
 import { resetClient, validateGeminiKey, validateOpenAIKey, type ValidationResult } from '../lib/gemini';
-import { Eye, EyeOff, Trash2, ExternalLink, Copy, CheckCircle, Loader, ShieldCheck, ShieldX, AlertTriangle, Zap, Bot, RefreshCcw, Database, Link2 } from 'lucide-react';
+import { Eye, EyeOff, Trash2, ExternalLink, Copy, CheckCircle, Loader, ShieldCheck, ShieldX, AlertTriangle, Zap, Bot, RefreshCcw, Database } from 'lucide-react';
 import GhlIntegration from './GhlIntegration';
 
 type ValidationState = 'idle' | 'validating' | 'success' | 'warning' | 'error';
@@ -168,7 +168,7 @@ function KeyCard({ provider, title, icon, currentKey, defaultKey, onSave, onDele
             {/* Guide */}
             <details style={{ marginTop: '16px' }}>
                 <summary style={{ cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', padding: '8px 0' }}>
-                    📖 Cómo crear tu API Key de {title} (gratis)
+                    Cómo crear tu API Key de {title} (gratis)
                 </summary>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px', paddingLeft: '4px' }}>
                     {guideSteps.map(s => (
@@ -201,9 +201,8 @@ function KeyCard({ provider, title, icon, currentKey, defaultKey, onSave, onDele
 
 
 export default function SettingsPage() {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const initialTab = searchParams.get('tab') === 'ghl' ? 'ghl' : 'ai';
-    const [activeTab, setActiveTab] = useState<'ai' | 'ghl'>(initialTab);
+    const [searchParams] = useSearchParams();
+    const ghlRedirect = searchParams.get('ghl');
 
     const DEFAULT_GEMINI_KEY = '';
     const DEFAULT_OPENAI_KEY = '';
@@ -220,15 +219,14 @@ export default function SettingsPage() {
         loadKeys();
     }, []);
 
-    const handleTabChange = (tab: 'ai' | 'ghl') => {
-        setActiveTab(tab);
-        if (tab === 'ghl') {
-            setSearchParams({ tab: 'ghl' }, { replace: true });
-        } else {
-            searchParams.delete('tab');
-            setSearchParams(searchParams, { replace: true });
+    // Scroll to GHL section if redirected from OAuth
+    useEffect(() => {
+        if (ghlRedirect) {
+            setTimeout(() => {
+                document.getElementById('ghl-section')?.scrollIntoView({ behavior: 'smooth' });
+            }, 300);
         }
-    };
+    }, [ghlRedirect]);
 
     const geminiIsDefault = !keys.gemini_key || keys.gemini_key === DEFAULT_GEMINI_KEY;
     const openaiIsDefault = !keys.openai_key || keys.openai_key === DEFAULT_OPENAI_KEY;
@@ -243,36 +241,9 @@ export default function SettingsPage() {
 
     return (
         <div className="page-content" style={{ maxWidth: '780px' }}>
-            {/* Tab Navigation */}
-            <div className="flex gap-1 mb-6 border-b border-gray-200">
-                <button
-                    onClick={() => handleTabChange('ai')}
-                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                        activeTab === 'ai'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    <Zap size={16} /> Claves IA
-                </button>
-                <button
-                    onClick={() => handleTabChange('ghl')}
-                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
-                        activeTab === 'ghl'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                >
-                    <Link2 size={16} /> GoHighLevel
-                </button>
-            </div>
-
-            {activeTab === 'ghl' ? (
-                <GhlIntegration />
-            ) : (
-            <>
+            {/* ── AI Keys Section ── */}
             <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Configuracion de IA</h2>
+                <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Claves de IA</h2>
                 <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Gestiona tus API Keys para que las herramientas de IA funcionen sin interrupciones.</p>
             </div>
 
@@ -374,7 +345,22 @@ export default function SettingsPage() {
                 ]}
             />
 
-            {/* Data Management */}
+            {/* ── Divider ── */}
+            <div className="my-8 border-t border-gray-200" />
+
+            {/* ── GoHighLevel Section ── */}
+            <div id="ghl-section">
+                <div style={{ marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 800 }}>GoHighLevel (CRM)</h2>
+                    <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Conecta tu cuenta de GoHighLevel para sincronizar contactos, pipelines y campos personalizados.</p>
+                </div>
+                <GhlIntegration />
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="my-8 border-t border-gray-200" />
+
+            {/* ── Data Management ── */}
             <div className="card mb-6" style={{ border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4B5563' }}>
@@ -425,8 +411,6 @@ export default function SettingsPage() {
                     <p>• <strong>Seguridad:</strong> Todas las llamadas se realizan a través de conexiones cifradas directamente a los proveedores de IA.</p>
                 </div>
             </div>
-            </>
-            )}
         </div>
     );
 }
