@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { courseService } from '../lib/services/course.service';
 import { agentService } from '../lib/services/agent.service';
 import { profileService } from '../lib/services/profile.service';
-import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle, Bot, Search, FolderOpen } from 'lucide-react';
+import { Plus, Clock, Users, BookOpen, GraduationCap, Video, Tag, Edit, LayoutGrid, LayoutList, UserCheck, Repeat, Wrench, MessageCircle, Bot, Search, FolderOpen, Trash2, Eye, EyeOff } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import AdvancedCourseFilters from '../components/AdvancedCourseFilters';
 import type { FilterState } from '../components/AdvancedCourseFilters';
 import SalesPlayground from '../components/SalesPlayground';
@@ -53,6 +54,7 @@ const TAB_FROM_TYPE: Record<string, TabKey> = {
 
 export default function CoursesPage() {
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [searchParams] = useSearchParams();
     const initialTab = TAB_FROM_TYPE[searchParams.get('tab') || ''] || 'cursos';
     const [tab, setTab] = useState<TabKey>(initialTab);
@@ -81,6 +83,61 @@ export default function CoursesPage() {
     const [quickSearch, setQuickSearch] = useState('');
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 12;
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+
+    const updateLocalItem = (id: string, patch: Partial<any>) => {
+        const setters: Record<string, React.Dispatch<React.SetStateAction<any[]>>> = {
+            cursos: setCursos, programas: setProgramas, webinars: setWebinars,
+            talleres: setTalleres, subscripciones: setSubscripciones, asesorias: setAsesorias, postulaciones: setPostulaciones,
+        };
+        // map tab to state key
+        const tabToKey: Record<string, string> = {
+            cursos: 'cursos', programas: 'programas', webinars: 'webinars', talleres: 'talleres',
+            subscripciones: 'subscripciones', asesorias: 'asesorias', postulaciones: 'postulaciones',
+        };
+        const setter = setters[tabToKey[tab]];
+        if (setter) setter(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string, title: string) => {
+        e.stopPropagation();
+        if (!confirm(`¿Eliminar permanentemente "${title}"? Esta acción no se puede deshacer.`)) return;
+        setDeletingId(id);
+        try {
+            await courseService.delete(id);
+            const tabToKey: Record<string, string> = {
+                cursos: 'cursos', programas: 'programas', webinars: 'webinars', talleres: 'talleres',
+                subscripciones: 'subscripciones', asesorias: 'asesorias', postulaciones: 'postulaciones',
+            };
+            const setters: Record<string, React.Dispatch<React.SetStateAction<any[]>>> = {
+                cursos: setCursos, programas: setProgramas, webinars: setWebinars, talleres: setTalleres,
+                subscripciones: setSubscripciones, asesorias: setAsesorias, postulaciones: setPostulaciones,
+            };
+            const setter = setters[tabToKey[tab]];
+            if (setter) setter(prev => prev.filter(i => i.id !== id));
+            toast(`"${title}" eliminado`);
+        } catch {
+            toast('Error al eliminar', 'error');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleToggleStatus = async (e: React.MouseEvent, id: string, currentStatus: string) => {
+        e.stopPropagation();
+        const newStatus = currentStatus === 'activo' ? 'borrador' : 'activo';
+        setTogglingId(id);
+        try {
+            await courseService.update(id, { status: newStatus });
+            updateLocalItem(id, { status: newStatus });
+            toast(`Estado cambiado a ${newStatus === 'activo' ? 'Activo' : 'Borrador'}`);
+        } catch {
+            toast('Error al cambiar estado', 'error');
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -395,10 +452,18 @@ export default function CoursesPage() {
                                         <td>
                                             <span style={{ padding: '2px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, background: st.bg, color: st.color }}>{st.label}</span>
                                         </td>
-                                        <td style={{ width: '40px' }} onClick={(e) => e.stopPropagation()}>
-                                            <button onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }} className="btn-icon">
-                                                <Edit size={16} />
-                                            </button>
+                                        <td style={{ width: '100px' }} onClick={(e) => e.stopPropagation()}>
+                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                                <button title={item.status === 'activo' ? 'Desactivar' : 'Activar'} onClick={(e) => handleToggleStatus(e, item.id, item.status)} className="btn-icon" disabled={togglingId === item.id} style={{ color: item.status === 'activo' ? '#16A34A' : 'var(--text-muted)' }}>
+                                                    {item.status === 'activo' ? <Eye size={15} /> : <EyeOff size={15} />}
+                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }} className="btn-icon">
+                                                    <Edit size={15} />
+                                                </button>
+                                                <button title="Eliminar" onClick={(e) => handleDelete(e, item.id, item.title)} className="btn-icon" disabled={deletingId === item.id} style={{ color: deletingId === item.id ? 'var(--text-muted)' : '#EF4444' }}>
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -502,9 +567,17 @@ export default function CoursesPage() {
                                         <span style={{ fontWeight: 700, fontSize: '15px', color: (item.price || item.pricePerHour) ? 'var(--text)' : '#16A34A' }}>
                                             {item.pricePerHour ? `${item.currency || 'USD'} ${item.pricePerHour}/hr` : item.price ? `${item.currency || 'USD'} ${item.price}` : 'Gratis'}
                                         </span>
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: accent }}>
-                                            Ver detalle →
-                                        </span>
+                                        <div style={{ display: 'flex', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                                            <button title={item.status === 'activo' ? 'Desactivar' : 'Activar'} onClick={(e) => handleToggleStatus(e, item.id, item.status)} className="btn-icon" style={{ color: item.status === 'activo' ? '#16A34A' : 'var(--text-muted)' }}>
+                                                {item.status === 'activo' ? <Eye size={14} /> : <EyeOff size={14} />}
+                                            </button>
+                                            <button title="Editar" onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }} className="btn-icon">
+                                                <Edit size={14} />
+                                            </button>
+                                            <button title="Eliminar" onClick={(e) => handleDelete(e, item.id, item.title)} className="btn-icon" style={{ color: '#EF4444' }}>
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <button onClick={(e) => { e.stopPropagation(); navigate(`/courses/edit/${item.id}`); }}

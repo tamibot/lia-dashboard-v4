@@ -454,40 +454,54 @@ async function main() {
     // 11. Create AI Agents
     const agentDefinitions = [
         {
-            name: 'Asistente de Ventas',
+            name: 'LIA Sales',
             role: 'Sales Closer',
-            personality: 'professional' as const,
+            personality: 'enthusiastic' as const,
             avatar: '💼',
-            tone: 'Profesional, consultivo y orientado a resolver dudas de forma empática',
-            systemPrompt: 'Eres un asesor educativo experto del Instituto de Innovación para Arquitectos. Tu objetivo es ayudar a los prospectos a encontrar el curso, programa, taller, asesoría o suscripción ideal para sus necesidades. Usa los datos reales del catálogo para hacer recomendaciones personalizadas.',
+            tone: 'Cálida, entusiasta y orientada al cierre de manera consultiva',
+            systemPrompt: 'Eres LIA, asesora de ventas educativa. Tu objetivo es ayudar a los prospectos a encontrar el programa ideal para sus necesidades y acompañarlos hasta la inscripción. Usa los datos reales del catálogo para hacer recomendaciones personalizadas.',
             expertise: ['ventas consultivas', 'educación', 'manejo de objeciones'],
             isActive: true,
         },
         {
-            name: 'Recolector de Información',
+            name: 'LIA BDR',
             role: 'BDR Agent',
             personality: 'friendly' as const,
             avatar: '📋',
             tone: 'Amigable, curioso y eficiente en recopilar datos del prospecto',
-            systemPrompt: 'Eres un asistente amigable que ayuda a recopilar información de prospectos interesados en cursos, talleres, asesorías y programas de arquitectura con IA.',
+            systemPrompt: 'Eres LIA, una asistente amigable que ayuda a recopilar información de prospectos interesados en la oferta educativa.',
             expertise: ['recopilación de datos', 'clasificación de leads', 'cualificación'],
             isActive: true,
         },
         {
-            name: 'Asistente de Catálogo',
+            name: 'LIA',
             role: 'Catalog Expert',
             personality: 'enthusiastic' as const,
             avatar: '🎓',
-            tone: 'Entusiasta, conocedor y detallado al presentar la oferta educativa',
-            systemPrompt: 'Eres un experto en la oferta educativa del Instituto de Innovación para Arquitectos. Conoces cada curso, programa, webinar, taller, suscripción y asesoría en detalle.',
+            tone: 'Entusiasta, conocedora y detallada al presentar la oferta educativa. Siempre orientada a la solución.',
+            systemPrompt: 'Eres LIA, experta en la oferta educativa de la institución. Conoces cada curso, programa, webinar, taller, suscripción y asesoría en detalle. Ayudas a los prospectos a encontrar la opción perfecta para ellos.',
             expertise: ['catálogo educativo', 'asesoría académica', 'comparación de programas'],
             isActive: true,
         },
     ];
 
+    // Migrate old agent names → new ones before upserting
+    const oldNameMap: Record<string, string> = {
+        'Asistente de Catálogo': 'LIA',
+        'Asistente de Ventas': 'LIA Sales',
+        'Recolector de Información': 'LIA BDR',
+    };
+    for (const [oldName, newName] of Object.entries(oldNameMap)) {
+        const old = await prisma.aiAgent.findFirst({ where: { orgId: org.id, name: oldName } });
+        if (old) {
+            await prisma.aiAgent.update({ where: { id: old.id }, data: { name: newName } });
+            console.log(`✅ Renamed AI Agent: "${oldName}" → "${newName}"`);
+        }
+    }
+
     for (const agentData of agentDefinitions) {
         const existingAgent = await prisma.aiAgent.findFirst({
-            where: { orgId: org.id, name: agentData.name },
+            where: { orgId: org.id, role: agentData.role },
         });
         if (!existingAgent) {
             const agent = await prisma.aiAgent.create({
@@ -495,7 +509,7 @@ async function main() {
             });
             console.log(`✅ AI Agent: ${agent.name} (${agent.role})`);
         } else {
-            console.log(`✅ AI Agent already exists: ${existingAgent.name}`);
+            console.log(`✅ AI Agent already exists: ${existingAgent.name} (${existingAgent.role})`);
         }
     }
 
