@@ -113,7 +113,7 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         if (!tokenResp.ok) {
             const errText = await tokenResp.text();
             console.error('GHL token exchange failed:', errText);
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl?ghl=error&reason=token_exchange`);
+            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=token_exchange`);
             return;
         }
 
@@ -132,14 +132,14 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         // The state parameter carries the orgId (set during auth redirect).
         const orgId = req.query.state as string;
         if (!orgId) {
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl?ghl=error&reason=missing_state`);
+            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=missing_state`);
             return;
         }
 
         // Verify org exists
         const org = await prisma.organization.findUnique({ where: { id: orgId } });
         if (!org) {
-            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl?ghl=error&reason=invalid_org`);
+            res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=invalid_org`);
             return;
         }
 
@@ -171,10 +171,10 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         });
 
         console.log(`GHL connected for org ${orgId} (location: ${tokens.locationId})`);
-        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl?ghl=success`);
+        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=success`);
     } catch (err) {
         console.error('GHL OAuth callback error:', err);
-        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl?ghl=error&reason=server`);
+        res.redirect(`${env.FRONTEND_URL}/settings?tab=ghl&ghl=error&reason=server`);
     }
 });
 
