@@ -111,41 +111,56 @@ router.get('/funnel', async (req: Request, res: Response) => {
 
         const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 
-        // Determine auth token — prefer private key, fall back to OAuth
-        let token = conn.privateApiKey || conn.accessToken;
+        // Determine auth token — prefer OAuth (auto-refreshes), fall back to private key
+        let token: string | null = null;
 
-        // If using OAuth and token is about to expire, try to refresh
-        if (!conn.privateApiKey && conn.expiresAt < new Date(Date.now() + 5 * 60 * 1000)) {
-            try {
-                const { env } = await import('../config/env.js');
-                const refreshResp = await fetch(`${GHL_API_BASE}/oauth/token`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                        client_id: env.GHL_CLIENT_ID,
-                        client_secret: env.GHL_CLIENT_SECRET,
-                        grant_type: 'refresh_token',
-                        refresh_token: conn.refreshToken,
-                        user_type: conn.userType,
-                        redirect_uri: env.GHL_REDIRECT_URI,
-                    }),
-                });
-
-                if (refreshResp.ok) {
-                    const tokens = await refreshResp.json() as any;
-                    await prisma.ghlConnection.update({
-                        where: { orgId },
-                        data: {
-                            accessToken: tokens.access_token,
-                            refreshToken: tokens.refresh_token,
-                            expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-                        },
+        // Try OAuth first (has auto-refresh)
+        if (conn.accessToken) {
+            if (conn.expiresAt < new Date(Date.now() + 5 * 60 * 1000)) {
+                // Token expired or about to expire, try to refresh
+                try {
+                    const { env } = await import('../config/env.js');
+                    const refreshResp = await fetch(`${GHL_API_BASE}/oauth/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            client_id: env.GHL_CLIENT_ID,
+                            client_secret: env.GHL_CLIENT_SECRET,
+                            grant_type: 'refresh_token',
+                            refresh_token: conn.refreshToken,
+                            user_type: conn.userType,
+                            redirect_uri: env.GHL_REDIRECT_URI,
+                        }),
                     });
-                    token = tokens.access_token;
+
+                    if (refreshResp.ok) {
+                        const tokens = await refreshResp.json() as any;
+                        await prisma.ghlConnection.update({
+                            where: { orgId },
+                            data: {
+                                accessToken: tokens.access_token,
+                                refreshToken: tokens.refresh_token,
+                                expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+                            },
+                        });
+                        token = tokens.access_token;
+                    }
+                } catch {
+                    // Refresh failed, will fall back to private key
                 }
-            } catch {
-                // If refresh fails, try with current token anyway
+            } else {
+                token = conn.accessToken;
             }
+        }
+
+        // Fall back to private key if OAuth unavailable
+        if (!token && conn.privateApiKey) {
+            token = conn.privateApiKey;
+        }
+
+        if (!token) {
+            res.json({ connected: true, stages: [], error: 'No valid auth token available' });
+            return;
         }
 
         const headers = {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList, Search, ShoppingCart } from 'lucide-react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList, Search, ShoppingCart, User, Mail, DollarSign, Calendar, Image } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
@@ -159,11 +159,17 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         if (token) {
                             // Extract user info from conversation
                             const userMsgs = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
+                            // Extract name inline
+                            const nameMatch = userMsgs.match(/(?:me llamo|mi nombre es|soy)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i);
+                            const emailMatch = userMsgs.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+                            const phoneMatch = userMsgs.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
                             fetch(`${API_CONFIG.BASE_URL}/contacts/transfer`, {
                                 method: 'POST',
                                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
-                                    name: 'Lead de LIA',
+                                    name: nameMatch?.[1] || 'Lead de LIA',
+                                    email: emailMatch?.[0] || undefined,
+                                    phone: phoneMatch?.[0] || undefined,
                                     courseInterest: courseContext?.title || detectedInterests[0] || null,
                                     advisorId: selectedAdvisor?.id || null,
                                     conversationSummary: `Prospecto interesado en ${detectedInterests[0] || 'el catalogo'}. ${totalInteractions} interacciones. ${userMsgs.slice(0, 200)}`,
@@ -238,6 +244,63 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         }
     }
 
+    // Detect user's name from conversation
+    const detectedName = (() => {
+        const userText = userMessages.map(m => m.content).join('\n');
+        // Common patterns: "Me llamo X", "Soy X", "Mi nombre es X", or short single-word replies after agent asks for name
+        const namePatterns = [
+            /(?:me llamo|mi nombre es|soy)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i,
+            /(?:nombre[:\s]+)([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?)/i,
+        ];
+        for (const pattern of namePatterns) {
+            const match = userText.match(pattern);
+            if (match?.[1]) return match[1].trim();
+        }
+        // Check if user replied with just a name (1-2 words, capitalized) right after agent asked for name
+        for (let i = 1; i < messages.length; i++) {
+            const prev = messages[i - 1];
+            const curr = messages[i];
+            if (prev.role === 'assistant' && curr.role === 'user') {
+                const askingName = /nombre|llamo|gusto|quién|quien/i.test(prev.content);
+                if (askingName) {
+                    const reply = curr.content.trim();
+                    if (/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)?$/.test(reply) && reply.length < 40) {
+                        return reply;
+                    }
+                }
+            }
+        }
+        return null;
+    })();
+
+    // Detect email from user messages
+    const detectedEmail = (() => {
+        const userText = userMessages.map(m => m.content).join(' ');
+        const emailMatch = userText.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+        return emailMatch?.[0] || null;
+    })();
+
+    // Detect phone from user messages
+    const detectedPhone = (() => {
+        const userText = userMessages.map(m => m.content).join(' ');
+        const phoneMatch = userText.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/);
+        return phoneMatch?.[0] || null;
+    })();
+
+    // Detect budget/price interest
+    const detectedBudget = (() => {
+        const userText = userMessages.map(m => m.content).join(' ').toLowerCase();
+        const budgetPatterns = [
+            /presupuesto[:\s]+(?:de\s+)?(?:s\/\.?\s*|usd\s*|\$\s*)?([\d,.]+)/i,
+            /(?:tengo|puedo pagar|mi limite|max(?:imo)?)[:\s]+(?:s\/\.?\s*|usd\s*|\$\s*)?([\d,.]+)/i,
+        ];
+        for (const p of budgetPatterns) {
+            const match = userText.match(p);
+            if (match?.[1]) return match[1];
+        }
+        return null;
+    })();
+
     // Build summary when transferred
     const conversationSummary = status === 'transferred'
         ? `El prospecto mostro interes en ${detectedInterests[0] || 'un producto'}. Se realizaron ${totalInteractions} interacciones antes de ser transferido${assignedAdvisor ? ` al asesor ${assignedAdvisor.name}` : ' a un asesor humano'}.`
@@ -282,6 +345,39 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                     </div>
                 </div>
 
+                {/* Extracted Contact Data */}
+                <div className="p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                        <User size={13} /> Datos Extraídos
+                    </div>
+                    <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 text-xs">
+                            <User size={11} className={detectedName ? 'text-green-500' : 'text-gray-300'} />
+                            <span className={detectedName ? 'text-gray-800 font-medium' : 'text-gray-400 italic'}>
+                                {detectedName || 'Nombre no detectado'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                            <Mail size={11} className={detectedEmail ? 'text-green-500' : 'text-gray-300'} />
+                            <span className={detectedEmail ? 'text-gray-800 font-medium' : 'text-gray-400 italic'}>
+                                {detectedEmail || 'Email no detectado'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                            <Phone size={11} className={detectedPhone ? 'text-green-500' : 'text-gray-300'} />
+                            <span className={detectedPhone ? 'text-gray-800 font-medium' : 'text-gray-400 italic'}>
+                                {detectedPhone || 'Teléfono no detectado'}
+                            </span>
+                        </div>
+                        {detectedBudget && (
+                            <div className="flex items-center gap-2 text-xs">
+                                <DollarSign size={11} className="text-green-500" />
+                                <span className="text-gray-800 font-medium">Presupuesto: {detectedBudget}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Detected Interests */}
                 <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
@@ -299,6 +395,28 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         <p className="text-xs text-gray-400 italic">Aun no detectados</p>
                     )}
                 </div>
+
+                {/* Course Media (show images for detected interests) */}
+                {detectedInterests.length > 0 && fullCatalog?.courses && (() => {
+                    const matchedCourses = fullCatalog.courses.filter((c: any) =>
+                        c.image && detectedInterests.some(interest => c.title === interest)
+                    );
+                    return matchedCourses.length > 0 ? (
+                        <div className="p-4 border-b border-gray-100">
+                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                                <Image size={13} /> Material Visual
+                            </div>
+                            <div className="space-y-2">
+                                {matchedCourses.slice(0, 3).map((course: any) => (
+                                    <div key={course.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                                        <img src={course.image} alt={course.title} className="w-full h-20 object-cover" />
+                                        <p className="text-[10px] text-gray-600 px-2 py-1 truncate">{course.title}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null;
+                })()}
 
                 {/* Conversation Summary (when transferred) */}
                 {conversationSummary && (

@@ -11,14 +11,16 @@ import {
 } from 'lucide-react';
 
 const STAGE_COLORS = [
-    '#3B82F6', // blue - Nuevo Lead
-    '#6366F1', // indigo - Primer Contacto
-    '#8B5CF6', // violet - Calificado
-    '#A855F7', // purple - Presentacion
-    '#EC4899', // pink - Propuesta
-    '#F59E0B', // amber - Negociacion
-    '#10B981', // emerald - Inscrito
-    '#EF4444', // red - Perdido
+    '#6B7280', // gray - BBDD / Nuevo Lead
+    '#3B82F6', // blue - Interesado / Primer Contacto
+    '#0EA5E9', // sky - Informado / Calificado
+    '#F59E0B', // amber - Filtrado / Presentacion
+    '#8B5CF6', // violet - Cualificado / Propuesta
+    '#A855F7', // purple - Negociacion
+    '#10B981', // emerald - Inscrito / Alumno Registrado
+    '#059669', // green - Alumno Activo
+    '#14B8A6', // teal - Extra
+    '#6366F1', // indigo - Extra
 ];
 
 const ORIGIN_COLORS: Record<string, string> = {
@@ -58,6 +60,8 @@ const STAGE_LABELS: Record<string, string> = {
     ganado: 'Ganado',
     perdido: 'Perdido',
     inactivo: 'Inactivo',
+    alumno_registrado: 'Alumno Registrado',
+    alumno_activo: 'Alumno Activo',
 };
 
 function formatCurrency(value: number) {
@@ -72,13 +76,24 @@ function formatWeek(dateStr: string) {
 // Map funnel stage names to contact stage keys for drill-down
 const FUNNEL_STAGE_MAP: Record<string, string> = {
     'nuevo lead': 'nuevo',
+    'bbdd': 'nuevo',
     'primer contacto': 'contactado',
+    'interesado': 'interesado',
     'calificado': 'interesado',
+    'informado': 'contactado',
+    'filtrado': 'propuesta',
     'presentacion realizada': 'propuesta',
     'propuesta enviada': 'propuesta',
+    'cualificado a asesor': 'negociacion',
     'negociacion': 'negociacion',
     'inscrito': 'ganado',
+    'alumno registrado': 'alumno_registrado',
+    'alumno activo': 'alumno_activo',
     'perdido': 'perdido',
+    'descartado': 'perdido',
+    'seguimiento': 'contactado',
+    'asesor manual': 'negociacion',
+    'caso especial': 'inactivo',
 };
 
 export default function KpiReports() {
