@@ -134,7 +134,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const existing = await prisma.webinar.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Webinar not found' }); return; }
-        await prisma.webinar.delete({ where: { id: param(req, 'id') } });
+        await prisma.webinar.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Webinar deleted' });
     } catch (err) {
         console.error('Delete webinar error:', err);

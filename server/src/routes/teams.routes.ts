@@ -125,7 +125,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const existing = await prisma.team.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Team not found' }); return; }
-        await prisma.team.delete({ where: { id: param(req, 'id') } });
+        await prisma.team.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Team deleted' });
     } catch (err) {
         console.error('Delete team error:', err);

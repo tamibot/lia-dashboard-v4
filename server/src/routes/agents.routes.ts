@@ -100,7 +100,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const existing = await prisma.aiAgent.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Agent not found' }); return; }
-        await prisma.aiAgent.delete({ where: { id: param(req, 'id') } });
+        await prisma.aiAgent.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Agent deleted' });
     } catch (err) {
         console.error('Delete agent error:', err);
