@@ -374,7 +374,13 @@ router.get('/ghl/pipelines', async (req: Request, res: Response) => {
             return;
         }
 
-        const data = await ghlFetch(orgId, `/opportunities/pipelines?locationId=${conn.locationId}`);
+        // Prefer private key (more reliable), fall back to OAuth token
+        let data: any;
+        if (conn.privateApiKey) {
+            data = await ghlPrivateFetch(conn.privateApiKey, `/opportunities/pipelines?locationId=${conn.locationId}`);
+        } else {
+            data = await ghlFetch(orgId, `/opportunities/pipelines?locationId=${conn.locationId}`);
+        }
         res.json(data);
     } catch (err: any) {
         console.error('GHL pipelines error:', err);
@@ -523,9 +529,24 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
             { name: 'Notas del Asesor', dataType: 'LARGE_TEXT', placeholder: 'Notas internas sobre el prospecto...' },
         ];
 
+        // Fetch existing fields to skip duplicates
+        let existingFieldNames: string[] = [];
+        try {
+            const existingData = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields?model=contact`);
+            const rawFields = existingData.customFields || existingData.data || [];
+            existingFieldNames = rawFields.map((f: any) => (f.name || '').toLowerCase().trim());
+        } catch {
+            // If we can't fetch, proceed to create all
+        }
+
         const results: { field: string; status: string; id?: string; error?: string }[] = [];
 
         for (const field of fieldsToCreate) {
+            // Skip if field already exists
+            if (existingFieldNames.some(n => n === field.name.toLowerCase().trim())) {
+                results.push({ field: field.name, status: 'exists' });
+                continue;
+            }
             try {
                 const created = await ghlPrivateFetch(apiKey, `/locations/${conn.locationId}/customFields`, {
                     method: 'POST',
@@ -544,10 +565,13 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
         }
 
         const created = results.filter(r => r.status === 'created').length;
+        const existing = results.filter(r => r.status === 'exists').length;
         const errors = results.filter(r => r.status === 'error').length;
 
         res.json({
-            message: `${created} campos creados, ${errors} errores (pueden ya existir)`,
+            message: existing === fieldsToCreate.length
+                ? `Los ${existing} campos ya existen en GHL`
+                : `${created} campos creados, ${existing} ya existian, ${errors} errores`,
             results,
         });
     } catch (err: any) {
@@ -566,8 +590,13 @@ router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
             return;
         }
 
-        const data = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields?model=contact`);
-        // Log response keys for debugging field matching issues
+        // Prefer private key (more reliable), fall back to OAuth token
+        let data: any;
+        if (conn.privateApiKey) {
+            data = await ghlPrivateFetch(conn.privateApiKey, `/locations/${conn.locationId}/customFields?model=contact`);
+        } else {
+            data = await ghlFetch(orgId, `/locations/${conn.locationId}/customFields?model=contact`);
+        }
         console.log('GHL customFields response keys:', Object.keys(data || {}), 'count:', (data?.customFields || data?.data || []).length);
         res.json(data);
     } catch (err: any) {
