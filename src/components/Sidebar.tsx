@@ -1,5 +1,5 @@
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch, User, ListFilter, X, Link2 } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart2, FolderPlus, Settings, Users, Building2, Bot, Globe, GitBranch, User, X, Contact } from 'lucide-react';
 import { useSidebar } from '../context/SidebarContext';
 import { useEffect } from 'react';
 
@@ -89,21 +89,19 @@ export default function Sidebar() {
                     <NavLink to="/crm" className={navClass}>
                         <GitBranch size={16} /> Embudo & Campos
                     </NavLink>
+                    <NavLink to="/kpi" className={navClass}>
+                        <BarChart2 size={16} /> KPIs & Reportes
+                    </NavLink>
+                    <NavLink to="/contacts" className={navClass}>
+                        <Contact size={16} /> Contactos
+                    </NavLink>
                     <NavLink to="/team" className={navClass}>
                         <Users size={16} /> Equipo de Ventas
                     </NavLink>
 
-                    <SectionLabel label="Comercial IA" />
+                    <SectionLabel label="IA" />
                     <NavLink to="/agentes" className={navClass}>
                         <Bot size={16} /> Agente de Venta
-                    </NavLink>
-                    <NavLink to="/filter-questions" className={navClass}>
-                        <ListFilter size={16} /> Preguntas Filtro
-                    </NavLink>
-
-                    <SectionLabel label="Integraciones" />
-                    <NavLink to="/integrations" className={navClass}>
-                        <Link2 size={16} /> GoHighLevel
                     </NavLink>
 
                     <SectionLabel label="Configuracion" />
@@ -111,12 +109,7 @@ export default function Sidebar() {
                         <Building2 size={16} /> Mi Institucion
                     </NavLink>
                     <NavLink to="/settings" className={navClass}>
-                        <Settings size={16} /> API & Sistema
-                    </NavLink>
-
-                    <SectionLabel label="Reportes" />
-                    <NavLink to="/kpi" className={navClass}>
-                        <BarChart2 size={16} /> KPIs & Reportes
+                        <Settings size={16} /> API & Integraciones
                     </NavLink>
 
                     <SectionLabel label="Proximamente" />

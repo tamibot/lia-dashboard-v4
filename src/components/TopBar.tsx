@@ -13,10 +13,9 @@ const PAGE_TITLES: Record<string, string> = {
     '/crm': 'Embudo & Campos',
     '/profile': 'Mi Institución',
     '/team': 'Equipo de Ventas',
-    '/settings': 'API & Sistema',
+    '/settings': 'API & Integraciones',
     '/account': 'Mi Cuenta',
-    '/filter-questions': 'Preguntas Filtro',
-    '/integrations': 'Integraciones',
+    '/contacts': 'Contactos',
     '/kpi': 'KPIs & Reportes',
 };
 
@@ -125,7 +124,7 @@ export default function TopBar() {
                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
                                 >
                                     <Settings size={15} className="text-gray-400" />
-                                    <span className="text-sm font-medium text-gray-700">API & Sistema</span>
+                                    <span className="text-sm font-medium text-gray-700">API & Integraciones</span>
                                 </button>
                             </div>
 

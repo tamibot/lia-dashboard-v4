@@ -1207,7 +1207,19 @@ ${catalogBlock}
 
 ${orgInfo}
 ${courseInfo}
+${courseContext?.filterQuestions?.length ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PREGUNTAS DE CALIFICACION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Estas preguntas sirven para calificar al prospecto. Hazlas de forma natural durante la conversacion, no como un formulario.
+${courseContext.filterQuestions.map((q: any, i: number) => {
+    const reqLabel = q.isRequired ? 'OBLIGATORIA' : 'Opcional';
+    const options = q.type === 'select' && q.options?.length ? ` (opciones: ${q.options.join(', ')})` : '';
+    return `${i + 1}. ${q.question} [${reqLabel}]${options}`;
+}).join('\n')}
 
+REGLA: Las preguntas OBLIGATORIAS deben responderse antes de intentar cerrar la venta. Integralas naturalmente en la conversacion.
+` : ''}
 HISTORIAL:
 ${history.map(h => `${h.role === 'user' ? 'USUARIO' : 'AGENTE'}: ${h.content}`).join('\n')}
 

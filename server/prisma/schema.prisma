@@ -169,6 +169,7 @@ model Course {
   faqs             Faq[]
   generatedContent GeneratedContent[]
   agentCourses     AgentCourse[]
+  filterQuestions  FilterQuestion[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1064,6 +1065,7 @@ model ExtractionField {
 model FilterQuestion {
   id          String  @id @default(uuid())
   orgId       String  @map("org_id")
+  courseId     String? @map("course_id")
   question    String
   fieldKey    String  @map("field_key")
   type        String  @default("text") // text | select | multiselect | radio | yesno
@@ -1074,12 +1076,14 @@ model FilterQuestion {
   sortOrder   Int     @default(0) @map("sort_order")
   placeholder String?
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  course Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([orgId])
+  @@index([courseId])
   @@map("filter_questions")
 }
 

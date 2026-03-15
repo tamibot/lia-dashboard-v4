@@ -42,6 +42,9 @@ async function main() {
         // Remove duplicate team_members unique constraint on user_id if it exists
         `ALTER TABLE "team_members" DROP CONSTRAINT IF EXISTS "team_members_user_id_key"`,
 
+        // === V4: Add courseId to filter_questions ===
+        `ALTER TABLE "filter_questions" ADD COLUMN IF NOT EXISTS "course_id" TEXT`,
+
         // Create team_product_assignments table stub so prisma db push can introspect it
         `CREATE TABLE IF NOT EXISTS "team_product_assignments" (
             "id" TEXT NOT NULL,

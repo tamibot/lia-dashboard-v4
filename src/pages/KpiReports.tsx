@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { kpiService, type KpiOverview, type KpiFunnel } from '../lib/services/kpi.service';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -68,7 +69,20 @@ function formatWeek(dateStr: string) {
     return d.toLocaleDateString('es', { day: '2-digit', month: 'short' });
 }
 
+// Map funnel stage names to contact stage keys for drill-down
+const FUNNEL_STAGE_MAP: Record<string, string> = {
+    'nuevo lead': 'nuevo',
+    'primer contacto': 'contactado',
+    'calificado': 'interesado',
+    'presentacion realizada': 'propuesta',
+    'propuesta enviada': 'propuesta',
+    'negociacion': 'negociacion',
+    'inscrito': 'ganado',
+    'perdido': 'perdido',
+};
+
 export default function KpiReports() {
+    const navigate = useNavigate();
     const [overview, setOverview] = useState<KpiOverview | null>(null);
     const [funnel, setFunnel] = useState<KpiFunnel | null>(null);
     const [loading, setLoading] = useState(true);
@@ -188,8 +202,14 @@ export default function KpiReports() {
 
                     {funnel?.connected && funnel.stages.length > 0 ? (
                         <div className="space-y-2">
-                            {funnel.stages.map((stage, i) => (
-                                <div key={stage.id} className="flex items-center gap-3">
+                            {funnel.stages.map((stage, i) => {
+                                const stageKey = FUNNEL_STAGE_MAP[stage.name.toLowerCase()] || '';
+                                return (
+                                <div
+                                    key={stage.id}
+                                    className={`flex items-center gap-3 ${stageKey ? 'cursor-pointer hover:bg-gray-50 -mx-2 px-2 py-1 rounded-lg transition-colors' : ''}`}
+                                    onClick={() => stageKey && navigate(`/contacts?stage=${stageKey}`)}
+                                >
                                     <div className="w-36 text-right">
                                         <span className="text-xs font-medium text-gray-600 truncate block">
                                             {stage.name}
@@ -214,7 +234,8 @@ export default function KpiReports() {
                                         </span>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : funnel?.connected === false ? (
                         <div className="text-center py-8 text-gray-400">
@@ -266,7 +287,11 @@ export default function KpiReports() {
                                 {overview.byOrigin
                                     .sort((a, b) => b.count - a.count)
                                     .map(o => (
-                                        <div key={o.origin} className="flex items-center justify-between text-xs">
+                                        <div
+                                            key={o.origin}
+                                            className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 -mx-1 px-1 py-0.5 rounded transition-colors"
+                                            onClick={() => navigate(`/contacts?origin=${o.origin}`)}
+                                        >
                                             <div className="flex items-center gap-2">
                                                 <div
                                                     className="w-2.5 h-2.5 rounded-full"
@@ -387,8 +412,14 @@ export default function KpiReports() {
             {/* Recent Contacts Table */}
             {overview && overview.recentContacts.length > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-5 py-3 border-b border-gray-100">
+                    <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                         <h3 className="font-bold text-gray-900 text-sm">Contactos Recientes</h3>
+                        <button
+                            onClick={() => navigate('/contacts')}
+                            className="text-xs text-blue-600 font-semibold hover:underline"
+                        >
+                            Ver todos
+                        </button>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -435,7 +466,7 @@ export default function KpiReports() {
                     <h3 className="font-semibold text-blue-900 mb-1">Conecta GoHighLevel</h3>
                     <p className="text-sm text-blue-700">
                         Para ver el embudo de ventas completo con datos en tiempo real, conecta tu cuenta de GHL en la sección de
-                        <a href="/integrations" className="font-semibold underline ml-1">Integraciones</a>.
+                        <a href="/settings?tab=ghl" className="font-semibold underline ml-1">Integraciones</a>.
                     </p>
                 </div>
             )}

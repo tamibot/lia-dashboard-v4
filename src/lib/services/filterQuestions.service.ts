@@ -18,7 +18,10 @@ export const filterQuestionsService = {
     async getAll() {
         return api.get<FilterQuestion[]>('/filter-questions');
     },
-    async create(data: Omit<FilterQuestion, 'id' | 'createdAt'>) {
+    async getByCourse(courseId: string) {
+        return api.get<FilterQuestion[]>(`/filter-questions/by-course/${courseId}`);
+    },
+    async create(data: Omit<FilterQuestion, 'id' | 'createdAt'> & { courseId?: string }) {
         return api.post<FilterQuestion>('/filter-questions', data);
     },
     async update(id: string, data: Partial<FilterQuestion>) {

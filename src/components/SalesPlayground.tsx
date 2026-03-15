@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download } from 'lucide-react';
+import { Send, X, Phone, CheckCircle, Clock, ThumbsDown, UserCheck, FileText, Download, MessageSquare, Target, BookOpen, ClipboardList } from 'lucide-react';
 import type { AiAgent, OrgProfile } from '../lib/types';
 import { chatWithAgent } from '../lib/gemini';
 import { API_CONFIG } from '../config/api.config';
@@ -75,8 +75,8 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         setMessages([{
             role: 'assistant',
             content: courseContext
-                ? `👋 ¡Hola! Soy **${agent.name}**${fromOrg}. Veo que te interesa **${courseContext.title}** — ¡excelente elección! 🚀 Este programa puede transformar completamente tu carrera. ¿Empezamos?`
-                : `👋 ¡Hola! Soy **${agent.name}**${fromOrg}. Estoy aquí para ayudarte a encontrar el programa perfecto para ti. ¿Qué área quieres dominar? 🎯`
+                ? `Hola, soy **${agent.name}**, tu asesora${fromOrg}. Vimos que tienes interes en **${courseContext.title}**, me encantaria ayudarte con toda la informacion que necesites. ¿En que te puedo ayudar?`
+                : `Hola, soy **${agent.name}**, tu asesora${fromOrg}. Estoy aqui para orientarte y ayudarte a encontrar el programa ideal para ti. ¿Que area te interesa o en que puedo ayudarte?`
         }]);
     }, [agent.name, orgName]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -131,9 +131,127 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
         sendMessage(sim.msg, true, sim.label);
     };
 
+    // ── Info panel data: derived from messages ──
+    const userMessages = messages.filter(m => m.role === 'user');
+    const assistantMessages = messages.filter(m => m.role === 'assistant');
+    const totalInteractions = userMessages.length;
+
+    // Stage detection from assistant messages
+    const detectStage = (): { label: string; color: string } => {
+        if (status === 'transferred') return { label: 'Transferido', color: 'text-amber-700 bg-amber-50' };
+        if (status === 'closed') return { label: 'Cierre', color: 'text-green-700 bg-green-50' };
+        const lastMsgs = assistantMessages.slice(-3).map(m => m.content.toLowerCase()).join(' ');
+        if (lastMsgs.includes('precio') || lastMsgs.includes('costo') || lastMsgs.includes('inversion') || lastMsgs.includes('pago')) {
+            return { label: 'Decision', color: 'text-purple-700 bg-purple-50' };
+        }
+        if (lastMsgs.includes('beneficio') || lastMsgs.includes('incluye') || lastMsgs.includes('programa') || lastMsgs.includes('modulo')) {
+            return { label: 'Consideracion', color: 'text-blue-700 bg-blue-50' };
+        }
+        if (totalInteractions >= 2) return { label: 'Consideracion', color: 'text-blue-700 bg-blue-50' };
+        return { label: 'Descubrimiento', color: 'text-gray-700 bg-gray-50' };
+    };
+    const currentStage = detectStage();
+
+    // Detect interests from conversation
+    const detectedInterests: string[] = [];
+    if (courseContext?.title) detectedInterests.push(courseContext.title);
+    const allText = messages.map(m => m.content).join(' ');
+    if (fullCatalog?.courses) {
+        for (const c of fullCatalog.courses) {
+            if (c.title && allText.includes(c.title) && !detectedInterests.includes(c.title)) {
+                detectedInterests.push(c.title);
+            }
+        }
+    }
+
+    // Build summary when transferred
+    const conversationSummary = status === 'transferred'
+        ? `El prospecto mostro interes en ${detectedInterests[0] || 'un producto'}. Se realizaron ${totalInteractions} interacciones antes de ser transferido a un asesor humano.`
+        : null;
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex justify-end animate-fade-in">
-            <div className="bg-white w-full max-w-2xl h-full shadow-2xl flex flex-col animate-slide-in-right">
+            <div className="bg-white w-full max-w-2xl lg:max-w-5xl h-full shadow-2xl flex animate-slide-in-right">
+
+            {/* Info Panel — right side, hidden on small screens */}
+            <div className="hidden lg:flex flex-col w-[260px] border-l border-gray-200 bg-gray-50/80 overflow-y-auto flex-shrink-0 order-2">
+                <div className="p-4 border-b border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Panel de Seguimiento</h4>
+                </div>
+
+                {/* Interaction Counter */}
+                <div className="p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                        <MessageSquare size={13} /> Interacciones
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{totalInteractions}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{assistantMessages.length} respuestas del agente</p>
+                </div>
+
+                {/* Current Stage */}
+                <div className="p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                        <Target size={13} /> Etapa Actual
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${currentStage.color}`}>
+                        {currentStage.label}
+                    </span>
+                    <div className="mt-2 flex gap-1">
+                        {['Descubrimiento', 'Consideracion', 'Decision', 'Cierre'].map((s, i) => (
+                            <div key={s} className={`h-1.5 flex-1 rounded-full ${
+                                ['Descubrimiento', 'Consideracion', 'Decision', 'Cierre', 'Transferido'].indexOf(currentStage.label) >= i
+                                    ? 'bg-blue-500' : 'bg-gray-200'
+                            }`} title={s} />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Detected Interests */}
+                <div className="p-4 border-b border-gray-100">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                        <BookOpen size={13} /> Intereses Detectados
+                    </div>
+                    {detectedInterests.length > 0 ? (
+                        <div className="space-y-1.5">
+                            {detectedInterests.slice(0, 5).map((interest, i) => (
+                                <div key={i} className="text-xs text-gray-700 bg-white rounded-lg px-2.5 py-1.5 border border-gray-100 line-clamp-1">
+                                    {interest}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs text-gray-400 italic">Aun no detectados</p>
+                    )}
+                </div>
+
+                {/* Conversation Summary (when transferred) */}
+                {conversationSummary && (
+                    <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2">
+                            <ClipboardList size={13} /> Resumen
+                        </div>
+                        <p className="text-xs text-gray-700 leading-relaxed bg-white rounded-lg p-2.5 border border-gray-100">
+                            {conversationSummary}
+                        </p>
+                    </div>
+                )}
+
+                {/* Status indicator */}
+                <div className="p-4 mt-auto">
+                    <div className={`text-[10px] font-semibold px-2 py-1 rounded-full text-center ${
+                        status === 'chatting' ? 'bg-green-100 text-green-700' :
+                        status === 'transferred' ? 'bg-amber-100 text-amber-700' :
+                        'bg-blue-100 text-blue-700'
+                    }`}>
+                        {status === 'chatting' ? 'Conversacion activa' :
+                         status === 'transferred' ? 'Transferido a asesor' :
+                         'Venta cerrada'}
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Chat Panel */}
+            <div className="flex-1 flex flex-col min-w-0 order-1">
 
                 {/* Header */}
                 <div className="px-5 py-4 border-b flex justify-between items-center bg-white sticky top-0 z-10 shadow-sm">
@@ -343,6 +461,7 @@ export default function SalesPlayground({ agent, courseContext, orgProfile, onCl
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

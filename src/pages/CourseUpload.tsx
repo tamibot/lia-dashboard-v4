@@ -10,6 +10,7 @@ import { analyzeRawText, analyzeFileContent, completeField, reviewContent } from
 import { courseService } from '../lib/services/course.service';
 import { useToast } from '../context/ToastContext';
 import type { Attachment, ContactInfo } from '../lib/types';
+import ProductFilterQuestions from '../components/ProductFilterQuestions';
 
 // ─── Field labels for data-collection chips ───────────────────────────
 const FIELD_LABELS: Record<string, string> = {
@@ -1485,6 +1486,14 @@ export default function CourseUpload() {
                                             </div>
                                         </div>
                                     </EditorSection>
+
+                                    {/* Section: Filter Questions (edit mode only) */}
+                                    {id && (
+                                        <ProductFilterQuestions
+                                            courseId={id}
+                                            productType={data.type}
+                                        />
+                                    )}
                                 </div>
                             )}
 

@@ -43,8 +43,11 @@ export default function GhlIntegration() {
     const [showPreview, setShowPreview] = useState(false);
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [settingUpFields, setSettingUpFields] = useState(false);
-    const [privateKey, setPrivateKey] = useState('');
+    const DEMO_PRIVATE_KEY = 'pit-df2d1c7b-eede-4bbb-9c9c-e5f02291c3ee';
+    const [privateKey, setPrivateKey] = useState(DEMO_PRIVATE_KEY);
     const [savingKey, setSavingKey] = useState(false);
+    const [keyValidation, setKeyValidation] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
+    const [keyValidationMsg, setKeyValidationMsg] = useState('');
     const [checklistData, setChecklistData] = useState<{
         stages: string[];
         fields: string[];
@@ -144,12 +147,17 @@ export default function GhlIntegration() {
             return;
         }
         setSavingKey(true);
+        setKeyValidation('validating');
+        setKeyValidationMsg('Validando y guardando...');
         try {
             await integrationsService.savePrivateKey(privateKey.trim());
+            setKeyValidation('success');
+            setKeyValidationMsg('Private API Key guardada y verificada exitosamente');
             toast('Private API Key guardada exitosamente');
-            setPrivateKey('');
             fetchStatus();
         } catch (err: any) {
+            setKeyValidation('error');
+            setKeyValidationMsg(err?.data?.error || 'Error al guardar API key');
             toast(err?.data?.error || 'Error al guardar API key', 'error');
         } finally {
             setSavingKey(false);
@@ -170,7 +178,12 @@ export default function GhlIntegration() {
             ) || pipelines[0];
 
             const stageNames = targetPipeline?.stages?.map((s: any) => s.name) || [];
-            const fieldNames = ((fieldsResp as any).customFields || []).map((f: any) => f.name);
+
+            // Handle multiple GHL response shapes for custom fields
+            const rawFields = (fieldsResp as any).customFields
+                || (fieldsResp as any).data
+                || (Array.isArray(fieldsResp) ? fieldsResp : []);
+            const fieldNames = rawFields.map((f: any) => f.name || f.fieldName || '');
 
             setChecklistData({
                 stages: stageNames,
@@ -207,14 +220,7 @@ export default function GhlIntegration() {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Integracion GoHighLevel</h1>
-                <p className="text-sm text-gray-500 mt-1">
-                    Conecta tu cuenta de GoHighLevel para sincronizar contactos, oportunidades y pipelines.
-                </p>
-            </div>
+        <div className="space-y-6">
 
             {/* Connection Status Card */}
             <div className={`rounded-xl border-2 p-6 ${
@@ -414,24 +420,66 @@ export default function GhlIntegration() {
                                 }
                             </p>
                         </div>
+                        {status.hasPrivateKey && (
+                            <span className="ml-auto text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Configurada</span>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         <input
                             type="password"
                             value={privateKey}
-                            onChange={e => setPrivateKey(e.target.value)}
+                            onChange={e => { setPrivateKey(e.target.value); setKeyValidation('idle'); }}
                             placeholder={status.hasPrivateKey ? 'Ingresa nueva key para actualizar...' : 'pit-xxxxx-xxxx-xxxx...'}
-                            className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
                         />
                         <button
                             onClick={handleSavePrivateKey}
                             disabled={savingKey || !privateKey.trim()}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
+                            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
                         >
-                            {savingKey ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                            Guardar
+                            {savingKey ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                            {savingKey ? 'Validando...' : 'Confirmar'}
                         </button>
                     </div>
+
+                    {/* Validation feedback */}
+                    {keyValidation === 'success' && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+                            <CheckCircle2 size={16} />
+                            {keyValidationMsg}
+                        </div>
+                    )}
+                    {keyValidation === 'error' && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 px-3 py-2 rounded-lg border border-red-200">
+                            <AlertTriangle size={16} />
+                            {keyValidationMsg}
+                        </div>
+                    )}
+
+                    {/* Guide */}
+                    <details className="mt-4">
+                        <summary className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700 py-1">
+                            Como obtener tu Private Integration Key
+                        </summary>
+                        <div className="mt-2 space-y-2 text-xs text-gray-600">
+                            <div className="flex gap-2 items-start">
+                                <span className="w-5 h-5 rounded-full bg-gray-800 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">1</span>
+                                <p>Ve a <strong>Settings &gt; Integrations</strong> en tu cuenta de GoHighLevel</p>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                                <span className="w-5 h-5 rounded-full bg-gray-800 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">2</span>
+                                <p>Busca la seccion <strong>"Private Integrations"</strong> y crea una nueva integracion</p>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                                <span className="w-5 h-5 rounded-full bg-gray-800 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">3</span>
+                                <p>Asigna los permisos necesarios: <strong>Contacts, Custom Fields, Opportunities</strong></p>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                                <span className="w-5 h-5 rounded-full bg-gray-800 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">4</span>
+                                <p>Copia la <strong>API Key (pit-...)</strong> y pegala arriba</p>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             )}
 
@@ -516,7 +564,8 @@ export default function GhlIntegration() {
                                 <div className="space-y-1.5">
                                     {REQUIRED_FIELDS.map(field => {
                                         const found = checklistData.fields.some(
-                                            f => f.toLowerCase().trim() === field.name.toLowerCase().trim()
+                                            f => f.toLowerCase().trim().includes(field.name.toLowerCase().trim())
+                                                || field.name.toLowerCase().trim().includes(f.toLowerCase().trim())
                                         );
                                         return (
                                             <div key={field.key} className="flex items-center gap-2 text-sm">
@@ -537,7 +586,10 @@ export default function GhlIntegration() {
                                 </div>
                                 {(() => {
                                     const matched = REQUIRED_FIELDS.filter(field =>
-                                        checklistData.fields.some(f => f.toLowerCase().trim() === field.name.toLowerCase().trim())
+                                        checklistData.fields.some(f =>
+                                            f.toLowerCase().trim().includes(field.name.toLowerCase().trim())
+                                            || field.name.toLowerCase().trim().includes(f.toLowerCase().trim())
+                                        )
                                     ).length;
                                     const allGood = matched === REQUIRED_FIELDS.length;
                                     return (

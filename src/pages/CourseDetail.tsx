@@ -13,6 +13,8 @@ import {
     ArrowLeft, Sparkles, Loader, Send, Copy, Check, Download,
     Clock, Users, Tag, DollarSign, MapPin, Award, ChevronDown, ChevronRight, RefreshCw, Edit, Play, Book, AlertTriangle
 } from 'lucide-react';
+import ProductFilterQuestions from '../components/ProductFilterQuestions';
+import { filterQuestionsService } from '../lib/services/filterQuestions.service';
 import SalesPlayground from '../components/SalesPlayground';
 import type { AiAgent, ContactInfo, Attachment } from '../lib/types';
 
@@ -83,6 +85,7 @@ export default function CourseDetailPage() {
     const [showSalesTest, setShowSalesTest] = useState(false);
     const [salesAgent, setSalesAgent] = useState<AiAgent | null>(null);
     const [activeTab, setActiveTab] = useState<'info' | 'ai'>('info');
+    const [filterQuestions, setFilterQuestions] = useState<any[]>([]);
 
     // Fetch Data
     useEffect(() => {
@@ -102,6 +105,8 @@ export default function CourseDetailPage() {
                     setItem(itemData);
                     setProfile(profileData);
                     setFetchStatus('success');
+                    // Load filter questions for this product
+                    filterQuestionsService.getByCourse(id).then(fqs => setFilterQuestions(fqs)).catch(() => {});
                 } else {
                     setFetchStatus('not_found');
                 }
@@ -678,6 +683,17 @@ export default function CourseDetailPage() {
                         </div>
                     )}
 
+                    {/* Filter Questions (read-only) */}
+                    {id && (
+                        <div className="mb-6">
+                            <ProductFilterQuestions
+                                courseId={id}
+                                productType={item?.type || 'curso'}
+                                readOnly
+                            />
+                        </div>
+                    )}
+
                     {/* Contact Info */}
                     {contactInfo && (contactInfo.email || contactInfo.phone || contactInfo.whatsapp) && (
                         <div className="card" style={{ padding: '16px', marginBottom: '20px', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
@@ -930,7 +946,7 @@ export default function CourseDetailPage() {
                         tone: 'Cálida, usa emojis frecuentemente, tutea siempre, muy persuasiva y directa al cierre.',
                         systemPrompt: '',
                     } as AiAgent}
-                    courseContext={item}
+                    courseContext={{ ...item, filterQuestions }}
                     orgProfile={profile}
                     onClose={() => setShowSalesTest(false)}
                 />

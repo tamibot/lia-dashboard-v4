@@ -12,9 +12,8 @@ import TeamManagement from './pages/TeamManagement';
 import Account from './pages/Account';
 import CRM from './pages/CRM';
 import AiAgentsPage from './pages/AiAgentsPage';
-import FilterQuestions from './pages/FilterQuestions';
-import GhlIntegration from './pages/GhlIntegration';
 import KpiReports from './pages/KpiReports';
+import Contacts from './pages/Contacts';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SidebarProvider } from './context/SidebarContext';
@@ -59,10 +58,10 @@ export default function App() {
             <Route path="/courses/edit/:id" element={<CourseUpload />} />
             <Route path="/courses/detail/:type/:id" element={<CourseDetail />} />
             <Route path="/crm" element={<CRM />} />
-            <Route path="/filter-questions" element={<FilterQuestions />} />
+            <Route path="/contacts" element={<Contacts />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/team" element={<TeamManagement />} />
-            <Route path="/integrations" element={<GhlIntegration />} />
+            <Route path="/integrations" element={<Navigate to="/settings?tab=ghl" replace />} />
             <Route path="/kpi" element={<KpiReports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/account" element={<Account />} />
