@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 router.use(authenticate);
@@ -12,7 +10,7 @@ router.use(authenticate);
 router.get('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const questions = await prisma.filterQuestion.findMany({
+        const questions = await db.filterQuestion.findMany({
             where: { orgId },
             orderBy: [{ productType: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
         });
@@ -28,7 +26,7 @@ router.get('/by-course/:courseId', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const courseId = req.params.courseId as string;
-        const questions = await prisma.filterQuestion.findMany({
+        const questions = await db.filterQuestion.findMany({
             where: { orgId, courseId },
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         });
@@ -44,7 +42,7 @@ router.post('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const { question, fieldKey, type, options, isRequired, isActive, productType, sortOrder, placeholder, courseId } = req.body;
-        const q = await prisma.filterQuestion.create({
+        const q = await db.filterQuestion.create({
             data: {
                 orgId,
                 question,
@@ -71,12 +69,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const id = req.params.id as string;
-        const existing = await prisma.filterQuestion.findFirst({ where: { id, orgId } });
+        const existing = await db.filterQuestion.findFirst({ where: { id, orgId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
 
         const { question, fieldKey, type, options, isRequired, isActive, productType, sortOrder, placeholder, courseId } = req.body;
-        const q = await prisma.filterQuestion.update({
-            where: { id },
+        const q = await db.filterQuestion.update({
+            where: { id, orgId },
             data: {
                 ...(question !== undefined && { question }),
                 ...(fieldKey !== undefined && { fieldKey }),
@@ -102,9 +100,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const id = req.params.id as string;
-        const existing = await prisma.filterQuestion.findFirst({ where: { id, orgId } });
+        const existing = await db.filterQuestion.findFirst({ where: { id, orgId } });
         if (!existing) return res.status(404).json({ error: 'Not found' });
-        await prisma.filterQuestion.delete({ where: { id } });
+        await db.filterQuestion.delete({ where: { id, orgId } });
         res.json({ success: true });
     } catch (err) {
         console.error('Delete filter question error:', err);

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import rateLimit from 'express-rate-limit';
 import { env } from './config/env.js';
 
 // Route imports
@@ -56,10 +57,29 @@ app.get('/api/health', (_req, res) => {
     });
 });
 
+// ===== Rate Limiting =====
+// Strict limit on public endpoints (unauthenticated, used by external agents)
+const publicRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60,             // 60 req/min per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+});
+// General limit for authenticated API routes
+const apiRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+});
+
 // ===== Public API Routes (no auth, for n8n agents & external integrations) =====
-app.use('/api/public', publicRoutes);
+app.use('/api/public', publicRateLimit, publicRoutes);
 
 // ===== Authenticated API Routes =====
+app.use('/api/auth', apiRateLimit);
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/programs', programsRoutes);

@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { PrismaClient, Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { generateCode } from '../utils/codeGenerator.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 // ── Per-model allowed fields (prevents Prisma crash from unknown fields) ──
@@ -130,44 +129,44 @@ router.get('/', async (req: Request, res: Response) => {
 
         switch (type) {
             case 'programa':
-                return res.json(await prisma.program.findMany({
+                return res.json(await db.program.findMany({
                     where,
                     include: { programCourses: { orderBy: { sortOrder: 'asc' } }, attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'webinar':
-                return res.json(await prisma.webinar.findMany({
+                return res.json(await db.webinar.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'taller':
-                return res.json(await prisma.taller.findMany({
+                return res.json(await db.taller.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'subscripcion':
-                return res.json(await prisma.subscription.findMany({
+                return res.json(await db.subscription.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'asesoria':
-                return res.json(await prisma.asesoria.findMany({
+                return res.json(await db.asesoria.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'postulacion':
-                return res.json(await prisma.application.findMany({
+                return res.json(await db.application.findMany({
                     where,
                     include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
                 }));
             case 'curso':
             default:
-                return res.json(await prisma.course.findMany({
+                return res.json(await db.course.findMany({
                     where,
                     include: { syllabusModules: { orderBy: { sortOrder: 'asc' } }, attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
                     orderBy: { updatedAt: 'desc' },
@@ -190,26 +189,26 @@ router.get('/:id', async (req: Request, res: Response) => {
 
         switch (type) {
             case 'programa':
-                const program = await prisma.program.findFirst({ where: { id, orgId }, include: { ...include, programCourses: { orderBy: { sortOrder: 'asc' } } } });
+                const program = await db.program.findFirst({ where: { id, orgId }, include: { ...include, programCourses: { orderBy: { sortOrder: 'asc' } } } });
                 return program ? res.json({ ...program, type: 'programa' }) : res.status(404).json({ error: 'Program not found' });
             case 'webinar':
-                const webinar = await prisma.webinar.findFirst({ where: { id, orgId }, include });
+                const webinar = await db.webinar.findFirst({ where: { id, orgId }, include });
                 return webinar ? res.json({ ...webinar, type: 'webinar' }) : res.status(404).json({ error: 'Webinar not found' });
             case 'taller':
-                const taller = await prisma.taller.findFirst({ where: { id, orgId }, include });
+                const taller = await db.taller.findFirst({ where: { id, orgId }, include });
                 return taller ? res.json({ ...taller, type: 'taller' }) : res.status(404).json({ error: 'Taller not found' });
             case 'subscripcion':
-                const subscription = await prisma.subscription.findFirst({ where: { id, orgId }, include });
+                const subscription = await db.subscription.findFirst({ where: { id, orgId }, include });
                 return subscription ? res.json({ ...subscription, type: 'subscripcion' }) : res.status(404).json({ error: 'Subscription not found' });
             case 'asesoria':
-                const asesoria = await prisma.asesoria.findFirst({ where: { id, orgId }, include });
+                const asesoria = await db.asesoria.findFirst({ where: { id, orgId }, include });
                 return asesoria ? res.json({ ...asesoria, type: 'asesoria' }) : res.status(404).json({ error: 'Asesoria not found' });
             case 'postulacion':
-                const application = await prisma.application.findFirst({ where: { id, orgId }, include });
+                const application = await db.application.findFirst({ where: { id, orgId }, include });
                 return application ? res.json({ ...application, type: 'postulacion' }) : res.status(404).json({ error: 'Application not found' });
             case 'curso':
             default:
-                const course = await prisma.course.findFirst({ where: { id, orgId }, include: { ...include, syllabusModules: { orderBy: { sortOrder: 'asc' } }, team: true } });
+                const course = await db.course.findFirst({ where: { id, orgId }, include: { ...include, syllabusModules: { orderBy: { sortOrder: 'asc' } }, team: true } });
                 return course ? res.json({ ...course, type: 'curso' }) : res.status(404).json({ error: 'Course not found' });
         }
     } catch (err) {
@@ -230,7 +229,7 @@ router.post('/', async (req: Request, res: Response) => {
         const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
 
-        const count = await (prisma[modelName as keyof PrismaClient] as any).count({ where: { orgId } });
+        const count = await (db[modelName as keyof PrismaClient] as any).count({ where: { orgId } });
         const code = data.code || generateCode(prefix, data.category || '', count);
 
         // Filter fields to only those valid for this model (prevents Prisma crash)
@@ -338,22 +337,22 @@ router.post('/', async (req: Request, res: Response) => {
 
         let result;
         if (type === 'programa') {
-            result = await prisma.program.create({
+            result = await db.program.create({
                 data: { ...commonData, programCourses: courses?.length ? { create: courses } : undefined } as any,
                 include: { programCourses: true, attachments: true, faqs: true }
             });
         } else if (type === 'webinar') {
-            result = await prisma.webinar.create({ data: commonData as any, include: { attachments: true, faqs: true } });
+            result = await db.webinar.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else if (type === 'taller') {
-            result = await prisma.taller.create({ data: commonData as any, include: { attachments: true, faqs: true } });
+            result = await db.taller.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else if (type === 'subscripcion') {
-            result = await prisma.subscription.create({ data: commonData as any, include: { attachments: true, faqs: true } });
+            result = await db.subscription.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else if (type === 'asesoria') {
-            result = await prisma.asesoria.create({ data: commonData as any, include: { attachments: true, faqs: true } });
+            result = await db.asesoria.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else if (type === 'postulacion') {
-            result = await prisma.application.create({ data: commonData as any, include: { attachments: true, faqs: true } });
+            result = await db.application.create({ data: commonData as any, include: { attachments: true, faqs: true } });
         } else {
-            result = await prisma.course.create({
+            result = await db.course.create({
                 data: { ...commonData, syllabusModules: syllabus?.length ? { create: syllabus.map(({ id, ...m }: any) => m) } : undefined } as any,
                 include: { syllabusModules: true, attachments: true, faqs: true }
             });
@@ -375,12 +374,12 @@ router.put('/:id', async (req: Request, res: Response) => {
 
         const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
-        const prismaModel = prisma[modelName as keyof PrismaClient] as any;
+        const dbModel = db[modelName as keyof PrismaClient] as any;
 
-        const existing = await prismaModel.findFirst({ where: { id, orgId } });
+        const existing = await dbModel.findFirst({ where: { id, orgId } });
         if (!existing) return res.status(404).json({ error: 'Item not found' });
 
-        const result = await prisma.$transaction(async (tx: any) => {
+        const result = await db.$transaction(async (tx: any) => {
             const txModel = tx[modelName];
 
             if (syllabus && modelName === 'course') {
@@ -451,12 +450,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
         const modelMap: any = { curso: 'course', programa: 'program', webinar: 'webinar', taller: 'taller', subscripcion: 'subscription', asesoria: 'asesoria', postulacion: 'application' };
         const modelName = modelMap[type] || 'course';
-        const prismaModel = prisma[modelName as keyof PrismaClient] as any;
+        const dbModel = db[modelName as keyof PrismaClient] as any;
 
-        const existing = await prismaModel.findFirst({ where: { id, orgId } });
+        const existing = await dbModel.findFirst({ where: { id, orgId } });
         if (!existing) return res.status(404).json({ error: 'Item not found' });
 
-        await prismaModel.delete({ where: { id, orgId } });
+        await dbModel.delete({ where: { id, orgId } });
         res.json({ message: 'Deleted successfully' });
     } catch (err) {
         console.error('Delete course error:', err);

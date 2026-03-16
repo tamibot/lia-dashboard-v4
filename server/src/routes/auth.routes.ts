@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
 import { signToken } from '../utils/jwt.js';
 import { authenticate } from '../middleware/auth.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 // POST /api/auth/register
@@ -19,7 +17,7 @@ router.post('/register', async (req: Request, res: Response) => {
         }
 
         // Check if user exists
-        const existing = await prisma.user.findUnique({ where: { email } });
+        const existing = await db.user.findUnique({ where: { email } });
         if (existing) {
             res.status(409).json({ error: 'Email already registered' });
             return;
@@ -29,7 +27,7 @@ router.post('/register', async (req: Request, res: Response) => {
         const passwordHash = await bcrypt.hash(password, 12);
 
         // Create org + user in transaction
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await db.$transaction(async (tx) => {
             // Create or find organization
             const slug = (orgName || name).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50);
 
@@ -94,7 +92,7 @@ router.post('/login', async (req: Request, res: Response) => {
             return;
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await db.user.findUnique({
             where: { email },
             include: { org: { select: { id: true, name: true, slug: true } } },
         });
@@ -111,7 +109,7 @@ router.post('/login', async (req: Request, res: Response) => {
         }
 
         // Update last login
-        await prisma.user.update({
+        await db.user.update({
             where: { id: user.id },
             data: { lastLogin: new Date() },
         });
@@ -144,7 +142,7 @@ router.post('/login', async (req: Request, res: Response) => {
 // GET /api/auth/me
 router.get('/me', authenticate, async (req: Request, res: Response) => {
     try {
-        const user = await prisma.user.findUnique({
+        const user = await db.user.findUnique({
             where: { id: req.user!.userId },
             include: { org: true },
         });
@@ -181,7 +179,7 @@ router.put('/account', authenticate, async (req: Request, res: Response) => {
         const userId = req.user!.userId;
         const { name, phone } = req.body;
 
-        const updated = await prisma.user.update({
+        const updated = await db.user.update({
             where: { id: userId },
             data: {
                 ...(name !== undefined && { name }),
@@ -218,7 +216,7 @@ router.put('/password', authenticate, async (req: Request, res: Response) => {
             return;
         }
 
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await db.user.findUnique({ where: { id: userId } });
         if (!user) {
             res.status(404).json({ error: 'User not found' });
             return;
@@ -231,7 +229,7 @@ router.put('/password', authenticate, async (req: Request, res: Response) => {
         }
 
         const passwordHash = await bcrypt.hash(newPassword, 12);
-        await prisma.user.update({
+        await db.user.update({
             where: { id: userId },
             data: { passwordHash },
         });

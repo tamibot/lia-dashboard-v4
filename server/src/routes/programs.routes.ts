@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { generateCode } from '../utils/codeGenerator.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
@@ -17,7 +16,7 @@ router.get('/', async (req: Request, res: Response) => {
         const where: any = { orgId };
         if (status) where.status = status;
 
-        const programs = await prisma.program.findMany({
+        const programs = await db.program.findMany({
             where,
             include: {
                 programCourses: { orderBy: { sortOrder: 'asc' } },
@@ -37,7 +36,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/programs/:id
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const program = await prisma.program.findFirst({
+        const program = await db.program.findFirst({
             where: { id: param(req, 'id'), orgId: req.user!.orgId },
             include: {
                 programCourses: { orderBy: { sortOrder: 'asc' } },
@@ -59,10 +58,10 @@ router.post('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const { courses: programCourses, attachments, faqs, ...data } = req.body;
-        const count = await prisma.program.count({ where: { orgId } });
+        const count = await db.program.count({ where: { orgId } });
         const code = generateCode('PRG', data.category || '', count);
 
-        const program = await prisma.program.create({
+        const program = await db.program.create({
             data: {
                 ...data,
                 orgId,
@@ -117,10 +116,10 @@ router.put('/:id', async (req: Request, res: Response) => {
         const id = param(req, 'id');
         const { courses: programCourses, attachments, faqs, ...data } = req.body;
 
-        const existing = await prisma.program.findFirst({ where: { id, orgId } });
+        const existing = await db.program.findFirst({ where: { id, orgId } });
         if (!existing) { res.status(404).json({ error: 'Program not found' }); return; }
 
-        const program = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const program = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             if (programCourses) {
                 await tx.programCourse.deleteMany({ where: { programId: id } });
                 await tx.programCourse.createMany({
@@ -164,9 +163,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/programs/:id
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        const existing = await prisma.program.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        const existing = await db.program.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Program not found' }); return; }
-        await prisma.program.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        await db.program.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Program deleted' });
     } catch (err) {
         console.error('Delete program error:', err);

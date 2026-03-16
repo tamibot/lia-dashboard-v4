@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { generateCode } from '../utils/codeGenerator.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
@@ -17,7 +16,7 @@ router.get('/', async (req: Request, res: Response) => {
         const where: any = { orgId };
         if (status) where.status = status;
 
-        const webinars = await prisma.webinar.findMany({
+        const webinars = await db.webinar.findMany({
             where,
             include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } } },
             orderBy: { updatedAt: 'desc' },
@@ -32,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/webinars/:id
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const webinar = await prisma.webinar.findFirst({
+        const webinar = await db.webinar.findFirst({
             where: { id: param(req, 'id'), orgId: req.user!.orgId },
             include: { attachments: true, faqs: { orderBy: { sortOrder: 'asc' } }, team: true },
         });
@@ -49,10 +48,10 @@ router.post('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const { attachments, faqs, ...data } = req.body;
-        const count = await prisma.webinar.count({ where: { orgId } });
+        const count = await db.webinar.count({ where: { orgId } });
         const code = generateCode('WBN', data.category || '', count);
 
-        const webinar = await prisma.webinar.create({
+        const webinar = await db.webinar.create({
             data: {
                 ...data, orgId, code,
                 price: data.price || 0,
@@ -95,10 +94,10 @@ router.put('/:id', async (req: Request, res: Response) => {
         const id = param(req, 'id');
         const { attachments, faqs, ...data } = req.body;
 
-        const existing = await prisma.webinar.findFirst({ where: { id, orgId } });
+        const existing = await db.webinar.findFirst({ where: { id, orgId } });
         if (!existing) { res.status(404).json({ error: 'Webinar not found' }); return; }
 
-        const webinar = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const webinar = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             if (attachments) {
                 await tx.attachment.deleteMany({ where: { webinarId: id } });
                 await tx.attachment.createMany({
@@ -132,9 +131,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/webinars/:id
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        const existing = await prisma.webinar.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        const existing = await db.webinar.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Webinar not found' }); return; }
-        await prisma.webinar.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        await db.webinar.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Webinar deleted' });
     } catch (err) {
         console.error('Delete webinar error:', err);

@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
@@ -56,8 +54,8 @@ router.get('/', async (req: Request, res: Response) => {
         }
 
         const [contacts, total] = await Promise.all([
-            prisma.contact.findMany(findArgs),
-            prisma.contact.count({ where }),
+            db.contact.findMany(findArgs),
+            db.contact.count({ where }),
         ]);
 
         const nextCursor = contacts.length === take
@@ -77,7 +75,7 @@ router.get('/export', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const where = buildContactWhere(orgId, req.query);
 
-        const contacts = await prisma.contact.findMany({
+        const contacts = await db.contact.findMany({
             where,
             orderBy: { createdAt: 'desc' },
         });
@@ -125,12 +123,12 @@ router.get('/export', async (req: Request, res: Response) => {
 router.get('/stats', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const stats = await prisma.contact.groupBy({
+        const stats = await db.contact.groupBy({
             by: ['stage'],
             where: { orgId, isActive: true },
             _count: { id: true },
         });
-        const total = await prisma.contact.count({ where: { orgId, isActive: true } });
+        const total = await db.contact.count({ where: { orgId, isActive: true } });
         res.json({ stages: stats, total });
     } catch (err) {
         console.error('Contact stats error:', err);
@@ -141,7 +139,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 // GET /api/contacts/:id
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const contact = await prisma.contact.findFirst({
+        const contact = await db.contact.findFirst({
             where: { id: param(req, 'id'), orgId: req.user!.orgId },
         });
         if (!contact) { res.status(404).json({ error: 'Contact not found' }); return; }
@@ -157,7 +155,7 @@ router.post('/', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
         const data = req.body;
-        const contact = await prisma.contact.create({
+        const contact = await db.contact.create({
             data: {
                 orgId,
                 name: data.name,
@@ -204,7 +202,7 @@ router.post('/ghl-sync', async (req: Request, res: Response) => {
 
         const results = await Promise.allSettled(
             contacts.map(c =>
-                prisma.contact.upsert({
+                db.contact.upsert({
                     where: { ghlContactId: c.id || c.ghlContactId },
                     update: {
                         name: c.name || c.fullName,
@@ -252,11 +250,11 @@ router.put('/:id', async (req: Request, res: Response) => {
     try {
         const id = param(req, 'id');
         const orgId = req.user!.orgId;
-        const existing = await prisma.contact.findFirst({ where: { id, orgId } });
+        const existing = await db.contact.findFirst({ where: { id, orgId } });
         if (!existing) { res.status(404).json({ error: 'Contact not found' }); return; }
 
         const { orgId: _o, id: _i, createdAt: _c, ...data } = req.body;
-        const contact = await prisma.contact.update({ where: { id }, data });
+        const contact = await db.contact.update({ where: { id, orgId }, data });
         res.json(contact);
     } catch (err) {
         console.error('Update contact error:', err);
@@ -269,10 +267,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
     try {
         const id = param(req, 'id');
         const orgId = req.user!.orgId;
-        const existing = await prisma.contact.findFirst({ where: { id, orgId } });
+        const existing = await db.contact.findFirst({ where: { id, orgId } });
         if (!existing) { res.status(404).json({ error: 'Contact not found' }); return; }
 
-        await prisma.contact.update({ where: { id }, data: { isActive: false } });
+        await db.contact.update({ where: { id, orgId }, data: { isActive: false } });
         res.json({ message: 'Contact deactivated' });
     } catch (err) {
         console.error('Delete contact error:', err);
@@ -286,16 +284,16 @@ router.post('/auto-assign/:id', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const contactId = param(req, 'id');
 
-        const contact = await prisma.contact.findFirst({ where: { id: contactId, orgId } });
+        const contact = await db.contact.findFirst({ where: { id: contactId, orgId } });
         if (!contact) { res.status(404).json({ error: 'Contact not found' }); return; }
 
         // Get all active team members through the org's teams
-        const teams = await prisma.team.findMany({
+        const teams = await db.team.findMany({
             where: { orgId },
             select: { id: true },
         });
         const teamIds = teams.map(t => t.id);
-        const teamMembers = await prisma.teamMember.findMany({
+        const teamMembers = await db.teamMember.findMany({
             where: { teamId: { in: teamIds }, isAvailable: true },
         });
 
@@ -309,7 +307,7 @@ router.post('/auto-assign/:id', async (req: Request, res: Response) => {
         const pool = available.length > 0 ? available : teamMembers;
 
         // Round-robin: count contacts per advisor using raw SQL, assign to least loaded
-        const assignmentCounts = await prisma.$queryRaw<{ assigned_to: string; cnt: bigint }[]>`
+        const assignmentCounts = await db.$queryRaw<{ assigned_to: string; cnt: bigint }[]>`
             SELECT assigned_to, COUNT(*) as cnt FROM contacts
             WHERE org_id = ${orgId} AND is_active = true AND assigned_to IS NOT NULL
             GROUP BY assigned_to
@@ -332,12 +330,12 @@ router.post('/auto-assign/:id', async (req: Request, res: Response) => {
         }
 
         // Assign the contact
-        const updated = await prisma.$executeRaw`
+        const updated = await db.$executeRaw`
             UPDATE contacts SET assigned_to = ${selectedMember.id},
             stage = ${contact.stage === 'nuevo' ? 'contactado' : contact.stage}
             WHERE id = ${contactId}
         `;
-        const updatedContact = await prisma.contact.findUnique({ where: { id: contactId } });
+        const updatedContact = await db.contact.findUnique({ where: { id: contactId } });
 
         res.json({
             contact: updatedContact,
@@ -365,7 +363,7 @@ router.post('/transfer', async (req: Request, res: Response) => {
             ? `[Transferencia LIA] ${conversationSummary}${notes ? '\n\n' + notes : ''}`
             : notes || null;
 
-        const contact = await prisma.contact.create({
+        const contact = await db.contact.create({
             data: {
                 orgId,
                 name: name || 'Lead de LIA',
@@ -381,13 +379,13 @@ router.post('/transfer', async (req: Request, res: Response) => {
 
         // Assign advisor via raw SQL (assignedTo field added via migration)
         if (advisorId) {
-            await prisma.$executeRaw`UPDATE contacts SET assigned_to = ${advisorId} WHERE id = ${contact.id}`;
+            await db.$executeRaw`UPDATE contacts SET assigned_to = ${advisorId} WHERE id = ${contact.id}`;
         }
 
         // If advisor is assigned, try to notify via webhook (if GHL is connected)
         if (advisorId) {
             try {
-                const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+                const conn = await db.ghlConnection.findUnique({ where: { orgId } });
                 if (conn?.isActive && conn.locationId) {
                     const token = conn.privateApiKey || conn.accessToken;
                     const GHL_API = 'https://services.leadconnectorhq.com';

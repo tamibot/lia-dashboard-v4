@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { env } from '../config/env.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
@@ -26,7 +24,7 @@ router.post('/ask', async (req: Request, res: Response) => {
         // Get API key: org-specific first, then central fallback
         let apiKey: string | null = null;
 
-        const orgKey = await prisma.apiKey.findUnique({
+        const orgKey = await db.apiKey.findUnique({
             where: { orgId_provider: { orgId: req.user!.orgId, provider } },
         });
 
@@ -65,7 +63,7 @@ router.post('/keys', async (req: Request, res: Response) => {
             return;
         }
 
-        const apiKey = await prisma.apiKey.upsert({
+        const apiKey = await db.apiKey.upsert({
             where: { orgId_provider: { orgId: req.user!.orgId, provider } },
             update: { encryptedKey: key }, // In production, encrypt this
             create: { orgId: req.user!.orgId, provider, encryptedKey: key },
@@ -82,7 +80,7 @@ router.post('/keys', async (req: Request, res: Response) => {
 router.delete('/keys/:provider', async (req: Request, res: Response) => {
     try {
         const provider = param(req, 'provider') as 'gemini' | 'openai';
-        await prisma.apiKey.deleteMany({
+        await db.apiKey.deleteMany({
             where: { orgId: req.user!.orgId, provider },
         });
         res.json({ message: 'API key removed' });

@@ -1,16 +1,14 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
 // GET /api/profile - Get org profile
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const org = await prisma.organization.findUnique({
+        const org = await db.organization.findUnique({
             where: { id: req.user!.orgId },
         });
         if (!org) { res.status(404).json({ error: 'Organization not found' }); return; }
@@ -43,7 +41,7 @@ router.put('/', async (req: Request, res: Response) => {
             }
         }
 
-        const org = await prisma.organization.update({
+        const org = await db.organization.update({
             where: { id: req.user!.orgId },
             data,
         });

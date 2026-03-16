@@ -6,7 +6,7 @@ import type { AiAgent, OrgProfile } from './types';
 // === Gemini Client ===
 let genAI: GoogleGenAI | null = null;
 let currentApiKey: string | null = null;
-const DEFAULT_GEMINI_KEY = '';
+const DEFAULT_GEMINI_KEY = 'AIzaSyAIs0JPwtbhEE34-ByvKxDZ2PgAVGU1EhI';
 
 /**
  * Gemini model fallback chain — ordered by availability and free tier limits:

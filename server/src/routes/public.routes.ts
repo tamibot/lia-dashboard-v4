@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 /**
@@ -16,20 +14,26 @@ const router = Router();
 
 // Middleware: resolve org by slug
 router.use('/:orgSlug', async (req: Request, res: Response, next) => {
-    const orgSlug = param(req, 'orgSlug');
-    const org = await prisma.organization.findUnique({
-        where: { slug: orgSlug },
-        select: { id: true, name: true, slug: true },
-    });
-
-    if (!org) {
-        res.status(404).json({ error: 'Organization not found' });
-        return;
+    try {
+        const orgSlug = param(req, 'orgSlug');
+        if (!orgSlug || orgSlug.length > 100) {
+            res.status(400).json({ error: 'Invalid org slug' });
+            return;
+        }
+        const org = await db.organization.findUnique({
+            where: { slug: orgSlug },
+            select: { id: true, name: true, slug: true },
+        });
+        if (!org) {
+            res.status(404).json({ error: 'Organization not found' });
+            return;
+        }
+        (req as any).org = org;
+        next();
+    } catch (err) {
+        console.error('Public middleware error:', err);
+        res.status(500).json({ error: 'Server error' });
     }
-
-    // Attach org to request for downstream routes
-    (req as any).org = org;
-    next();
 });
 
 // GET /api/public/:orgSlug/catalog
@@ -39,7 +43,7 @@ router.get('/:orgSlug/catalog', async (req: Request, res: Response) => {
         const orgId = (req as any).org.id;
 
         const [courses, programs, webinars] = await Promise.all([
-            prisma.course.findMany({
+            db.course.findMany({
                 where: { orgId, status: 'activo' },
                 include: {
                     syllabusModules: { orderBy: { sortOrder: 'asc' } },
@@ -47,7 +51,7 @@ router.get('/:orgSlug/catalog', async (req: Request, res: Response) => {
                 },
                 orderBy: { title: 'asc' },
             }),
-            prisma.program.findMany({
+            db.program.findMany({
                 where: { orgId, status: 'activo' },
                 include: {
                     programCourses: { orderBy: { sortOrder: 'asc' } },
@@ -55,7 +59,7 @@ router.get('/:orgSlug/catalog', async (req: Request, res: Response) => {
                 },
                 orderBy: { title: 'asc' },
             }),
-            prisma.webinar.findMany({
+            db.webinar.findMany({
                 where: { orgId, status: 'activo' },
                 include: {
                     faqs: { orderBy: { sortOrder: 'asc' } },
@@ -93,7 +97,7 @@ router.get('/:orgSlug/courses', async (req: Request, res: Response) => {
             ];
         }
 
-        const courses = await prisma.course.findMany({
+        const courses = await db.course.findMany({
             where,
             include: {
                 syllabusModules: { orderBy: { sortOrder: 'asc' } },
@@ -116,7 +120,7 @@ router.get('/:orgSlug/courses/:code', async (req: Request, res: Response) => {
         const orgId = (req as any).org.id;
         const code = param(req, 'code');
 
-        const course = await prisma.course.findFirst({
+        const course = await db.course.findFirst({
             where: { orgId, code, status: 'activo' },
             include: {
                 syllabusModules: { orderBy: { sortOrder: 'asc' } },
@@ -141,7 +145,7 @@ router.get('/:orgSlug/courses/:code', async (req: Request, res: Response) => {
 router.get('/:orgSlug/programs', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const programs = await prisma.program.findMany({
+        const programs = await db.program.findMany({
             where: { orgId, status: 'activo' },
             include: {
                 programCourses: { orderBy: { sortOrder: 'asc' } },
@@ -160,7 +164,7 @@ router.get('/:orgSlug/programs', async (req: Request, res: Response) => {
 router.get('/:orgSlug/webinars', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const webinars = await prisma.webinar.findMany({
+        const webinars = await db.webinar.findMany({
             where: { orgId, status: 'activo' },
             include: { faqs: { orderBy: { sortOrder: 'asc' } } },
             orderBy: { title: 'asc' },
@@ -177,7 +181,7 @@ router.get('/:orgSlug/webinars', async (req: Request, res: Response) => {
 router.get('/:orgSlug/agents', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const agents = await prisma.aiAgent.findMany({
+        const agents = await db.aiAgent.findMany({
             where: { orgId, isActive: true },
             include: {
                 agentCourses: {
@@ -215,7 +219,7 @@ router.get('/:orgSlug/agents', async (req: Request, res: Response) => {
         const allFieldIds = agents.flatMap((a: any) => a.extractionFieldIds || []);
         const uniqueFieldIds = [...new Set(allFieldIds)];
         const fields = uniqueFieldIds.length > 0
-            ? await prisma.extractionField.findMany({ where: { id: { in: uniqueFieldIds } } })
+            ? await db.extractionField.findMany({ where: { id: { in: uniqueFieldIds } } })
             : [];
 
         const enrichedAgents = agents.map((agent: any) => ({
@@ -239,7 +243,7 @@ router.get('/:orgSlug/agents/:agentId', async (req: Request, res: Response) => {
         const orgId = (req as any).org.id;
         const agentId = param(req, 'agentId');
 
-        const agent = await prisma.aiAgent.findFirst({
+        const agent = await db.aiAgent.findFirst({
             where: { id: agentId, orgId, isActive: true },
             include: {
                 agentCourses: { include: { course: true } },
@@ -256,7 +260,7 @@ router.get('/:orgSlug/agents/:agentId', async (req: Request, res: Response) => {
         // Fetch extraction fields
         const fieldIds = (agent as any).extractionFieldIds || [];
         const extractionFields = fieldIds.length > 0
-            ? await prisma.extractionField.findMany({ where: { id: { in: fieldIds } } })
+            ? await db.extractionField.findMany({ where: { id: { in: fieldIds } } })
             : [];
 
         res.json({ ...agent, extractionFields });
@@ -271,7 +275,7 @@ router.get('/:orgSlug/agents/:agentId', async (req: Request, res: Response) => {
 router.get('/:orgSlug/funnels', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const funnels = await prisma.funnel.findMany({
+        const funnels = await db.funnel.findMany({
             where: { orgId },
             include: {
                 stages: { orderBy: { sortOrder: 'asc' } },
@@ -291,7 +295,7 @@ router.get('/:orgSlug/funnels', async (req: Request, res: Response) => {
 router.get('/:orgSlug/fields', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const fields = await prisma.extractionField.findMany({
+        const fields = await db.extractionField.findMany({
             where: { orgId },
             orderBy: { name: 'asc' },
         });
@@ -306,7 +310,7 @@ router.get('/:orgSlug/fields', async (req: Request, res: Response) => {
 // Get public org profile info (for agent context)
 router.get('/:orgSlug/org', async (req: Request, res: Response) => {
     try {
-        const org = await prisma.organization.findUnique({
+        const org = await db.organization.findUnique({
             where: { id: (req as any).org.id },
             select: {
                 name: true,
@@ -340,7 +344,7 @@ router.get('/:orgSlug/org', async (req: Request, res: Response) => {
 router.get('/:orgSlug/teams', async (req: Request, res: Response) => {
     try {
         const orgId = (req as any).org.id;
-        const teams = await prisma.team.findMany({
+        const teams = await db.team.findMany({
             where: { orgId },
             include: {
                 members: {

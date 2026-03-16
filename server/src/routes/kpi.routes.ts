@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 router.use(authenticate);
@@ -14,17 +12,17 @@ router.get('/overview', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
 
         // Total contacts
-        const totalContacts = await prisma.contact.count({ where: { orgId } });
+        const totalContacts = await db.contact.count({ where: { orgId } });
 
         // Contacts by stage
-        const byStage = await prisma.contact.groupBy({
+        const byStage = await db.contact.groupBy({
             by: ['stage'],
             where: { orgId },
             _count: { id: true },
         });
 
         // Contacts by origin
-        const byOrigin = await prisma.contact.groupBy({
+        const byOrigin = await db.contact.groupBy({
             by: ['origin'],
             where: { orgId },
             _count: { id: true },
@@ -34,7 +32,7 @@ router.get('/overview', async (req: Request, res: Response) => {
         const twelveWeeksAgo = new Date();
         twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 84);
 
-        const recentContacts = await prisma.contact.findMany({
+        const recentContacts = await db.contact.findMany({
             where: {
                 orgId,
                 createdAt: { gte: twelveWeeksAgo },
@@ -67,7 +65,7 @@ router.get('/overview', async (req: Request, res: Response) => {
         const conversionRate = totalContacts > 0 ? Math.round((won / totalContacts) * 100) : 0;
 
         // Recent contacts
-        const latest = await prisma.contact.findMany({
+        const latest = await db.contact.findMany({
             where: { orgId },
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -102,7 +100,7 @@ router.get('/overview', async (req: Request, res: Response) => {
 router.get('/funnel', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
 
         if (!conn || !conn.isActive) {
             res.json({ connected: false, stages: [] });
@@ -135,7 +133,7 @@ router.get('/funnel', async (req: Request, res: Response) => {
 
                     if (refreshResp.ok) {
                         const tokens = await refreshResp.json() as any;
-                        await prisma.ghlConnection.update({
+                        await db.ghlConnection.update({
                             where: { orgId },
                             data: {
                                 accessToken: tokens.access_token,

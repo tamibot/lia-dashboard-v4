@@ -1,17 +1,16 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
 // GET /api/agents
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const agents = await prisma.aiAgent.findMany({
+        const agents = await db.aiAgent.findMany({
             where: { orgId: req.user!.orgId },
             include: {
                 agentCourses: { include: { course: { select: { id: true, title: true, code: true } } } },
@@ -30,7 +29,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/agents/:id
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const agent = await prisma.aiAgent.findFirst({
+        const agent = await db.aiAgent.findFirst({
             where: { id: param(req, 'id'), orgId: req.user!.orgId },
             include: { agentCourses: { include: { course: true } }, team: true, funnel: true },
         });
@@ -48,7 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const { specificCourses, ...data } = req.body;
 
-        const agent = await prisma.aiAgent.create({
+        const agent = await db.aiAgent.create({
             data: {
                 ...data, orgId,
                 expertise: data.expertise || [],
@@ -69,12 +68,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const id = param(req, 'id');
-        const existing = await prisma.aiAgent.findFirst({ where: { id, orgId: req.user!.orgId } });
+        const existing = await db.aiAgent.findFirst({ where: { id, orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Agent not found' }); return; }
 
         const { specificCourses, ...data } = req.body;
 
-        const agent = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const agent = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             if (specificCourses !== undefined) {
                 await tx.agentCourse.deleteMany({ where: { agentId: id } });
                 if (specificCourses?.length) {
@@ -98,9 +97,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/agents/:id
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        const existing = await prisma.aiAgent.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        const existing = await db.aiAgent.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Agent not found' }); return; }
-        await prisma.aiAgent.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        await db.aiAgent.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Agent deleted' });
     } catch (err) {
         console.error('Delete agent error:', err);

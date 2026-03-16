@@ -1,10 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { env } from '../config/env.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
@@ -12,7 +10,7 @@ const GHL_AUTH_URL = 'https://marketplace.gohighlevel.com/oauth/chooselocation';
 
 // ===== Helper: refresh access token if expired =====
 async function getValidToken(orgId: string): Promise<string> {
-    const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+    const conn = await db.ghlConnection.findUnique({ where: { orgId } });
     if (!conn || !conn.isActive) throw new Error('No GHL connection found');
 
     // If token still valid (with 5min buffer), return it
@@ -37,7 +35,7 @@ async function getValidToken(orgId: string): Promise<string> {
     if (!resp.ok) {
         const err = await resp.text();
         console.error('GHL token refresh failed:', err);
-        await prisma.ghlConnection.update({ where: { orgId }, data: { isActive: false } });
+        await db.ghlConnection.update({ where: { orgId }, data: { isActive: false } });
         throw new Error('GHL token refresh failed — reconnection required');
     }
 
@@ -48,7 +46,7 @@ async function getValidToken(orgId: string): Promise<string> {
         token_type: string;
     };
 
-    await prisma.ghlConnection.update({
+    await db.ghlConnection.update({
         where: { orgId },
         data: {
             accessToken: tokens.access_token,
@@ -183,14 +181,14 @@ router.get('/oauth/callback', async (req: Request, res: Response) => {
         }
 
         // Verify org exists
-        const org = await prisma.organization.findUnique({ where: { id: orgId } });
+        const org = await db.organization.findUnique({ where: { id: orgId } });
         if (!org) {
             res.redirect(`${env.FRONTEND_URL}/settings?ghl=error&reason=invalid_org`);
             return;
         }
 
         // Upsert GHL connection
-        await prisma.ghlConnection.upsert({
+        await db.ghlConnection.upsert({
             where: { orgId },
             update: {
                 accessToken: tokens.access_token,
@@ -232,7 +230,7 @@ router.use(authenticate);
 // GET /api/integrations/ghl/status — Connection status
 router.get('/ghl/status', async (req: Request, res: Response) => {
     try {
-        const conn = await prisma.ghlConnection.findUnique({
+        const conn = await db.ghlConnection.findUnique({
             where: { orgId: req.user!.orgId },
         });
 
@@ -289,7 +287,7 @@ router.get('/ghl/auth-url', async (req: Request, res: Response) => {
 router.post('/ghl/disconnect', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        await prisma.ghlConnection.deleteMany({ where: { orgId } });
+        await db.ghlConnection.deleteMany({ where: { orgId } });
         res.json({ message: 'GHL disconnected' });
     } catch (err) {
         console.error('GHL disconnect error:', err);
@@ -305,7 +303,7 @@ router.post('/ghl/disconnect', async (req: Request, res: Response) => {
 router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -334,7 +332,7 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
             if (!c.id) { failed++; continue; } // skip contacts without GHL ID
             const contactName = (`${c.firstName || ''} ${c.lastName || ''}`).trim() || c.contactName || c.name || 'Sin nombre';
             try {
-                await prisma.contact.upsert({
+                await db.contact.upsert({
                     where: { ghlContactId: c.id },
                     update: {
                         name: contactName,
@@ -369,7 +367,7 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
         }
 
         // Update sync metadata
-        await prisma.ghlConnection.update({
+        await db.ghlConnection.update({
             where: { orgId },
             data: {
                 lastSyncAt: new Date(),
@@ -393,7 +391,7 @@ router.post('/ghl/sync-contacts', async (req: Request, res: Response) => {
 router.get('/ghl/contacts', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -416,7 +414,7 @@ router.get('/ghl/contacts', async (req: Request, res: Response) => {
 router.get('/ghl/pipelines', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -434,7 +432,7 @@ router.get('/ghl/pipelines', async (req: Request, res: Response) => {
 router.get('/ghl/opportunities', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -462,13 +460,13 @@ router.put('/ghl/private-key', async (req: Request, res: Response) => {
             return;
         }
 
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn) {
             res.status(400).json({ error: 'GHL not connected. Connect via OAuth first.' });
             return;
         }
 
-        await prisma.ghlConnection.update({
+        await db.ghlConnection.update({
             where: { orgId },
             data: { privateApiKey: apiKey },
         });
@@ -484,7 +482,7 @@ router.put('/ghl/private-key', async (req: Request, res: Response) => {
 router.post('/ghl/setup-pipeline', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -525,7 +523,7 @@ router.post('/ghl/setup-pipeline', async (req: Request, res: Response) => {
 router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -636,7 +634,7 @@ router.post('/ghl/setup-fields', async (req: Request, res: Response) => {
 router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -655,7 +653,7 @@ router.get('/ghl/custom-fields', async (req: Request, res: Response) => {
 router.put('/ghl/custom-fields/:fieldId', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;
@@ -691,7 +689,7 @@ router.put('/ghl/custom-fields/:fieldId', async (req: Request, res: Response) =>
 router.delete('/ghl/custom-fields/:fieldId', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const conn = await prisma.ghlConnection.findUnique({ where: { orgId } });
+        const conn = await db.ghlConnection.findUnique({ where: { orgId } });
         if (!conn || !conn.isActive) {
             res.status(400).json({ error: 'GHL not connected' });
             return;

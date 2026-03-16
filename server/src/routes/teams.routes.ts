@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
 import { param } from '../utils/helpers.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 router.use(authenticate);
 
@@ -27,7 +26,7 @@ const memberFields = (m: any) => ({
 // GET /api/teams
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const teams = await prisma.team.findMany({
+        const teams = await db.team.findMany({
             where: { orgId: req.user!.orgId },
             include: {
                 members: true,
@@ -48,7 +47,7 @@ router.post('/', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const { members, productAssignments, ...data } = req.body;
 
-        const team = await prisma.team.create({
+        const team = await db.team.create({
             data: {
                 name: data.name,
                 description: data.description || null,
@@ -76,12 +75,12 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
     try {
         const id = param(req, 'id');
-        const existing = await prisma.team.findFirst({ where: { id, orgId: req.user!.orgId } });
+        const existing = await db.team.findFirst({ where: { id, orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Team not found' }); return; }
 
         const { members, productAssignments, ...data } = req.body;
 
-        const team = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const team = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             // Replace members
             if (members) {
                 await tx.teamMember.deleteMany({ where: { teamId: id } });
@@ -123,9 +122,9 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/teams/:id
 router.delete('/:id', async (req: Request, res: Response) => {
     try {
-        const existing = await prisma.team.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        const existing = await db.team.findFirst({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         if (!existing) { res.status(404).json({ error: 'Team not found' }); return; }
-        await prisma.team.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
+        await db.team.delete({ where: { id: param(req, 'id'), orgId: req.user!.orgId } });
         res.json({ message: 'Team deleted' });
     } catch (err) {
         console.error('Delete team error:', err);

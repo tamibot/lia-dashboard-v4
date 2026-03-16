@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticate } from '../middleware/auth.js';
-
-const prisma = new PrismaClient();
+import db from '../lib/db.js';
 const router = Router();
 
 // All routes require authentication
@@ -15,7 +13,7 @@ router.use(authenticate);
 router.get('/funnels', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const funnels = await prisma.funnel.findMany({
+        const funnels = await db.funnel.findMany({
             where: { orgId },
             include: { stages: { orderBy: { sortOrder: 'asc' } } },
             orderBy: { createdAt: 'desc' },
@@ -32,7 +30,7 @@ router.get('/funnels/:id', async (req: Request, res: Response) => {
     try {
         const id = req.params.id as string;
         const orgId = req.user!.orgId;
-        const funnel = await prisma.funnel.findFirst({
+        const funnel = await db.funnel.findFirst({
             where: { id, orgId },
             include: { stages: { orderBy: { sortOrder: 'asc' } } },
         });
@@ -50,7 +48,7 @@ router.post('/funnels', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const { name, description, isDefault, stages } = req.body;
 
-        const funnel = await prisma.funnel.create({
+        const funnel = await db.funnel.create({
             data: {
                 orgId,
                 name,
@@ -83,10 +81,10 @@ router.put('/funnels/:id', async (req: Request, res: Response) => {
         const { name, description, isDefault, stages } = req.body;
 
         // Verify funnel belongs to this org before updating
-        const existingFunnel = await prisma.funnel.findFirst({ where: { id, orgId } });
+        const existingFunnel = await db.funnel.findFirst({ where: { id, orgId } });
         if (!existingFunnel) { res.status(404).json({ error: 'Funnel not found' }); return; }
 
-        const funnel = await prisma.$transaction(async (tx) => {
+        const funnel = await db.$transaction(async (tx) => {
             // Update stages if provided
             if (stages) {
                 await tx.funnelStage.deleteMany({ where: { funnelId: id } });
@@ -120,7 +118,7 @@ router.delete('/funnels/:id', async (req: Request, res: Response) => {
     try {
         const id = req.params.id as string;
         const orgId = req.user!.orgId;
-        await prisma.funnel.delete({ where: { id, orgId } });
+        await db.funnel.delete({ where: { id, orgId } });
         res.json({ message: 'Funnel deleted' });
     } catch (err) {
         console.error('Delete funnel error:', err);
@@ -134,7 +132,7 @@ router.delete('/funnels/:id', async (req: Request, res: Response) => {
 router.get('/fields', async (req: Request, res: Response) => {
     try {
         const orgId = req.user!.orgId;
-        const fields = await prisma.extractionField.findMany({
+        const fields = await db.extractionField.findMany({
             where: { orgId },
             orderBy: { isDefault: 'desc' },
         });
@@ -151,7 +149,7 @@ router.post('/fields', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const data = req.body;
 
-        const field = await prisma.extractionField.create({
+        const field = await db.extractionField.create({
             data: {
                 ...data,
                 orgId,
@@ -171,7 +169,7 @@ router.put('/fields/:id', async (req: Request, res: Response) => {
         const orgId = req.user!.orgId;
         const data = req.body;
 
-        const field = await prisma.extractionField.update({
+        const field = await db.extractionField.update({
             where: { id, orgId },
             data,
         });
@@ -187,7 +185,7 @@ router.delete('/fields/:id', async (req: Request, res: Response) => {
     try {
         const id = req.params.id as string;
         const orgId = req.user!.orgId;
-        await prisma.extractionField.delete({ where: { id, orgId } });
+        await db.extractionField.delete({ where: { id, orgId } });
         res.json({ message: 'Field deleted' });
     } catch (err) {
         console.error('Delete field error:', err);
